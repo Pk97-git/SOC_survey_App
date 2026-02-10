@@ -1,8 +1,47 @@
 import { Router, Response } from 'express';
 import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
+import multer from 'multer';
+import * as XLSX from 'xlsx';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
+
+// Configure multer for Excel file uploads
+const excelStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../../uploads/excel');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'assets-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const excelUpload = multer({
+    storage: excelStorage,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /xlsx|xls/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype) ||
+                        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                        file.mimetype === 'application/vnd.ms-excel';
+
+        if (extname && mimetype) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+        }
+    }
+});
 
 // Get all assets (with optional site filter)
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
