@@ -1,53 +1,49 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  db:
+  postgres:
     image: postgres:14-alpine
-    container_name: facility_survey_db
-    restart: always
+    container_name: facility-survey-db
     environment:
-      POSTGRES_DB: facility_survey_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: facility_survey_db
     ports:
-      - "5432:5432"
+      - "5433:5432" # Map host 5433 to container 5432 to avoid conflicts
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    networks:
+      - survey-network
 
-  # Backend API
-  api:
+  backend:
     build: .
-    container_name: facility_survey_api
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: facility_survey_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: your_super_secret_jwt_key_change_this_in_production
-      JWT_EXPIRES_IN: 1h
+    container_name: facility-survey-api
     ports:
       - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=facility_survey_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+      - JWT_EXPIRES_IN=24h
+      - ALLOWED_ORIGINS=*
+      - NODE_ENV=development
+      - UPLOAD_DIR=/app/uploads
     volumes:
-      - ./uploads:/app/uploads
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
+      - uploads_data:/app/uploads
+    depends_on:
+      - postgres
+    networks:
+      - survey-network
+    command: sh -c "npm run migrate && npm start"
+
+networks:
+  survey-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  uploads_data:

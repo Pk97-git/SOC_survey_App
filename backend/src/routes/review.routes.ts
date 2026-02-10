@@ -5,7 +5,7 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth.middlew
 const router = Router();
 
 // Get surveys assigned to reviewer
-router.get('/assigned', authenticate, authorize(['reviewer']), async (req: AuthRequest, res: Response) => {
+router.get('/assigned', authenticate, authorize('reviewer'), async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;
 
@@ -25,7 +25,7 @@ router.get('/assigned', authenticate, authorize(['reviewer']), async (req: AuthR
 });
 
 // Add review comments for a survey
-router.post('/:surveyId', authenticate, authorize(['reviewer']), async (req: AuthRequest, res: Response) => {
+router.post('/:surveyId', authenticate, authorize('reviewer'), async (req: AuthRequest, res: Response) => {
     try {
         const { surveyId } = req.params;
         const { assetInspectionId, comments, photos, reviewerType } = req.body;
@@ -45,7 +45,7 @@ router.post('/:surveyId', authenticate, authorize(['reviewer']), async (req: Aut
 });
 
 // Update review comments
-router.put('/:id', authenticate, authorize(['reviewer']), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorize('reviewer'), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { comments, photos } = req.body;

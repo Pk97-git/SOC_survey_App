@@ -7,15 +7,19 @@
         ],
         "outDir": "./dist",
         "rootDir": "./src",
-        "strict": true,
+        "strict": false,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "moduleResolution": "node",
-        "types": [
-            "node"
-        ]
+        "noEmit": false
+    },
+    "ts-node": {
+        "transpileOnly": true,
+        "compilerOptions": {
+            "module": "commonjs"
+        }
     },
     "include": [
         "src/**/*"

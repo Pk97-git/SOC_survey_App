@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE users (
 );
 
 -- Sites table
-CREATE TABLE sites (
+CREATE TABLE IF NOT EXISTS sites (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     location TEXT,
@@ -26,7 +26,7 @@ CREATE TABLE sites (
 );
 
 -- Assets table
-CREATE TABLE assets (
+CREATE TABLE IF NOT EXISTS assets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     site_id UUID REFERENCES sites(id) ON DELETE CASCADE,
     ref_code VARCHAR(255),
@@ -40,7 +40,7 @@ CREATE TABLE assets (
 );
 
 -- Surveys table
-CREATE TABLE surveys (
+CREATE TABLE IF NOT EXISTS surveys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     site_id UUID REFERENCES sites(id),
     surveyor_id UUID REFERENCES users(id),
@@ -52,7 +52,7 @@ CREATE TABLE surveys (
 );
 
 -- Asset Inspections table
-CREATE TABLE asset_inspections (
+CREATE TABLE IF NOT EXISTS asset_inspections (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     survey_id UUID REFERENCES surveys(id) ON DELETE CASCADE,
     asset_id UUID REFERENCES assets(id),
@@ -68,7 +68,7 @@ CREATE TABLE asset_inspections (
 );
 
 -- Photos table
-CREATE TABLE photos (
+CREATE TABLE IF NOT EXISTS photos (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     asset_inspection_id UUID REFERENCES asset_inspections(id) ON DELETE CASCADE,
     survey_id UUID REFERENCES surveys(id),
@@ -79,7 +79,7 @@ CREATE TABLE photos (
 );
 
 -- Review Comments table (Phase 2)
-CREATE TABLE review_comments (
+CREATE TABLE IF NOT EXISTS review_comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     asset_inspection_id UUID REFERENCES asset_inspections(id) ON DELETE CASCADE,
     reviewer_id UUID REFERENCES users(id),
@@ -91,7 +91,7 @@ CREATE TABLE review_comments (
 );
 
 -- Survey Assignments table (Phase 2)
-CREATE TABLE survey_assignments (
+CREATE TABLE IF NOT EXISTS survey_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     survey_id UUID REFERENCES surveys(id) ON DELETE CASCADE,
     reviewer_id UUID REFERENCES users(id),
@@ -102,7 +102,7 @@ CREATE TABLE survey_assignments (
 );
 
 -- Sync Log table (Phase 2)
-CREATE TABLE sync_log (
+CREATE TABLE IF NOT EXISTS sync_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id),
     device_id VARCHAR(255),
@@ -115,19 +115,13 @@ CREATE TABLE sync_log (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_assets_site_id ON assets(site_id);
-CREATE INDEX idx_surveys_surveyor_id ON surveys(surveyor_id);
-CREATE INDEX idx_surveys_status ON surveys(status);
-CREATE INDEX idx_inspections_survey_id ON asset_inspections(survey_id);
-CREATE INDEX idx_photos_inspection_id ON photos(asset_inspection_id);
-CREATE INDEX idx_review_comments_inspection_id ON review_comments(asset_inspection_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_assets_site_id ON assets(site_id);
+CREATE INDEX IF NOT EXISTS idx_surveys_surveyor_id ON surveys(surveyor_id);
+CREATE INDEX IF NOT EXISTS idx_surveys_status ON surveys(status);
+CREATE INDEX IF NOT EXISTS idx_inspections_survey_id ON asset_inspections(survey_id);
+CREATE INDEX IF NOT EXISTS idx_photos_inspection_id ON photos(asset_inspection_id);
+CREATE INDEX IF NOT EXISTS idx_review_comments_inspection_id ON review_comments(asset_inspection_id);
 
 -- Create default admin user (password: admin123 - CHANGE IN PRODUCTION!)
-INSERT INTO users (email, password_hash, full_name, role) 
-VALUES (
-    'admin@example.com',
-    '$2a$10$YourHashedPasswordHere',  -- This will be replaced when you run the app
-    'System Administrator',
-    'admin'
-);
+

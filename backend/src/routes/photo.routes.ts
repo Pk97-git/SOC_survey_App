@@ -124,15 +124,32 @@ router.get('/inspection/:inspectionId', authenticate, async (req: AuthRequest, r
 router.delete('/:id', authenticate, authorize('surveyor', 'admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
+        const user = req.user!;
+
+        // Check ownership first
+        const photoCheck = await pool.query(
+            `SELECT p.file_path, s.surveyor_id 
+             FROM photos p
+             JOIN surveys s ON p.survey_id = s.id
+             WHERE p.id = $1`,
+            [id]
+        );
+
+        if (photoCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Photo not found' });
+        }
+
+        const photo = photoCheck.rows[0];
+
+        // Authorization check: Admin OR Owner
+        if (user.role !== 'admin' && photo.surveyor_id !== user.userId) {
+            return res.status(403).json({ error: 'You are not authorized to delete this photo' });
+        }
 
         const result = await pool.query(
             'DELETE FROM photos WHERE id = $1 RETURNING file_path',
             [id]
         );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Photo not found' });
-        }
 
         // Delete file from filesystem
         const filePath = result.rows[0].file_path;

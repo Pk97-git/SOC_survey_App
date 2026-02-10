@@ -5,7 +5,7 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth.middlew
 const router = Router();
 
 // Get dashboard statistics
-router.get('/stats', authenticate, authorize(['admin']), async (req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
         // Total surveys
         const totalSurveys = await pool.query('SELECT COUNT(*) FROM surveys');
@@ -41,7 +41,7 @@ router.get('/stats', authenticate, authorize(['admin']), async (req: AuthRequest
 });
 
 // Get all surveys with filters (admin view)
-router.get('/surveys', authenticate, authorize(['admin']), async (req: AuthRequest, res: Response) => {
+router.get('/surveys', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { status, surveyorId, siteId, startDate, endDate } = req.query;
 
@@ -95,7 +95,7 @@ router.get('/surveys', authenticate, authorize(['admin']), async (req: AuthReque
 });
 
 // Get user activity
-router.get('/users', authenticate, authorize(['admin']), async (req: AuthRequest, res: Response) => {
+router.get('/users', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
         const result = await pool.query(
             `SELECT u.id, u.full_name, u.email, u.role, u.last_login,

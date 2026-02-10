@@ -1,210 +1,28 @@
 import { Router, Response } from 'express';
 import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
+import { SurveyController } from '../controllers/survey.controller';
 
 const router = Router();
+const surveyController = new SurveyController();
 
 // Get all surveys (filtered by role)
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
-    try {
-        const { status, siteId } = req.query;
-        const user = req.user!;
-
-        let query = `
-      SELECT s.*, 
-             si.name as site_name,
-             u.full_name as surveyor_name
-      FROM surveys s
-      LEFT JOIN sites si ON s.site_id = si.id
-      LEFT JOIN users u ON s.surveyor_id = u.id
-      WHERE 1=1
-    `;
-        const params: any[] = [];
-        let paramIndex = 1;
-
-        // Role-based filtering
-        if (user.role === 'surveyor') {
-            query += ` AND s.surveyor_id = $${paramIndex}`;
-            params.push(user.userId);
-            paramIndex++;
-        }
-        // Admin sees all, Reviewer sees assigned (TODO: implement assignment logic)
-
-        // Status filter
-        if (status) {
-            query += ` AND s.status = $${paramIndex}`;
-            params.push(status);
-            paramIndex++;
-        }
-
-        // Site filter
-        if (siteId) {
-            query += ` AND s.site_id = $${paramIndex}`;
-            params.push(siteId);
-            paramIndex++;
-        }
-
-        query += ' ORDER BY s.created_at DESC';
-
-        const result = await pool.query(query, params);
-
-        res.json({ surveys: result.rows });
-    } catch (error: any) {
-        console.error('Get surveys error:', error);
-        res.status(500).json({ error: 'Failed to get surveys' });
-    }
-});
+router.get('/', authenticate, surveyController.getAll);
 
 // Get survey by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const user = req.user!;
-
-        let query = `
-      SELECT s.*, 
-             si.name as site_name,
-             u.full_name as surveyor_name
-      FROM surveys s
-      LEFT JOIN sites si ON s.site_id = si.id
-      LEFT JOIN users u ON s.surveyor_id = u.id
-      WHERE s.id = $1
-    `;
-
-        // Role-based access
-        if (user.role === 'surveyor') {
-            query += ' AND s.surveyor_id = $2';
-        }
-
-        const params = user.role === 'surveyor' ? [id, user.userId] : [id];
-        const result = await pool.query(query, params);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Survey not found or access denied' });
-        }
-
-        res.json({ survey: result.rows[0] });
-    } catch (error: any) {
-        console.error('Get survey error:', error);
-        res.status(500).json({ error: 'Failed to get survey' });
-    }
-});
+router.get('/:id', authenticate, surveyController.getById);
 
 // Create survey (Surveyor only)
-router.post('/', authenticate, authorize('surveyor'), async (req: AuthRequest, res: Response) => {
-    try {
-        const { siteId, trade } = req.body;
-
-        if (!siteId) {
-            return res.status(400).json({ error: 'Site ID is required' });
-        }
-
-        const result = await pool.query(
-            `INSERT INTO surveys (site_id, surveyor_id, trade, status) 
-       VALUES ($1, $2, $3, 'draft') 
-       RETURNING *`,
-            [siteId, req.user!.userId, trade]
-        );
-
-        res.status(201).json({
-            message: 'Survey created successfully',
-            survey: result.rows[0]
-        });
-    } catch (error: any) {
-        console.error('Create survey error:', error);
-        res.status(500).json({ error: 'Failed to create survey' });
-    }
-});
+router.post('/', authenticate, authorize('surveyor'), surveyController.create);
 
 // Update survey
-router.put('/:id', authenticate, authorize('surveyor'), async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const { trade, status } = req.body;
-        const user = req.user!;
-
-        const result = await pool.query(
-            `UPDATE surveys 
-       SET trade = COALESCE($1, trade),
-           status = COALESCE($2, status),
-           updated_at = NOW()
-       WHERE id = $3 AND surveyor_id = $4
-       RETURNING *`,
-            [trade, status, id, user.userId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Survey not found or access denied' });
-        }
-
-        res.json({
-            message: 'Survey updated successfully',
-            survey: result.rows[0]
-        });
-    } catch (error: any) {
-        console.error('Update survey error:', error);
-        res.status(500).json({ error: 'Failed to update survey' });
-    }
-});
+router.put('/:id', authenticate, authorize('surveyor'), surveyController.update);
 
 // Submit survey
-router.post('/:id/submit', authenticate, authorize('surveyor'), async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const user = req.user!;
-
-        const result = await pool.query(
-            `UPDATE surveys 
-       SET status = 'submitted',
-           submitted_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1 AND surveyor_id = $2
-       RETURNING *`,
-            [id, user.userId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Survey not found or access denied' });
-        }
-
-        res.json({
-            message: 'Survey submitted successfully',
-            survey: result.rows[0]
-        });
-    } catch (error: any) {
-        console.error('Submit survey error:', error);
-        res.status(500).json({ error: 'Failed to submit survey' });
-    }
-});
+router.post('/:id/submit', authenticate, authorize('surveyor'), surveyController.submit);
 
 // Delete survey (Admin or own surveyor)
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const user = req.user!;
-
-        let query = 'DELETE FROM surveys WHERE id = $1';
-        const params: any[] = [id];
-
-        if (user.role === 'surveyor') {
-            query += ' AND surveyor_id = $2';
-            params.push(user.userId);
-        }
-
-        query += ' RETURNING id';
-
-        const result = await pool.query(query, params);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Survey not found or access denied' });
-        }
-
-        res.json({ message: 'Survey deleted successfully' });
-    } catch (error: any) {
-        console.error('Delete survey error:', error);
-        res.status(500).json({ error: 'Failed to delete survey' });
-    }
-});
+router.delete('/:id', authenticate, surveyController.delete);
 
 // Get inspections for a survey
 router.get('/:surveyId/inspections', authenticate, async (req: AuthRequest, res: Response) => {

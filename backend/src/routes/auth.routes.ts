@@ -89,8 +89,8 @@ router.post('/login', async (req: Request, res: Response) => {
                 email: user.email,
                 role: user.role
             },
-            process.env.JWT_SECRET!,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+            process.env.JWT_SECRET as string,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '1h' } as jwt.SignOptions
         );
 
         res.json({
@@ -120,7 +120,17 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user: result.rows[0] });
+        const user = result.rows[0];
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.full_name,
+                role: user.role,
+                createdAt: user.created_at,
+                lastLogin: user.last_login
+            }
+        });
     } catch (error: any) {
         console.error('Get user error:', error);
         res.status(500).json({ error: 'Failed to get user' });
