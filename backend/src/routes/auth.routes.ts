@@ -117,7 +117,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(401).json({ error: 'User not found' });
         }
 
         const user = result.rows[0];

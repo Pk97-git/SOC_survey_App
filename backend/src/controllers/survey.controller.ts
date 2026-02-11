@@ -130,4 +130,31 @@ export class SurveyController {
             res.status(500).json({ error: 'Failed to delete survey' });
         }
     };
+
+    export = async (req: AuthRequest, res: Response) => {
+        try {
+            const id = req.params.id as string;
+            const location = req.query.location as string; // Optional location filter
+
+            const buffer = await this.service.exportExcel(req.user, id, location);
+
+            if (!buffer) {
+                return res.status(404).json({ error: 'Survey not found' });
+            }
+
+            const filename = location
+                ? `survey-${id}-${location}.xlsx`
+                : `survey-${id}.xlsx`;
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+            res.send(buffer);
+        } catch (error: any) {
+            if (error.message === 'Unauthorized') {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+            console.error('Export survey error:', error);
+            res.status(500).json({ error: 'Failed to export survey' });
+        }
+    };
 }

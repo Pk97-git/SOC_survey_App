@@ -109,6 +109,55 @@ export class SurveyRepository {
         return (result.rows.length > 0);
     }
 
-    // Check ownership method might be useful for service layer validation, 
-    // but typically we just fetch by ID and check field
+    async findWithDetails(id: string): Promise<any> {
+        const survey = await this.findById(id);
+        if (!survey) return null;
+
+        // Fetch ALL assets for this site and trade, joining with any existing inspections
+        // This ensures the report includes all assets that NEED to be inspected, 
+        // even if they haven't been touched yet.
+        const inspections = await pool.query(
+            `SELECT 
+                a.id as asset_id,
+                a.name as asset_name, 
+                a.ref_code, 
+                a.service_line, 
+                a.building,
+                a.location,
+                a.asset_tag,
+                a.status as asset_status,
+                a.description,
+                
+                ai.id as inspection_id,
+                ai.condition_rating,
+                ai.overall_condition,
+                ai.quantity_installed,
+                ai.quantity_working,
+                ai.remarks,
+                ai.gps_lat,
+                ai.gps_lng,
+                (
+                    SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption))
+                    FROM photos p
+                    WHERE p.asset_inspection_id = ai.id
+                ) as photos
+             FROM assets a
+             LEFT JOIN asset_inspections ai ON a.id = ai.asset_id AND ai.survey_id = $1
+             WHERE a.site_id = $2 AND a.service_line = $3
+             ORDER BY a.building, a.location, a.name`,
+            [id, survey.site_id, survey.trade]
+        );
+
+        return {
+            ...survey,
+            // Map the result to match the structure expected by the service/excel generator
+            inspections: inspections.rows.map(row => ({
+                ...row,
+                // Ensure inspection fields are accessible even if null
+                condition_rating: row.condition_rating || '',
+                remarks: row.remarks || '',
+                // If inspection exists, use its data, else fields are null/empty from LEFT JOIN
+            }))
+        };
+    }
 }

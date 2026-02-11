@@ -4,7 +4,7 @@
   "description": "Backend API for Facility Survey App",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "docker-compose up -d postgres && nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "ts-node src/scripts/seed.ts",
@@ -24,6 +24,7 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",

@@ -32,8 +32,8 @@ const excelUpload = multer({
         const allowedTypes = /xlsx|xls/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = allowedTypes.test(file.mimetype) ||
-                        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                        file.mimetype === 'application/vnd.ms-excel';
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            file.mimetype === 'application/vnd.ms-excel';
 
         if (extname && mimetype) {
             return cb(null, true);
@@ -227,6 +227,135 @@ router.delete('/:id', authenticate, authorize('admin', 'surveyor'), async (req: 
     } catch (error: any) {
         console.error('Delete asset error:', error);
         res.status(500).json({ error: 'Failed to delete asset' });
+    }
+});
+
+// Import Excel file (Admin or Surveyor)
+router.post('/import-excel', authenticate, authorize('admin', 'surveyor'), excelUpload.single('file'), async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const { siteId } = req.body;
+        if (!siteId) {
+            return res.status(400).json({ error: 'Site ID is required' });
+        }
+
+        const filePath = req.file.path;
+        console.log(`Processing Excel import for site ${siteId} from ${filePath}`);
+
+        // Read Excel file
+        const workbook = XLSX.readFile(filePath);
+
+        const ALLOWED_SHEETS = ['MECHANICAL', 'FLS', 'ELECTRICAL', 'CIVIL', 'PLUMBING', 'HVAC'];
+        const assetsToInsert: any[] = [];
+        const summary: string[] = [];
+
+        // Process sheets
+        for (const sheetName of workbook.SheetNames) {
+            const normalizedSheetName = sheetName.trim().toUpperCase();
+            if (!ALLOWED_SHEETS.includes(normalizedSheetName)) {
+                continue;
+            }
+
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) continue;
+
+            let sheetCount = 0;
+            // Helper to get value case-insensitively
+            const getValue = (row: any, keys: string[]) => {
+                const rowKeys = Object.keys(row);
+                for (const key of keys) {
+                    const foundKey = rowKeys.find(k => k.trim().toLowerCase() === key.toLowerCase());
+                    if (foundKey) return row[foundKey];
+                }
+                return undefined;
+            };
+
+            for (const rowItem of jsonData) {
+                const row = rowItem as any;
+
+                // Strict Mapping per User Request
+                // 1. Asset Status -> status
+                // 2. Asset System -> service_line
+                // 3. Asset Code -> ref_code
+                // 4. Asset Tag -> asset_tag
+                // 5. Asset Description -> name & description
+                // 6. Building -> building
+                // 7. Location -> location
+
+                assetsToInsert.push({
+                    site_id: siteId,
+                    ref_code: getValue(row, ['Asset Code']) || '',
+                    name: getValue(row, ['Asset Description']) || 'Unknown Asset',
+                    service_line: getValue(row, ['Asset System']) || 'General',
+                    description: getValue(row, ['Asset Description']) || '',
+                    status: getValue(row, ['Asset Status']) || 'Active',
+                    asset_tag: getValue(row, ['Asset Tag']) || '',
+                    building: getValue(row, ['Building']) || '',
+                    location: getValue(row, ['Location']) || ''
+                });
+                sheetCount++;
+            }
+            summary.push(`${sheetName}: ${sheetCount}`);
+        }
+
+        if (assetsToInsert.length === 0) {
+            // Clean up file
+            fs.unlinkSync(filePath);
+            return res.status(400).json({ error: 'No valid assets found in allowed sheets' });
+        }
+
+        // Bulk Insert to DB
+        const client = await pool.connect();
+        let insertedCount = 0;
+
+        try {
+            await client.query('BEGIN');
+
+            for (const asset of assetsToInsert) {
+                await client.query(
+                    `INSERT INTO assets (site_id, ref_code, name, service_line, description, status, asset_tag, building, location) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                    [
+                        asset.site_id,
+                        asset.ref_code,
+                        asset.name,
+                        asset.service_line,
+                        asset.description,
+                        asset.status,
+                        asset.asset_tag,
+                        asset.building,
+                        asset.location
+                    ]
+                );
+                insertedCount++;
+            }
+
+            await client.query('COMMIT');
+        } catch (dbError) {
+            await client.query('ROLLBACK');
+            throw dbError;
+        } finally {
+            client.release();
+            // Clean up file
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
+        res.status(201).json({
+            message: 'Import successful',
+            count: insertedCount,
+            summary
+        });
+
+    } catch (error: any) {
+        console.error('Excel import error:', error);
+        res.status(500).json({ error: 'Failed to process Excel file' });
     }
 });
 

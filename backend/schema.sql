@@ -32,10 +32,11 @@ CREATE TABLE IF NOT EXISTS assets (
     ref_code VARCHAR(255),
     name VARCHAR(255) NOT NULL,
     service_line VARCHAR(255),
-    floor VARCHAR(100),
-    area VARCHAR(255),
-    age VARCHAR(50),
     description TEXT,
+    status VARCHAR(50),
+    asset_tag VARCHAR(100),
+    building VARCHAR(255),
+    location VARCHAR(255),
     created_at TIMESTAMP DEFAULT NOW()
 );
 

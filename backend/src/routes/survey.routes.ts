@@ -12,14 +12,17 @@ router.get('/', authenticate, surveyController.getAll);
 // Get survey by ID
 router.get('/:id', authenticate, surveyController.getById);
 
-// Create survey (Surveyor only)
-router.post('/', authenticate, authorize('surveyor'), surveyController.create);
+// Create survey (Admin or Surveyor)
+router.post('/', authenticate, authorize('admin', 'surveyor'), surveyController.create);
 
 // Update survey
-router.put('/:id', authenticate, authorize('surveyor'), surveyController.update);
+router.put('/:id', authenticate, authorize('admin', 'surveyor'), surveyController.update);
 
 // Submit survey
-router.post('/:id/submit', authenticate, authorize('surveyor'), surveyController.submit);
+router.post('/:id/submit', authenticate, authorize('admin', 'surveyor'), surveyController.submit);
+
+// Export survey to Excel
+router.get('/:id/export', authenticate, surveyController.export);
 
 // Delete survey (Admin or own surveyor)
 router.delete('/:id', authenticate, surveyController.delete);
@@ -46,7 +49,7 @@ router.get('/:surveyId/inspections', authenticate, async (req: AuthRequest, res:
 });
 
 // Create inspection
-router.post('/:surveyId/inspections', authenticate, authorize('surveyor'), async (req: AuthRequest, res: Response) => {
+router.post('/:surveyId/inspections', authenticate, authorize('admin', 'surveyor'), async (req: AuthRequest, res: Response) => {
     try {
         const { surveyId } = req.params;
         const {
@@ -88,7 +91,7 @@ router.post('/:surveyId/inspections', authenticate, authorize('surveyor'), async
 });
 
 // Update inspection
-router.put('/inspections/:id', authenticate, authorize('surveyor'), async (req: AuthRequest, res: Response) => {
+router.put('/inspections/:id', authenticate, authorize('admin', 'surveyor'), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const {

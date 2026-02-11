@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
 
@@ -43,17 +44,38 @@ router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
 router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { fullName, role } = req.body;
+        const { fullName, role, email, password } = req.body;
 
-        const result = await pool.query(
-            `UPDATE users 
-       SET full_name = COALESCE($1, full_name), 
-           role = COALESCE($2, role),
-           updated_at = NOW()
-       WHERE id = $3
-       RETURNING id, email, full_name, role, updated_at`,
-            [fullName, role, id]
-        );
+        // Build dynamic query
+        let query = 'UPDATE users SET updated_at = NOW()';
+        const values: any[] = [id];
+        let paramCount = 1;
+
+        if (fullName) {
+            paramCount++;
+            query += `, full_name = $${paramCount}`;
+            values.push(fullName);
+        }
+        if (role) {
+            paramCount++;
+            query += `, role = $${paramCount}`;
+            values.push(role);
+        }
+        if (email) {
+            paramCount++;
+            query += `, email = $${paramCount}`;
+            values.push(email);
+        }
+        if (password) {
+            paramCount++;
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query += `, password_hash = $${paramCount}`;
+            values.push(hashedPassword);
+        }
+
+        query += ` WHERE id = $1 RETURNING id, email, full_name, role, updated_at`;
+
+        const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
