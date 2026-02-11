@@ -244,7 +244,7 @@ export default function SiteManagementScreen() {
                             onChangeText={setName}
                             mode="outlined"
                             style={styles.input}
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
                         <TextInput
                             label="Location"
@@ -253,7 +253,7 @@ export default function SiteManagementScreen() {
                             mode="outlined"
                             style={styles.input}
                             placeholder="Select on Map"
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                             right={
                                 <TextInput.Icon
                                     icon={loadingLocation ? "loading" : "map-marker"}
@@ -276,7 +276,7 @@ export default function SiteManagementScreen() {
                             onChangeText={setClient}
                             mode="outlined"
                             style={styles.input}
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
                     </Dialog.Content>
                     <Dialog.Actions>

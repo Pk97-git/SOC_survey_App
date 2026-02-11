@@ -261,7 +261,7 @@ export default function UserManagementScreen() {
                             onChangeText={(text) => setFormData({ ...formData, fullName: text })}
                             mode="outlined"
                             style={styles.input}
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
                         <TextInput
                             label="Email"
@@ -270,7 +270,7 @@ export default function UserManagementScreen() {
                             mode="outlined"
                             keyboardType="email-address"
                             style={styles.input}
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
                         <TextInput
                             label="Password"
@@ -280,7 +280,7 @@ export default function UserManagementScreen() {
                             secureTextEntry
                             style={styles.input}
                             placeholder={editingUser ? 'Leave blank to keep current' : ''}
-                            theme={{ colors: { onSurfaceVariant: '#57534E', background: '#FFFFFF' } }}
+                            theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
                         <Text style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold' }}>Role</Text>
                         <SegmentedButtons
