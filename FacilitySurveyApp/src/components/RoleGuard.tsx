@@ -104,10 +104,3 @@ export const useIsAdmin = (): boolean => {
 export const useIsSurveyor = (): boolean => {
     return useHasRole(['surveyor']);
 };
-
-/**
- * Hook to check if user is reviewer
- */
-export const useIsReviewer = (): boolean => {
-    return useHasRole(['reviewer']);
-};

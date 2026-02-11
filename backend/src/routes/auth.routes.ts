@@ -24,10 +24,10 @@ router.post('/register', authenticate, authorize('admin'), async (req: AuthReque
         }
 
         // Validate role
-        const validRoles = ['admin', 'surveyor', 'reviewer'];
+        const validRoles = ['admin', 'surveyor'];
         const userRole = role || 'surveyor';
         if (!validRoles.includes(userRole)) {
-            return res.status(400).json({ error: 'Invalid role. Must be admin, surveyor, or reviewer' });
+            return res.status(400).json({ error: 'Invalid role. Must be admin or surveyor' });
         }
 
         // Validate password strength

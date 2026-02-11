@@ -21,7 +21,6 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isAdmin: boolean;
     isSurveyor: boolean;
-    isReviewer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -108,7 +107,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Computed properties for role checks
     const isAdmin = user?.role?.toLowerCase() === 'admin';
     const isSurveyor = user?.role?.toLowerCase() === 'surveyor';
-    const isReviewer = user?.role?.toLowerCase() === 'reviewer';
 
     return (
         <AuthContext.Provider value={{
@@ -119,8 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             refreshUser,
             isAuthenticated: !!user,
             isAdmin,
-            isSurveyor,
-            isReviewer
+            isSurveyor
         }}>
             {children}
         </AuthContext.Provider>

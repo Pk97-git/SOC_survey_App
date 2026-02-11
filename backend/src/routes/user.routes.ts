@@ -80,9 +80,9 @@ router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
 
         if (role && role !== currentUser.rows[0].role) {
             // Validate role
-            const validRoles = ['admin', 'surveyor', 'reviewer'];
+            const validRoles = ['admin', 'surveyor'];
             if (!validRoles.includes(role)) {
-                return res.status(400).json({ error: 'Invalid role' });
+                return res.status(400).json({ error: 'Invalid role. Must be admin or surveyor' });
             }
             paramCount++;
             query += `, role = $${paramCount}`;

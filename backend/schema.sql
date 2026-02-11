@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor', 'reviewer')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor')),
     is_active BOOLEAN DEFAULT true,
     created_by UUID REFERENCES users(id),
     deactivated_by UUID REFERENCES users(id),

@@ -28,10 +28,6 @@ export enum Permission {
     DELETE_SURVEY = 'delete:survey',
     SUBMIT_SURVEY = 'submit:survey',
 
-    // Review Management
-    REVIEW_SURVEY = 'review:survey',
-    APPROVE_SURVEY = 'approve:survey',
-
     // Reports
     VIEW_REPORTS = 'view:reports',
     EXPORT_REPORTS = 'export:reports',
@@ -40,7 +36,7 @@ export enum Permission {
     VIEW_ANALYTICS = 'view:analytics',
 }
 
-// Role-based permission matrix
+// Role-based permission matrix (Admin and Surveyor only)
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     admin: [
         // Full access to everything
@@ -61,34 +57,19 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         Permission.UPDATE_SURVEY,
         Permission.DELETE_SURVEY,
         Permission.SUBMIT_SURVEY,
-        Permission.REVIEW_SURVEY,
-        Permission.APPROVE_SURVEY,
         Permission.VIEW_REPORTS,
         Permission.EXPORT_REPORTS,
         Permission.VIEW_ANALYTICS,
     ],
     surveyor: [
-        // Can manage their own surveys and assets
+        // Can conduct surveys and manage assets
         Permission.READ_SITE,
-        Permission.CREATE_ASSET,
         Permission.READ_ASSET,
-        Permission.UPDATE_ASSET,
         Permission.CREATE_SURVEY,
         Permission.READ_SURVEY,
         Permission.UPDATE_SURVEY,
         Permission.SUBMIT_SURVEY,
         Permission.VIEW_REPORTS,
-        Permission.EXPORT_REPORTS,
-    ],
-    reviewer: [
-        // Can review and approve surveys
-        Permission.READ_SITE,
-        Permission.READ_ASSET,
-        Permission.READ_SURVEY,
-        Permission.REVIEW_SURVEY,
-        Permission.APPROVE_SURVEY,
-        Permission.VIEW_REPORTS,
-        Permission.EXPORT_REPORTS,
     ],
 };
 
