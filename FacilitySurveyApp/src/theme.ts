@@ -19,7 +19,7 @@ export const theme = {
         surfaceVariant: '#F3F1ED', // Neutral warm grey
         onSurface: '#1C1917', // Warm black
         onSurfaceVariant: '#57534E',
-        outline: '#D6D3D1',
+        outline: '#79747E', // Darker grey for better visibility
         error: '#B91C1C',
         elevation: {
             level0: 'transparent',
