@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, FAB, useTheme, Card, Avatar, Searchbar, Surface, Chip, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { storage } from '../services/storage';
+import * as hybridStorage from '../services/hybridStorage';
 
 import { importAssetsFromExcel } from '../services/importService';
 import { Alert } from 'react-native';
@@ -11,7 +11,7 @@ export default function AssetListScreen() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const theme = useTheme();
-    const { facility, department } = route.params || {};
+    const { facility, department, siteId } = route.params || {};
 
     const [assets, setAssets] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +25,9 @@ export default function AssetListScreen() {
     }, [navigation]);
 
     const loadAssets = async () => {
-        const data = await storage.getAssets();
+        // Use hybridStorage to properly fallback or fetch from backend
+        // We can pass siteId if available from route to filter backend side
+        const data = await hybridStorage.getAssets(siteId);
         setAssets(data);
     };
 

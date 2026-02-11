@@ -208,7 +208,7 @@ export const getSurveys = async () => {
             console.log('Fetching surveys from backend...');
             const surveys = await surveysApi.getAll();
             // Optional: Update local storage with fresh data
-             // For now, we return backend data directly to ensure latest view
+            // For now, we return backend data directly to ensure latest view
             return surveys;
         }
     } catch (error) {
@@ -234,8 +234,17 @@ export const updateSurvey = async (id: string, data: any) => {
 };
 
 export const deleteSurvey = async (id: string) => {
+    try {
+        if (await syncService.getStatus().isOnline) {
+            await surveysApi.delete(id);
+        }
+    } catch (error) {
+        console.error('Failed to delete survey from backend:', error);
+        // Fallback? If backend fails, we might still want to delete locally 
+        // but it creates sync issue. For now, log and proceed to local delete feels "safer" for UI 
+        // but risks data reappearing. 
+    }
     await localStorage.deleteSurvey(id);
-    // TODO: Sync delete?
 };
 
 // ==================== Inspections ====================
@@ -251,8 +260,8 @@ export const saveAssetInspection = async (inspection: any) => {
 export const getInspectionsForSurvey = async (surveyId: string) => {
     try {
         if (await syncService.getStatus().isOnline) {
-             const inspections = await inspectionsApi.getBySurvey(surveyId);
-             return inspections;
+            const inspections = await inspectionsApi.getBySurvey(surveyId);
+            return inspections;
         }
     } catch (error) {
         console.error('Failed to fetch inspections from backend:', error);

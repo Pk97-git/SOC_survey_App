@@ -61,14 +61,27 @@ export default function SurveyManagementScreen() {
     const loadSurveysForSite = async (site: any) => {
         setLoading(true);
         try {
-            const allSurveys = await hybridStorage.getSurveys();
-            // Filter by site name (since survey uses site_name currently, not ID - need to check logic)
-            // Using site name is consistent with StartSurveyScreen.
-            const siteSurveys = allSurveys.filter((s: any) => s.site_name === site.name);
-            // Sort by date desc
-            siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            setSurveys(siteSurveys);
+            if (await hybridStorage.syncService.getStatus().isOnline) {
+                // Use backend filtering
+                // We need to import dashboardApi. 
+                // However, hybridStorage doesn't expose dashboardApi directly.
+                // Let's import it from '../services/api'
+                // But wait, we should stick to hybridStorage abstraction if possible.
+                // hybridStorage.getSurveys returns ALL. 
+                // Let's allow hybridStorage.getSurveys to accept filters?
+                // Or just use dashboardApi here directly for "Management" view which is Online-First preference.
+                const { dashboardApi } = require('../services/api');
+                const siteSurveys = await dashboardApi.getSurveys({ siteId: site.id });
+                // Sort by date desc
+                siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                setSurveys(siteSurveys);
+            } else {
+                // Offline fallback
+                const allSurveys = await hybridStorage.getSurveys();
+                const siteSurveys = allSurveys.filter((s: any) => s.site_name === site.name);
+                siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                setSurveys(siteSurveys);
+            }
         } catch (error) {
             console.error(error);
             Alert.alert("Error", "Failed to load surveys");
@@ -124,6 +137,35 @@ export default function SurveyManagementScreen() {
             console.error(error);
             setExporting(false);
         }
+    };
+
+    const handleDeleteSurvey = (survey: any) => {
+        Alert.alert(
+            "Delete Survey",
+            `Are you sure you want to delete the survey for ${survey.trade}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setLoading(true);
+                            await hybridStorage.deleteSurvey(survey.id);
+                            // Refresh list
+                            if (selectedSite) {
+                                loadSurveysForSite(selectedSite);
+                            }
+                        } catch (error) {
+                            console.error("Failed to delete survey:", error);
+                            Alert.alert("Error", "Failed to delete survey");
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const performBatchExport = async () => {
@@ -280,7 +322,14 @@ export default function SurveyManagementScreen() {
                                 >
                                     Resume / Edit
                                 </Button>
-                                {/* Individual Export Button could go here */}
+                                <Button
+                                    mode="text"
+                                    compact
+                                    textColor={theme.colors.error}
+                                    onPress={() => handleDeleteSurvey(item)}
+                                >
+                                    Delete
+                                </Button>
                             </View>
                         </Surface>
                     )}
