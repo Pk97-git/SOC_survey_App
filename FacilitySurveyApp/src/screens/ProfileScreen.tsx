@@ -1,12 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Button, IconButton, Surface, useTheme, Avatar, Divider } from 'react-native-paper';
+import { Text, Button, IconButton, Surface, useTheme, Avatar, Divider, Portal, Modal, TextInput } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
+import { usersApi } from '../services/api';
 
 export default function ProfileScreen() {
     const { logout, user } = useAuth();
     const theme = useTheme();
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [secureTextEntry, setSecureTextEntry] = useState(true);
 
     const handleLogout = () => {
         Alert.alert(
@@ -21,6 +27,41 @@ export default function ProfileScreen() {
                 }
             ]
         );
+    };
+
+    const handleChangePassword = async () => {
+        if (!newPassword || !confirmPassword) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            Alert.alert('Error', 'Passwords do not match');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            if (user?.id) {
+                await usersApi.update(user.id, { password: newPassword });
+                Alert.alert('Success', 'Password updated successfully');
+                setPasswordModalVisible(false);
+                setNewPassword('');
+                setConfirmPassword('');
+            } else {
+                Alert.alert('Error', 'User ID not found');
+            }
+        } catch (error: any) {
+            console.error('Failed to update password:', error);
+            Alert.alert('Error', error.response?.data?.message || 'Failed to update password');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -45,6 +86,22 @@ export default function ProfileScreen() {
                 <Divider style={styles.divider} />
 
                 <View style={styles.actionSection}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
+                        Account Actions
+                    </Text>
+
+                    <Button
+                        mode="outlined"
+                        icon="lock-reset"
+                        onPress={() => setPasswordModalVisible(true)}
+                        style={[styles.actionButton, { borderColor: theme.colors.outline }]}
+                        textColor={theme.colors.onSurface}
+                    >
+                        Change Password
+                    </Button>
+                </View>
+
+                <View style={[styles.actionSection, { marginTop: 24 }]}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
                         Data Synchronization
                     </Text>
@@ -77,6 +134,42 @@ export default function ProfileScreen() {
                     Logout
                 </Button>
             </Surface>
+
+            <Portal>
+                <Modal
+                    visible={passwordModalVisible}
+                    onDismiss={() => setPasswordModalVisible(false)}
+                    contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
+                >
+                    <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Change Password</Text>
+
+                    <TextInput
+                        label="New Password"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={secureTextEntry}
+                        style={styles.input}
+                        right={<TextInput.Icon icon={secureTextEntry ? "eye" : "eye-off"} onPress={() => setSecureTextEntry(!secureTextEntry)} />}
+                    />
+
+                    <TextInput
+                        label="Confirm Password"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={secureTextEntry}
+                        style={styles.input}
+                    />
+
+                    <View style={styles.modalActions}>
+                        <Button onPress={() => setPasswordModalVisible(false)} disabled={loading}>
+                            Cancel
+                        </Button>
+                        <Button mode="contained" onPress={handleChangePassword} loading={loading} disabled={loading}>
+                            Update
+                        </Button>
+                    </View>
+                </Modal>
+            </Portal>
         </SafeAreaView>
     );
 }
@@ -140,6 +233,30 @@ const styles = StyleSheet.create({
     logoutButton: {
         width: '100%',
         borderRadius: 8,
+        marginTop: 8,
+    },
+    actionButton: {
+        width: '100%',
+        borderRadius: 8,
+    },
+    modalContent: {
+        margin: 20,
+        padding: 24,
+        borderRadius: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 16,
+    },
+    input: {
+        marginBottom: 16,
+        backgroundColor: 'transparent',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
         marginTop: 8,
     }
 });

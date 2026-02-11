@@ -4,7 +4,7 @@ import { storage } from './storage';
 import { surveyService } from './surveyService';
 import { assetService } from './assetService';
 import { photoService } from './photoService';
-import { sitesApi, assetsApi } from './api';
+import { sitesApi, assetsApi, surveysApi, inspectionsApi } from './api';
 
 export interface SyncStatus {
     isOnline: boolean;
@@ -95,6 +95,16 @@ class SyncService {
         }
     }
 
+    // Log sync event to backend
+    private async logSyncEvent(status: string, details?: any) {
+        if (!this.syncStatus.isOnline) return;
+        try {
+            await syncApi.logEvent('sync', status, details);
+        } catch (error) {
+            console.warn('Failed to log sync event:', error);
+        }
+    }
+
     // Sync all pending data
     async syncAll(): Promise<void> {
         if (this.syncStatus.isSyncing || !this.syncStatus.isOnline) {
@@ -105,6 +115,8 @@ class SyncService {
         console.log('🔄 Starting sync...');
         DeviceEventEmitter.emit('syncStatus', { status: 'syncing', message: 'Syncing data...' });
         this.notifyListeners();
+
+        await this.logSyncEvent('started');
 
         try {
             // 1. Upload pending surveys
@@ -124,9 +136,12 @@ class SyncService {
 
             console.log('✅ Sync complete');
             DeviceEventEmitter.emit('syncStatus', { status: 'synced', message: 'Sync Complete' });
-        } catch (error) {
+            await this.logSyncEvent('completed', { lastSync: this.syncStatus.lastSync });
+
+        } catch (error: any) {
             console.error('Sync failed:', error);
             DeviceEventEmitter.emit('syncStatus', { status: 'error', message: 'Sync Failed' });
+            await this.logSyncEvent('failed', { error: error.message || String(error) });
             throw error;
         } finally {
             this.syncStatus.isSyncing = false;
@@ -273,20 +288,41 @@ class SyncService {
                 await storage.saveSite(site);
             }
 
-            // 2. Download Assets (for all sites or iteratively)
-            // Ideally we download by updated_at, but for now get all
-            // Optimization: Get all assets in one go if API supports, or per site
-            // Our assetsApi.getAll() supports optional siteId.
-            // Let's fetch all (if possible) or iterate sites.
-
-            // If we have many sites, this might be slow. 
-            // Better strategy: Fetch all assets for the sites we just downloaded.
-            // Or if assetsApi.getAll() without siteId returns everything (which it does in our implementation: const params = siteId ? { siteId } : {};).
+            // 2. Download Assets
             const assets = await assetsApi.getAll();
             console.log(`📥 Downloaded ${assets.length} assets`);
-
             for (const asset of assets) {
                 await storage.saveAsset(asset);
+            }
+
+            // 3. Download Surveys
+            const surveys = await surveysApi.getAll();
+            console.log(`📥 Downloaded ${surveys.length} surveys`);
+            for (const survey of surveys) {
+                // Save survey to local storage. 
+                await storage.saveSurvey({
+                    ...survey,
+                    id: survey.id, // Ensure ID matches
+                    synced: 1,
+                    server_id: survey.id
+                });
+
+                // 4. Download Inspections for this Survey
+                try {
+                    const inspections = await inspectionsApi.getBySurvey(survey.id);
+                    for (const inspection of inspections) {
+                        await storage.saveAssetInspection({
+                            ...inspection,
+                            survey_id: survey.id,
+                            server_id: inspection.id,
+                            synced: 1,
+                            asset_inspection_id: inspection.id
+                        });
+                    }
+                } catch (e) {
+                    // Inspections might not exist or fail
+                    console.warn(`Failed to get inspections for survey ${survey.id}`, e);
+                }
             }
 
             console.log('✅ Download sync complete');

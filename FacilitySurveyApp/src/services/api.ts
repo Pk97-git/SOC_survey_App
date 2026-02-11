@@ -347,6 +347,26 @@ export const usersApi = {
     },
 };
 
+// ==================== Sync API ====================
+
+export const syncApi = {
+    logEvent: async (type: string, status: string, details?: any) => {
+        try {
+            const response = await api.post('/sync/log', { type, status, details });
+            return response.data;
+        } catch (error) {
+            // checking if error is axios error
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                // Endpoint might not exist yet, ignore
+                console.warn('Sync log endpoint not found');
+                return;
+            }
+            // Silent fail for logs
+            console.warn('Failed to log sync event:', error);
+        }
+    }
+};
+
 // ==================== Dashboard API ====================
 
 export const dashboardApi = {
