@@ -107,5 +107,32 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
     // Column likely exists, ignore
   }
 
+  // Phase 8 Migration: Add sync fields
+  try {
+    await db.runAsync('ALTER TABLE surveys ADD COLUMN synced INTEGER DEFAULT 0');
+    await db.runAsync('ALTER TABLE surveys ADD COLUMN server_id TEXT');
+    await db.runAsync('ALTER TABLE surveys ADD COLUMN last_synced_at TEXT');
+    console.log('Added sync columns to surveys');
+  } catch (e) {
+    // Columns likely exist, ignore
+  }
+
+  try {
+    await db.runAsync('ALTER TABLE asset_inspections ADD COLUMN synced INTEGER DEFAULT 0');
+    await db.runAsync('ALTER TABLE asset_inspections ADD COLUMN server_id TEXT');
+    console.log('Added sync columns to asset_inspections');
+  } catch (e) {
+    // Columns likely exist, ignore
+  }
+
+  try {
+    await db.runAsync('ALTER TABLE photos ADD COLUMN synced INTEGER DEFAULT 0');
+    await db.runAsync('ALTER TABLE photos ADD COLUMN server_id TEXT');
+    await db.runAsync('ALTER TABLE photos ADD COLUMN uploaded INTEGER DEFAULT 0');
+    console.log('Added sync columns to photos');
+  } catch (e) {
+    // Columns likely exist, ignore
+  }
+
   console.log('Database migrated successfully');
 };

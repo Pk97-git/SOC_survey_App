@@ -402,6 +402,68 @@ export const storage = {
         }
     },
 
+    async getPendingInspections(): Promise<any[]> {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const str = await AsyncStorage.getItem('asset_inspections_data');
+            const inspections: any[] = str ? JSON.parse(str) : [];
+            return inspections.filter((i: any) => !i.synced || i.synced === false);
+        } else {
+            const db = await getDb();
+            return await db.getAllAsync(
+                'SELECT * FROM asset_inspections WHERE synced = 0 OR synced IS NULL'
+            );
+        }
+    },
+
+    async getPendingPhotos(): Promise<any[]> {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const str = await AsyncStorage.getItem('photos_data');
+            const photos: any[] = str ? JSON.parse(str) : [];
+            return photos.filter((p: any) => !p.synced || p.synced === false);
+        } else {
+            const db = await getDb();
+            return await db.getAllAsync(
+                'SELECT * FROM photos WHERE synced = 0 OR synced IS NULL'
+            );
+        }
+    },
+
+    async updateInspectionServerId(localId: string, serverId: string) {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const str = await AsyncStorage.getItem('asset_inspections_data');
+            const inspections: any[] = str ? JSON.parse(str) : [];
+            const index = inspections.findIndex(i => i.id === localId);
+            if (index >= 0) {
+                inspections[index].server_id = serverId;
+                await AsyncStorage.setItem('asset_inspections_data', JSON.stringify(inspections));
+            }
+        } else {
+            const db = await getDb();
+            await db.runAsync(
+                'UPDATE asset_inspections SET server_id = ? WHERE id = ?',
+                serverId, localId
+            );
+        }
+    },
+
+    async updatePhotoServerId(localId: string, serverId: string) {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const str = await AsyncStorage.getItem('photos_data');
+            const photos: any[] = str ? JSON.parse(str) : [];
+            const index = photos.findIndex(p => p.id === localId);
+            if (index >= 0) {
+                photos[index].server_id = serverId;
+                await AsyncStorage.setItem('photos_data', JSON.stringify(photos));
+            }
+        } else {
+            const db = await getDb();
+            await db.runAsync(
+                'UPDATE photos SET server_id = ? WHERE id = ?',
+                serverId, localId
+            );
+        }
+    },
+
     async deleteAsset(assetId: string) {
         if (Platform.OS === 'web' || isExpoGo) {
             const str = await AsyncStorage.getItem('assets_data');

@@ -208,13 +208,14 @@ export const AppNavigator = () => {
     // Debug logging
     if (user) {
         console.log('AppNavigator User:', JSON.stringify(user, null, 2));
-        console.log('AppNavigator isAdmin check:', user.role?.toLowerCase() === 'admin');
+        console.log('AppNavigator Role:', user.role);
     }
 
     if (isLoading) {
         return <View style={styles.loadingContainer} />; // Loading splash
     }
 
+    // Simple role-based navigation: Admin or Surveyor only
     const isAdmin = user?.role?.toLowerCase() === 'admin';
 
     return (
