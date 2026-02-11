@@ -16,11 +16,14 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import { AuthProvider } from './src/context/AuthContext';
 import { seedDefaultTemplate } from './src/services/seedTemplate';
+import { SyncToast } from './src/components/SyncToast';
+import { syncService } from './src/services/syncService';
 
 export default function App() {
   // Seed default template on first launch
   React.useEffect(() => {
     seedDefaultTemplate();
+    console.log('📱 App initialized. Sync Service online:', syncService.isOnline);
 
     // Ignore noisy warnings
     LogBox.ignoreLogs([
@@ -58,8 +61,9 @@ export default function App() {
             </NavigationContainer>
           </View>
         </View>
+        <SyncToast />
       </PaperProvider>
-    </AuthProvider>
+    </AuthProvider >
   );
 }
 

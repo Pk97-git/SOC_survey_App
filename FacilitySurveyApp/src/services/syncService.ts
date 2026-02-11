@@ -1,8 +1,10 @@
 import NetInfo from '@react-native-community/netinfo';
+import { DeviceEventEmitter } from 'react-native';
 import { storage } from './storage';
 import { surveyService } from './surveyService';
 import { assetService } from './assetService';
 import { photoService } from './photoService';
+import { sitesApi, assetsApi } from './api';
 
 export interface SyncStatus {
     isOnline: boolean;
@@ -20,6 +22,11 @@ class SyncService {
     };
 
     private listeners: ((status: SyncStatus) => void)[] = [];
+    private unsubscribe: (() => void) | null = null; // To store the NetInfo listener unsubscribe function
+
+    get isOnline(): boolean {
+        return this.syncStatus.isOnline;
+    }
 
     constructor() {
         this.initNetworkListener();
@@ -27,15 +34,30 @@ class SyncService {
 
     // Initialize network listener
     private initNetworkListener() {
-        NetInfo.addEventListener(state => {
-            this.syncStatus.isOnline = state.isConnected || false;
-            this.notifyListeners();
-
-            // Auto-sync when coming online
-            if (state.isConnected) {
-                this.syncAll();
-            }
+        // Initial check
+        NetInfo.fetch().then(state => {
+            this.handleConnectivityChange(state.isConnected);
         });
+
+        // Listen for changes
+        this.unsubscribe = NetInfo.addEventListener(state => {
+            this.handleConnectivityChange(state.isConnected);
+        });
+    }
+
+    private handleConnectivityChange(isConnected: boolean | null) {
+        this.syncStatus.isOnline = !!isConnected;
+        console.log(`Network status changed: ${this.syncStatus.isOnline ? 'Online' : 'Offline'}`);
+
+        DeviceEventEmitter.emit('syncStatus', {
+            status: this.syncStatus.isOnline ? 'online' : 'offline',
+            message: this.syncStatus.isOnline ? 'Back Online' : 'You are Offline'
+        });
+        this.notifyListeners();
+
+        if (this.syncStatus.isOnline) {
+            this.syncAll();
+        }
     }
 
     // Subscribe to sync status changes
@@ -80,6 +102,8 @@ class SyncService {
         }
 
         this.syncStatus.isSyncing = true;
+        console.log('🔄 Starting sync...');
+        DeviceEventEmitter.emit('syncStatus', { status: 'syncing', message: 'Syncing data...' });
         this.notifyListeners();
 
         try {
@@ -97,8 +121,12 @@ class SyncService {
 
             this.syncStatus.lastSync = new Date().toISOString();
             this.syncStatus.pendingUploads = 0;
+
+            console.log('✅ Sync complete');
+            DeviceEventEmitter.emit('syncStatus', { status: 'synced', message: 'Sync Complete' });
         } catch (error) {
-            console.error('Sync error:', error);
+            console.error('Sync failed:', error);
+            DeviceEventEmitter.emit('syncStatus', { status: 'error', message: 'Sync Failed' });
             throw error;
         } finally {
             this.syncStatus.isSyncing = false;
@@ -109,24 +137,25 @@ class SyncService {
     private async uploadPendingSurveys(): Promise<void> {
         // Get surveys that haven't been synced
         const surveys = await storage.getSurveys();
-        const pendingSurveys = surveys.filter(s => !s.synced && s.status === 'submitted');
+        const pendingSurveys = surveys.filter(s => !(s as any).synced && s.status === 'submitted');
 
         for (const survey of pendingSurveys) {
             try {
                 // Check if survey exists on server (by local ID or server ID)
                 let serverSurvey;
 
-                if (survey.server_id) {
+
+                if ((survey as any).server_id) {
                     // Update existing
                     serverSurvey = await surveyService.updateSurvey(
-                        survey.server_id,
+                        (survey as any).server_id,
                         survey.trade,
                         survey.status
                     );
                 } else {
                     // Create new
                     serverSurvey = await surveyService.createSurvey(
-                        survey.site_id!,
+                        (survey as any).site_id!,
                         survey.trade
                     );
 
@@ -152,16 +181,16 @@ class SyncService {
                     surveys.find(s => s.id === inspection.survey_id)
                 );
 
-                if (!survey?.server_id) {
+                if (!(survey as any)?.server_id) {
                     console.log(`Skipping inspection ${inspection.id}: Survey not synced yet`);
                     continue;
                 }
 
                 let serverInspection;
-                if (inspection.server_id) {
+                if ((inspection as any).server_id) {
                     // Update existing
                     serverInspection = await assetService.updateInspection(
-                        inspection.server_id,
+                        (inspection as any).server_id,
                         {
                             conditionRating: inspection.condition_rating,
                             overallCondition: inspection.overall_condition,
@@ -175,7 +204,7 @@ class SyncService {
                 } else {
                     // Create new
                     serverInspection = await assetService.createInspection(
-                        survey.server_id,
+                        (survey as any).server_id,
                         {
                             assetId: inspection.asset_id,
                             conditionRating: inspection.condition_rating,
@@ -235,15 +264,35 @@ class SyncService {
 
     private async downloadUpdates(): Promise<void> {
         try {
-            // Download sites and assets that might have been updated
-            // This is useful for getting latest asset data before going offline
-            const sites = await storage.getSites();
+            console.log('🔄 Downloading updates from server...');
 
-            // For now, we focus on upload sync
-            // Download sync can be implemented when needed for collaborative editing
-            console.log('Download sync - sites available:', sites.length);
+            // 1. Download Sites
+            const sites = await sitesApi.getAll();
+            console.log(`📥 Downloaded ${sites.length} sites`);
+            for (const site of sites) {
+                await storage.saveSite(site);
+            }
+
+            // 2. Download Assets (for all sites or iteratively)
+            // Ideally we download by updated_at, but for now get all
+            // Optimization: Get all assets in one go if API supports, or per site
+            // Our assetsApi.getAll() supports optional siteId.
+            // Let's fetch all (if possible) or iterate sites.
+
+            // If we have many sites, this might be slow. 
+            // Better strategy: Fetch all assets for the sites we just downloaded.
+            // Or if assetsApi.getAll() without siteId returns everything (which it does in our implementation: const params = siteId ? { siteId } : {};).
+            const assets = await assetsApi.getAll();
+            console.log(`📥 Downloaded ${assets.length} assets`);
+
+            for (const asset of assets) {
+                await storage.saveAsset(asset);
+            }
+
+            console.log('✅ Download sync complete');
         } catch (error) {
             console.error('Failed to download updates:', error);
+            // Don't throw, partial sync is better than none
         }
     }
 

@@ -100,14 +100,36 @@ export const storage = {
         if (Platform.OS === 'web' || isExpoGo) {
             const existingStr = await AsyncStorage.getItem('assets_data');
             const existing = existingStr ? JSON.parse(existingStr) : [];
-            existing.unshift(asset);
+            const index = existing.findIndex((a: any) => a.id === asset.id);
+            if (index >= 0) {
+                existing[index] = asset;
+            } else {
+                existing.unshift(asset);
+            }
             await AsyncStorage.setItem('assets_data', JSON.stringify(existing));
         } else {
             const db = await getDb();
-            await db.runAsync(
-                'INSERT INTO assets (id, name, type, project_site, location_lat, location_lng, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                asset.id, asset.name, asset.type, asset.project_site, asset.location_lat, asset.location_lng, asset.description
-            );
+            // TODO: Update schema to match backend fields (service_line etc)
+            // For now, assume backend fields are passed but only core ones saved?
+            // Actually, we should save as JSON or update schema
+            try {
+                await db.runAsync(
+                    `INSERT OR REPLACE INTO assets 
+                    (id, name, type, project_site, location_lat, location_lng, description, building, location) VALUES 
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    String(asset.id),
+                    String(asset.name || ''),
+                    String(asset.type || asset.service_line || ''),
+                    String(asset.project_site || asset.site_id || ''),
+                    asset.location_lat || asset.gps_lat ? String(asset.location_lat || asset.gps_lat) : null,
+                    asset.location_lng || asset.gps_lng ? String(asset.location_lng || asset.gps_lng) : null,
+                    String(asset.description || ''),
+                    String(asset.building || ''),
+                    String(asset.location || '')
+                );
+            } catch (e) {
+                console.warn('Failed to save asset natively:', e);
+            }
         }
     },
 
@@ -360,10 +382,18 @@ export const storage = {
     },
 
     async getPendingSurveys(): Promise<any[]> {
-        const surveys = await this.getSurveys();
-        return surveys.filter((s: any) =>
-            s.status === 'submitted' && (!s.synced || s.synced === false)
-        );
+        if (Platform.OS === 'web' || isExpoGo) {
+            const surveys = await this.getSurveys();
+            return surveys.filter((s: any) =>
+                s.status === 'submitted' && (!s.synced || s.synced === false)
+            );
+        } else {
+            const db = await getDb();
+            // Ensure we only sync final surveys
+            return await db.getAllAsync(
+                "SELECT * FROM surveys WHERE status = 'submitted' AND (synced = 0 OR synced IS NULL)"
+            );
+        }
     },
 
     async markInspectionSynced(inspectionId: string) {
@@ -486,8 +516,48 @@ export const storage = {
 
     async getServiceLinesBySite(siteId: string) {
         const allAssets = await this.getAssets();
-        const siteAssets = allAssets.filter((a: any) => a.site_id === siteId);
-        const serviceLines = [...new Set(siteAssets.map((a: any) => a.service_line))].filter(Boolean);
+        const siteAssets = allAssets.filter((a: any) => a.site_id === siteId || a.project_site === siteId);
+        const serviceLines = [...new Set(siteAssets.map((a: any) => a.service_line || a.type))].filter(Boolean);
+        return serviceLines as string[];
+    },
+
+    // Phase 9: Location Filtering
+    async getLocationsBySite(siteId: string) {
+        const allAssets = await this.getAssets(siteId);
+
+        // Extract distinct building + location combinations
+        // Formats: "Building (Location)" or just "Location"
+        const locations = new Set<string>();
+
+        allAssets.forEach((a: any) => {
+            const loc = a.location;
+            const bldg = a.building;
+
+            if (bldg && loc) {
+                locations.add(`${bldg} - ${loc}`);
+            } else if (bldg) {
+                locations.add(bldg);
+            } else if (loc) {
+                locations.add(loc);
+            }
+        });
+
+        return Array.from(locations).sort();
+    },
+
+    async getServiceLinesBySiteAndLocation(siteId: string, locationFilter: string) {
+        let assets = await this.getAssets(siteId);
+
+        if (locationFilter) {
+            assets = assets.filter((a: any) => {
+                const loc = a.location;
+                const bldg = a.building;
+                const combined = bldg && loc ? `${bldg} - ${loc}` : (bldg || loc || '');
+                return combined === locationFilter;
+            });
+        }
+
+        const serviceLines = [...new Set(assets.map((a: any) => a.service_line || a.type))].filter(Boolean);
         return serviceLines as string[];
     },
 
@@ -526,12 +596,17 @@ export const storage = {
         if (Platform.OS === 'web' || isExpoGo) {
             const existingStr = await AsyncStorage.getItem('sites_data');
             const existing = existingStr ? JSON.parse(existingStr) : [];
-            existing.unshift(site);
+            const index = existing.findIndex((s: any) => s.id === site.id);
+            if (index >= 0) {
+                existing[index] = site;
+            } else {
+                existing.unshift(site);
+            }
             await AsyncStorage.setItem('sites_data', JSON.stringify(existing));
         } else {
             const db = await getDb();
             await db.runAsync(
-                'INSERT INTO sites (id, name, location, client, created_at) VALUES (?, ?, ?, ?, ?)',
+                'INSERT OR REPLACE INTO sites (id, name, location, client, created_at) VALUES (?, ?, ?, ?, ?)',
                 site.id, site.name, site.location || '', site.client || '', site.created_at
             );
         }

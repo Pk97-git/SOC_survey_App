@@ -134,5 +134,14 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
     // Columns likely exist, ignore
   }
 
+  // Phase 9 Migration: Add building/location to assets
+  try {
+    await db.runAsync('ALTER TABLE assets ADD COLUMN building TEXT');
+    await db.runAsync('ALTER TABLE assets ADD COLUMN location TEXT');
+    console.log('Added building/location columns to assets');
+  } catch (e) {
+    // Columns likely exist, ignore
+  }
+
   console.log('Database migrated successfully');
 };

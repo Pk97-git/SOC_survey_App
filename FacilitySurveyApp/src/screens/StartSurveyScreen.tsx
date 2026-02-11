@@ -16,6 +16,7 @@ export default function StartSurveyScreen() {
     // Form State
     const [siteName, setSiteName] = useState(initialSite?.name || '');
     const [siteId, setSiteId] = useState(initialSite?.id || '');
+    const [locationFilter, setLocationFilter] = useState(''); // e.g. "Main Building - Roof"
     const [serviceLine, setServiceLine] = useState('');
     const [surveyorName, setSurveyorName] = useState('');
     const [gps, setGps] = useState<string>('Acquiring...');
@@ -23,8 +24,12 @@ export default function StartSurveyScreen() {
 
     // Dropdowns
     const [sites, setSites] = useState<any[]>([]);
+    const [locations, setLocations] = useState<string[]>([]);
     const [serviceLines, setServiceLines] = useState<string[]>([]);
+
+    // Menus
     const [siteMenuVisible, setSiteMenuVisible] = useState(false);
+    const [locationMenuVisible, setLocationMenuVisible] = useState(false);
     const [serviceLineMenuVisible, setServiceLineMenuVisible] = useState(false);
 
     const canStart = siteName.length > 0 && serviceLine.length > 0;
@@ -82,13 +87,29 @@ export default function StartSurveyScreen() {
         setSiteId(site.id);
         setSiteMenuVisible(false);
 
-        // Load service lines from assets if available, otherwise just manual entry
-        if (site.serviceLines && site.serviceLines.length > 0) {
-            setServiceLines(site.serviceLines);
-        } else {
-            setServiceLines([]);
-        }
+        // Reset sub-selections
+        setLocationFilter('');
         setServiceLine('');
+        setLocations([]);
+        setServiceLines([]);
+
+        // Load Locations for this site
+        const siteLocations = await storage.getLocationsBySite(site.id);
+        setLocations(siteLocations);
+
+        // Load Service Lines (All for site initially)
+        const siteServiceLines = await storage.getServiceLinesBySiteAndLocation(site.id, '');
+        setServiceLines(siteServiceLines);
+    };
+
+    const handleLocationSelect = async (loc: string) => {
+        setLocationFilter(loc);
+        setLocationMenuVisible(false);
+        setServiceLine('');
+
+        // Filter service lines by location
+        const filteredServiceLines = await storage.getServiceLinesBySiteAndLocation(siteId, loc);
+        setServiceLines(filteredServiceLines);
     };
 
     const handleStartInspection = async () => {
@@ -97,15 +118,32 @@ export default function StartSurveyScreen() {
             return;
         }
 
-        // Try to load assets
-        const assets = await storage.getAssetsBySiteAndServiceLine(siteName, serviceLine);
-        const hasPreloadedAssets = assets.length > 0;
+        // Try to load assets filtered by site + location + serviceLine
+        // We first get assets by site/serviceLine, then filter by location in memory if needed
+        // Or update storage to have a specific query. 
+        // For simplicity: getAssetsBySiteAndServiceLine -> filter
+
+        const assets = await storage.getAssetsBySiteAndServiceLine(siteId, serviceLine); // Currently uses siteId as raw match
+        // Wait, storage.ts implementation of getAssetsBySiteAndServiceLine uses site_id.
+        // And we need to filter by locationFilter.
+
+        const filteredAssets = locationFilter
+            ? assets.filter((a: any) => {
+                const loc = a.location;
+                const bldg = a.building;
+                const combined = bldg && loc ? `${bldg} - ${loc}` : (bldg || loc || '');
+                return combined === locationFilter;
+            })
+            : assets;
+
+        const hasPreloadedAssets = filteredAssets.length > 0;
 
         // Create survey record
         const surveyData = {
             site_id: siteId,
             site_name: siteName,
             trade: serviceLine,
+            location: locationFilter, // Save selected location/building context
             surveyor_name: surveyorName,
             status: 'in_progress',
             gps_lat: locationData?.latitude,
@@ -125,7 +163,7 @@ export default function StartSurveyScreen() {
                 siteId, // Pass siteId for asset creation
                 siteName,
                 trade: serviceLine,
-                preloadedAssets: hasPreloadedAssets ? assets : [],
+                preloadedAssets: hasPreloadedAssets ? filteredAssets : [],
                 assetOption: hasPreloadedAssets ? 'preloaded' : 'manual'
             });
         } catch (error) {
@@ -187,6 +225,40 @@ export default function StartSurveyScreen() {
                             )}
                         </Menu>
                     </View>
+
+                    {/* Location / Building Filter */}
+                    {locations.length > 0 && (
+                        <View style={styles.fieldContainer}>
+                            <Text style={[styles.label, { color: theme.colors.onSurface }]}>Location / Building</Text>
+                            <Menu
+                                visible={locationMenuVisible}
+                                onDismiss={() => setLocationMenuVisible(false)}
+                                anchor={
+                                    <Button
+                                        mode="outlined"
+                                        onPress={() => setLocationMenuVisible(true)}
+                                        style={styles.dropdown}
+                                        contentStyle={{ justifyContent: 'flex-start' }}
+                                        disabled={!siteName}
+                                    >
+                                        {locationFilter || 'All Locations'}
+                                    </Button>
+                                }
+                            >
+                                <Menu.Item
+                                    onPress={() => handleLocationSelect('')}
+                                    title="All Locations"
+                                />
+                                {locations.map((loc, index) => (
+                                    <Menu.Item
+                                        key={index}
+                                        onPress={() => handleLocationSelect(loc)}
+                                        title={loc}
+                                    />
+                                ))}
+                            </Menu>
+                        </View>
+                    )}
 
                     {/* Service Line Selection */}
                     <View style={styles.fieldContainer}>
@@ -271,7 +343,7 @@ export default function StartSurveyScreen() {
                             </Text>
                             <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 12 }}>
                                 {serviceLines.includes(serviceLine)
-                                    ? `Assets for ${siteName} - ${serviceLine} will be loaded from central register.`
+                                    ? `Assets for ${siteName} (${locationFilter || 'All'}) - ${serviceLine} will be loaded.`
                                     : `No pre-loaded assets. You will add assets manually.`
                                 }
                             </Text>
@@ -291,7 +363,7 @@ export default function StartSurveyScreen() {
                     Start Inspection
                 </Button>
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
