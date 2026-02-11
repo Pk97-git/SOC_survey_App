@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor', 'reviewer')),
+    is_active BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id),
+    deactivated_by UUID REFERENCES users(id),
+    deactivated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     last_login TIMESTAMP
@@ -115,14 +119,32 @@ CREATE TABLE IF NOT EXISTS sync_log (
     synced_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Audit Log table for security and compliance
+CREATE TABLE IF NOT EXISTS audit_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id UUID,
+    details JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_assets_site_id ON assets(site_id);
 CREATE INDEX IF NOT EXISTS idx_surveys_surveyor_id ON surveys(surveyor_id);
 CREATE INDEX IF NOT EXISTS idx_surveys_status ON surveys(status);
 CREATE INDEX IF NOT EXISTS idx_inspections_survey_id ON asset_inspections(survey_id);
 CREATE INDEX IF NOT EXISTS idx_photos_inspection_id ON photos(asset_inspection_id);
 CREATE INDEX IF NOT EXISTS idx_review_comments_inspection_id ON review_comments(asset_inspection_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 
 -- Create default admin user (password: admin123 - CHANGE IN PRODUCTION!)
 

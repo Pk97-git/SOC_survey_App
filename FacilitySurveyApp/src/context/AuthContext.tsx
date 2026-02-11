@@ -7,6 +7,9 @@ interface User {
     email: string;
     fullName: string;
     role: string;
+    isActive?: boolean;
+    createdAt?: string;
+    lastLogin?: string;
 }
 
 interface AuthContextType {
@@ -14,7 +17,11 @@ interface AuthContextType {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
+    isAdmin: boolean;
+    isSurveyor: boolean;
+    isReviewer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -35,9 +42,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 // Token exists, verify it by fetching current user
                 try {
                     const response = await authApi.getCurrentUser();
-                    setUser(response.user);
+                    // Check if user is active
+                    if (response.user.isActive === false) {
+                        console.log('User account is deactivated');
+                        await removeAuthToken();
+                        await AsyncStorage.removeItem('user');
+                        setUser(null);
+                    } else {
+                        setUser(response.user);
+                    }
                 } catch (error) {
-                    // Token invalid or expired
                     // Token invalid or expired
                     console.log('Token validation failed:', (error as any).message || String(error));
                     await removeAuthToken();
@@ -54,11 +68,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const login = async (email: string, password: string) => {
         try {
             const response = await authApi.login(email, password);
+
+            // Check if user is active
+            if (response.user.isActive === false) {
+                throw new Error('Account is deactivated. Please contact administrator.');
+            }
+
             setUser(response.user);
             // Token is already stored by authApi.login
         } catch (error: any) {
             console.error('Login failed:', error.message || String(error));
-            throw new Error(error.response?.data?.error || 'Login failed. Please check your credentials.');
+            throw new Error(error.response?.data?.error || error.message || 'Login failed. Please check your credentials.');
         }
     };
 
@@ -74,13 +94,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const refreshUser = async () => {
+        try {
+            const response = await authApi.getCurrentUser();
+            setUser(response.user);
+        } catch (error: any) {
+            console.error('Refresh user failed:', error.message || String(error));
+            // If refresh fails, logout
+            await logout();
+        }
+    };
+
+    // Computed properties for role checks
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    const isSurveyor = user?.role?.toLowerCase() === 'surveyor';
+    const isReviewer = user?.role?.toLowerCase() === 'reviewer';
+
     return (
         <AuthContext.Provider value={{
             user,
             isLoading,
             login,
             logout,
-            isAuthenticated: !!user
+            refreshUser,
+            isAuthenticated: !!user,
+            isAdmin,
+            isSurveyor,
+            isReviewer
         }}>
             {children}
         </AuthContext.Provider>

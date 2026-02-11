@@ -202,32 +202,110 @@ const AdminTabs = () => {
     );
 };
 
+// Reviewer Bottom Tab Navigator
+const ReviewerTabs = () => {
+    const theme = useTheme();
+    return (
+        <Tab.Navigator
+            screenOptions={({ route }) => ({
+                headerShown: false,
+                tabBarActiveTintColor: theme.colors.primary,
+                tabBarInactiveTintColor: 'gray',
+                tabBarStyle: {
+                    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+                    height: Platform.OS === 'ios' ? 85 : 65,
+                    backgroundColor: theme.colors.surface,
+                    borderTopColor: theme.colors.outlineVariant,
+                    paddingTop: 8
+                },
+            })}
+        >
+            <Tab.Screen
+                name="HomeTab"
+                component={SurveyStack}
+                options={{
+                    tabBarLabel: 'Home',
+                    tabBarIcon: ({ color, size }) => (
+                        <IconButton icon="home" iconColor={color} size={size} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="ReviewTab"
+                component={SurveyManagementStack}
+                options={{
+                    tabBarLabel: 'Reviews',
+                    tabBarIcon: ({ color, size }) => (
+                        <IconButton icon="file-check" iconColor={color} size={size} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="ReportsTab"
+                component={SurveyManagementStack}
+                options={{
+                    tabBarLabel: 'Reports',
+                    tabBarIcon: ({ color, size }) => (
+                        <IconButton icon="file-document" iconColor={color} size={size} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="ProfileTab"
+                component={ProfileScreen}
+                options={{
+                    tabBarLabel: 'Profile',
+                    tabBarIcon: ({ color, size }) => (
+                        <IconButton icon="account" iconColor={color} size={size} />
+                    ),
+                    headerShown: false,
+                    headerTitle: 'My Profile',
+                    headerStyle: { backgroundColor: theme.colors.surface },
+                    headerTintColor: theme.colors.onSurface
+                }}
+            />
+        </Tab.Navigator>
+    );
+};
+
 export const AppNavigator = () => {
     const { user, isLoading } = useAuth();
 
     // Debug logging
     if (user) {
         console.log('AppNavigator User:', JSON.stringify(user, null, 2));
-        console.log('AppNavigator isAdmin check:', user.role?.toLowerCase() === 'admin');
+        console.log('AppNavigator Role:', user.role);
     }
 
     if (isLoading) {
         return <View style={styles.loadingContainer} />; // Loading splash
     }
 
-    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    // Determine which navigation to show based on role
+    const getNavigatorForRole = () => {
+        if (!user) {
+            return <Stack.Screen name="Login" component={LoginScreen} />;
+        }
+
+        const role = user.role?.toLowerCase();
+
+        switch (role) {
+            case 'admin':
+                return <Stack.Screen name="AdminMain" component={AdminTabs} />;
+            case 'surveyor':
+                return <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />;
+            case 'reviewer':
+                return <Stack.Screen name="ReviewerMain" component={ReviewerTabs} />;
+            default:
+                // Default to surveyor if role is not recognized
+                console.warn('Unknown role:', role, '- defaulting to surveyor view');
+                return <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />;
+        }
+    };
 
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {user ? (
-                isAdmin ? (
-                    <Stack.Screen name="AdminMain" component={AdminTabs} />
-                ) : (
-                    <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
-                )
-            ) : (
-                <Stack.Screen name="Login" component={LoginScreen} />
-            )}
+            {getNavigatorForRole()}
         </Stack.Navigator>
     );
 };
