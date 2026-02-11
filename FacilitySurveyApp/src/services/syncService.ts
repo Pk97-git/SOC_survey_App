@@ -55,6 +55,24 @@ class SyncService {
         return { ...this.syncStatus };
     }
 
+    // Update pending uploads count
+    async updatePendingCount(): Promise<void> {
+        try {
+            const pendingSurveys = await storage.getPendingSurveys();
+            const pendingInspections = await storage.getPendingInspections();
+            const pendingPhotos = await storage.getPendingPhotos();
+
+            this.syncStatus.pendingUploads =
+                pendingSurveys.length +
+                pendingInspections.length +
+                pendingPhotos.length;
+
+            this.notifyListeners();
+        } catch (error) {
+            console.error('Failed to update pending count:', error);
+        }
+    }
+
     // Sync all pending data
     async syncAll(): Promise<void> {
         if (this.syncStatus.isSyncing || !this.syncStatus.isOnline) {
@@ -125,18 +143,108 @@ class SyncService {
     }
 
     private async uploadPendingInspections(): Promise<void> {
-        // Similar logic for inspections
-        // TODO: Implement based on your storage structure
+        const inspections = await storage.getPendingInspections();
+
+        for (const inspection of inspections) {
+            try {
+                // Use the survey's server_id to upload inspection
+                const survey = await storage.getSurveys().then(surveys =>
+                    surveys.find(s => s.id === inspection.survey_id)
+                );
+
+                if (!survey?.server_id) {
+                    console.log(`Skipping inspection ${inspection.id}: Survey not synced yet`);
+                    continue;
+                }
+
+                let serverInspection;
+                if (inspection.server_id) {
+                    // Update existing
+                    serverInspection = await assetService.updateInspection(
+                        inspection.server_id,
+                        {
+                            conditionRating: inspection.condition_rating,
+                            overallCondition: inspection.overall_condition,
+                            quantityInstalled: inspection.quantity_installed,
+                            quantityWorking: inspection.quantity_working,
+                            remarks: inspection.remarks,
+                            gpsLat: inspection.gps_lat,
+                            gpsLng: inspection.gps_lng,
+                        }
+                    );
+                } else {
+                    // Create new
+                    serverInspection = await assetService.createInspection(
+                        survey.server_id,
+                        {
+                            assetId: inspection.asset_id,
+                            conditionRating: inspection.condition_rating,
+                            overallCondition: inspection.overall_condition,
+                            quantityInstalled: inspection.quantity_installed,
+                            quantityWorking: inspection.quantity_working,
+                            remarks: inspection.remarks,
+                            gpsLat: inspection.gps_lat,
+                            gpsLng: inspection.gps_lng,
+                        }
+                    );
+
+                    // Save server ID
+                    await storage.updateInspectionServerId(inspection.id, serverInspection.id);
+                }
+
+                // Mark as synced
+                await storage.markInspectionSynced(inspection.id);
+            } catch (error) {
+                console.error(`Failed to sync inspection ${inspection.id}:`, error);
+            }
+        }
     }
 
     private async uploadPendingPhotos(): Promise<void> {
-        // Similar logic for photos
-        // TODO: Implement based on your storage structure
+        const photos = await storage.getPendingPhotos();
+
+        for (const photo of photos) {
+            try {
+                // Get the inspection's server_id
+                const inspections = await storage.getPendingInspections();
+                const inspection = inspections.find(i => i.id === photo.asset_inspection_id);
+
+                if (!inspection?.server_id) {
+                    console.log(`Skipping photo ${photo.id}: Inspection not synced yet`);
+                    continue;
+                }
+
+                // Upload photo
+                const serverPhoto = await photoService.uploadPhoto(
+                    inspection.server_id,
+                    photo.survey_id,
+                    photo.file_path,
+                    photo.caption
+                );
+
+                // Save server ID
+                await storage.updatePhotoServerId(photo.id, serverPhoto.id);
+
+                // Mark as synced
+                await storage.markPhotoSynced(photo.id);
+            } catch (error) {
+                console.error(`Failed to sync photo ${photo.id}:`, error);
+            }
+        }
     }
 
     private async downloadUpdates(): Promise<void> {
-        // Download surveys, inspections, and photos updated since last sync
-        // TODO: Implement based on your requirements
+        try {
+            // Download sites and assets that might have been updated
+            // This is useful for getting latest asset data before going offline
+            const sites = await storage.getSites();
+
+            // For now, we focus on upload sync
+            // Download sync can be implemented when needed for collaborative editing
+            console.log('Download sync - sites available:', sites.length);
+        } catch (error) {
+            console.error('Failed to download updates:', error);
+        }
     }
 
     // Manual sync trigger

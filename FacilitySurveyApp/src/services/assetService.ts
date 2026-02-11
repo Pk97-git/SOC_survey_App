@@ -78,4 +78,16 @@ export const assetService = {
     async deleteAsset(id: string): Promise<void> {
         await api.delete(`/assets/${id}`);
     },
+
+    // Create asset inspection
+    async createInspection(surveyId: string, data: any): Promise<any> {
+        const response = await api.post(`/surveys/${surveyId}/inspections`, data);
+        return response.data.inspection;
+    },
+
+    // Update asset inspection
+    async updateInspection(inspectionId: string, data: any): Promise<any> {
+        const response = await api.put(`/surveys/inspections/${inspectionId}`, data);
+        return response.data.inspection;
+    },
 };

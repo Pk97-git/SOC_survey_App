@@ -17,6 +17,7 @@ import surveyRoutes from './routes/survey.routes';
 import photoRoutes from './routes/photo.routes';
 import reviewRoutes from './routes/review.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import syncRoutes from './routes/sync.routes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +55,7 @@ app.use('/api/surveys', surveyRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/sync', syncRoutes);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {
