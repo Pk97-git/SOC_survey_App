@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Surface, useTheme, Card, IconButton } from 'react-native-paper';
+import { Text, Surface, useTheme, Card, IconButton, Portal, Modal, Button, Avatar, Divider, ActivityIndicator } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import * as hybridStorage from '../services/hybridStorage';
+import { dashboardApi } from '../services/api';
+import { syncService } from '../services/syncService';
 
 export default function AdminDashboardScreen() {
     const theme = useTheme();
@@ -15,6 +17,11 @@ export default function AdminDashboardScreen() {
         completedToday: 0,
     });
 
+    // Active Surveyors Modal State
+    const [surveyorsModalVisible, setSurveyorsModalVisible] = useState(false);
+    const [surveyorsList, setSurveyorsList] = useState<any[]>([]);
+    const [loadingSurveyors, setLoadingSurveyors] = useState(false);
+
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             loadDashboardStats();
@@ -24,6 +31,23 @@ export default function AdminDashboardScreen() {
 
     const loadDashboardStats = async () => {
         try {
+            // Try fetching from backend if online
+            if (await syncService.getStatus().isOnline) {
+                try {
+                    const onlineStats = await dashboardApi.getStats();
+                    setStats({
+                        totalSurveys: onlineStats.totalSurveys,
+                        pendingReviews: onlineStats.pendingReviews,
+                        activeSurveyors: onlineStats.activeSurveyors,
+                        completedToday: onlineStats.completedToday,
+                    });
+                    return;
+                } catch (error) {
+                    console.error('Failed to fetch dashboard stats from backend, falling back to local:', error);
+                }
+            }
+
+            // Fallback to local calculation
             const surveys = await hybridStorage.getSurveys();
 
             // Total Surveys
@@ -53,6 +77,32 @@ export default function AdminDashboardScreen() {
             });
         } catch (error) {
             console.error('Failed to load dashboard stats:', error);
+        }
+    };
+
+    const showActiveSurveyors = async () => {
+        setSurveyorsModalVisible(true);
+        setLoadingSurveyors(true);
+        try {
+            if (await syncService.getStatus().isOnline) {
+                const users = await dashboardApi.getUsers();
+                // Filter for those who have logged in recently or have surveys
+                // The API returns all users sorted by last_login.
+                // We'll show all but highlight active ones?
+                // Requirements say "Active Surveyors".
+                // Let's filter client side or just show the list with login info/counts.
+                // dashboardApi.getUsers returns { id, full_name, email, role, last_login, survey_count }
+                setSurveyorsList(users);
+            } else {
+                // Offline fallback (can't easily get full user list details without cache)
+                alert('Must be online to view surveyor details');
+                setSurveyorsModalVisible(false);
+            }
+        } catch (error) {
+            console.error('Failed to fetch surveyors:', error);
+            alert('Failed to load surveyors');
+        } finally {
+            setLoadingSurveyors(false);
         }
     };
 
@@ -121,7 +171,7 @@ export default function AdminDashboardScreen() {
                         value={stats.activeSurveyors}
                         icon="account-group"
                         color={theme.colors.secondary}
-                        onPress={() => navigation.navigate('UserManagement')}
+                        onPress={showActiveSurveyors}
                     />
                     <StatCard
                         title="Completed Today"
@@ -167,6 +217,55 @@ export default function AdminDashboardScreen() {
                     />
                 </View>
             </ScrollView>
+
+            <Portal>
+                <Modal
+                    visible={surveyorsModalVisible}
+                    onDismiss={() => setSurveyorsModalVisible(false)}
+                    contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.background }]}
+                >
+                    <Text style={[styles.modalTitle, { color: theme.colors.onBackground }]}>Surveyor Activity</Text>
+                    <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>Real-time status from backend</Text>
+
+                    {loadingSurveyors ? (
+                        <ActivityIndicator style={{ marginTop: 20 }} />
+                    ) : (
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {surveyorsList.length === 0 ? (
+                                <Text style={{ padding: 20, textAlign: 'center', color: 'gray' }}>No data available</Text>
+                            ) : (
+                                surveyorsList.map((user, index) => (
+                                    <View key={user.id}>
+                                        <View style={styles.userRow}>
+                                            <Avatar.Text size={40} label={user.full_name?.substring(0, 2).toUpperCase() || '??'} />
+                                            <View style={{ marginLeft: 12, flex: 1 }}>
+                                                <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{user.full_name}</Text>
+                                                <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant }}>
+                                                    {user.last_login ? `Last login: ${new Date(user.last_login).toLocaleDateString()}` : 'Never logged in'}
+                                                </Text>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{user.survey_count || 0}</Text>
+                                                <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant }}>Surveys</Text>
+                                            </View>
+                                        </View>
+                                        {index < surveyorsList.length - 1 && <Divider />}
+                                    </View>
+                                ))
+                            )}
+                        </ScrollView>
+                    )}
+
+                    <Button
+                        mode="contained"
+                        onPress={() => setSurveyorsModalVisible(false)}
+                        style={{ marginTop: 16 }}
+                    >
+                        Close
+                    </Button>
+                </Modal>
+            </Portal>
+
         </SafeAreaView>
     );
 }
@@ -260,5 +359,24 @@ const styles = StyleSheet.create({
     actionDescription: {
         fontSize: 12,
         lineHeight: 16,
+    },
+    modalContent: {
+        margin: 20,
+        borderRadius: 20,
+        padding: 24,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        marginBottom: 16,
+    },
+    userRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
     },
 });

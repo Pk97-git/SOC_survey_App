@@ -330,6 +330,40 @@ export const usersApi = {
         const response = await api.delete(`/users/${id}`);
         return response.data;
     },
+
+    activate: async (id: string) => {
+        const response = await api.post(`/users/${id}/activate`);
+        return response.data;
+    },
+
+    deactivate: async (id: string) => {
+        const response = await api.post(`/users/${id}/deactivate`);
+        return response.data;
+    },
+
+    getAuditLogs: async (id: string) => {
+        const response = await api.get(`/users/${id}/audit-logs`);
+        return response.data.logs;
+    },
+};
+
+// ==================== Dashboard API ====================
+
+export const dashboardApi = {
+    getStats: async () => {
+        const response = await api.get('/dashboard/stats');
+        return response.data;
+    },
+
+    getSurveys: async (filters: any) => {
+        const response = await api.get('/dashboard/surveys', { params: filters });
+        return response.data.surveys;
+    },
+
+    getUsers: async () => {
+        const response = await api.get('/dashboard/users');
+        return response.data.users;
+    },
 };
 
 export default api;

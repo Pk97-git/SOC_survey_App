@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text, Surface, useTheme, FAB, IconButton, Searchbar, Dialog, Portal, Button, TextInput, Menu } from 'react-native-paper';
+import { Text, Surface, useTheme, FAB, IconButton, Searchbar, Dialog, Portal, Button, TextInput, Menu, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { usersApi, authApi } from '../services/api';
 
@@ -19,6 +19,19 @@ export default function UserManagementScreen() {
         role: 'surveyor',
         password: '',
     });
+
+    // Audit Logs State
+    const [auditLogVisible, setAuditLogVisible] = useState(false);
+    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [auditLogLoading, setAuditLogLoading] = useState(false);
+    const [selectedUserForLogs, setSelectedUserForLogs] = useState<any>(null);
+
+    // Menu State
+    const [menuVisible, setMenuVisible] = useState<{ [key: string]: boolean }>({});
+
+    const toggleMenu = (userId: string, visible: boolean) => {
+        setMenuVisible(prev => ({ ...prev, [userId]: visible }));
+    };
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
@@ -107,6 +120,43 @@ export default function UserManagementScreen() {
             alert('Failed to delete user.');
         }
     };
+    const handleActivateUser = async (userId: string) => {
+        try {
+            await usersApi.activate(userId);
+            loadUsers();
+            toggleMenu(userId, false);
+        } catch (error) {
+            console.error('Failed to activate user:', error);
+            alert('Failed to activate user.');
+        }
+    };
+
+    const handleDeactivateUser = async (userId: string) => {
+        try {
+            await usersApi.deactivate(userId);
+            loadUsers();
+            toggleMenu(userId, false);
+        } catch (error) {
+            console.error('Failed to deactivate user:', error);
+            alert('Failed to deactivate user.');
+        }
+    };
+
+    const handleViewAuditLogs = async (user: any) => {
+        setSelectedUserForLogs(user);
+        setAuditLogVisible(true);
+        setAuditLogLoading(true);
+        toggleMenu(user.id, false);
+        try {
+            const logs = await usersApi.getAuditLogs(user.id);
+            setAuditLogs(logs);
+        } catch (error) {
+            console.error('Failed to load audit logs:', error);
+            alert('Failed to load audit logs.');
+        } finally {
+            setAuditLogLoading(false);
+        }
+    };
 
     const RoleBadge = ({ role }: { role: string }) => {
         const isAdmin = role.toLowerCase() === 'admin';
@@ -173,20 +223,21 @@ export default function UserManagementScreen() {
                                 </Text>
                             </View>
                             <RoleBadge role={item.role} />
-                            <View style={styles.actions}>
-                                <IconButton
-                                    icon="pencil"
-                                    size={20}
-                                    iconColor={theme.colors.primary}
-                                    onPress={() => handleEditUser(item)}
-                                />
-                                <IconButton
-                                    icon="delete"
-                                    size={20}
-                                    iconColor={theme.colors.error}
-                                    onPress={() => handleDeleteUser(item.id)}
-                                />
-                            </View>
+                            <Menu
+                                visible={menuVisible[item.id]}
+                                onDismiss={() => toggleMenu(item.id, false)}
+                                anchor={
+                                    <IconButton
+                                        icon="dots-vertical"
+                                        onPress={() => toggleMenu(item.id, true)}
+                                    />
+                                }
+                            >
+                                <Menu.Item onPress={() => { toggleMenu(item.id, false); handleEditUser(item); }} title="Edit" leadingIcon="pencil" />
+                                <Menu.Item onPress={() => { item.is_active ? handleDeactivateUser(item.id) : handleActivateUser(item.id) }} title={item.is_active ? "Deactivate" : "Activate"} leadingIcon={item.is_active ? "block-helper" : "check-circle"} />
+                                <Menu.Item onPress={() => handleViewAuditLogs(item)} title="Audit Logs" leadingIcon="history" />
+                                <Menu.Item onPress={() => { toggleMenu(item.id, false); handleDeleteUser(item.id); }} title="Delete" leadingIcon="delete" titleStyle={{ color: theme.colors.error }} />
+                            </Menu>
                         </View>
                     </Surface>
                 )}
@@ -228,11 +279,60 @@ export default function UserManagementScreen() {
                             style={styles.input}
                             placeholder={editingUser ? 'Leave blank to keep current' : ''}
                         />
-                        {/* Role selector would go here */}
+                        <Text style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold' }}>Role</Text>
+                        <SegmentedButtons
+                            value={formData.role}
+                            onValueChange={(value) => setFormData({ ...formData, role: value })}
+                            buttons={[
+                                {
+                                    value: 'surveyor',
+                                    label: 'Surveyor',
+                                },
+                                {
+                                    value: 'admin',
+                                    label: 'Admin',
+                                },
+                                {
+                                    value: 'reviewer',
+                                    label: 'Reviewer',
+                                },
+                            ]}
+                            style={{ marginBottom: 16 }}
+                        />
                     </Dialog.Content>
                     <Dialog.Actions>
                         <Button onPress={() => setDialogVisible(false)}>Cancel</Button>
                         <Button onPress={handleSaveUser}>Save</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+
+            {/* Audit Log Modal */}
+            <Portal>
+                <Dialog visible={auditLogVisible} onDismiss={() => setAuditLogVisible(false)} style={{ maxHeight: '80%' }}>
+                    <Dialog.Title>Audit Logs: {selectedUserForLogs?.fullName}</Dialog.Title>
+                    <Dialog.Content>
+                        {auditLogLoading ? (
+                            <Text style={{ textAlign: 'center', padding: 20 }}>Loading logs...</Text>
+                        ) : (
+                            <FlatList
+                                data={auditLogs}
+                                keyExtractor={(item, index) => index.toString()}
+                                renderItem={({ item }) => (
+                                    <View style={{ marginBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#eee', paddingBottom: 8 }}>
+                                        <Text style={{ fontWeight: 'bold' }}>{item.action}</Text>
+                                        <Text style={{ fontSize: 12, color: 'gray' }}>{new Date(item.timestamp).toLocaleString()}</Text>
+                                        {item.details && (
+                                            <Text style={{ fontSize: 12, marginTop: 4 }}>{JSON.stringify(item.details)}</Text>
+                                        )}
+                                    </View>
+                                )}
+                                ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20 }}>No logs found.</Text>}
+                            />
+                        )}
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setAuditLogVisible(false)}>Close</Button>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>

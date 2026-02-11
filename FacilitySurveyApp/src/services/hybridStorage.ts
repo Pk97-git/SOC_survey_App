@@ -203,19 +203,17 @@ export const deleteAsset = async (id: string) => {
 // ==================== Surveys ====================
 
 export const getSurveys = async () => {
-    // Always return local data for offline-first experience
-    // Background sync should populate this over time via downloadUpdates (when implemented)
-    // For now, we rely on local creation + sync up.
-    // Ideally, we should also try to fetch from backend and update local if online.
     try {
         if (await syncService.getStatus().isOnline) {
-            // Optional: Trigger download sync or specific fetch
-            // For now, let's keep it simple: Read Local.
-            // If we really need backend data, we'd call API and update local storage here.
-            // But let's stick to the pattern:
+            console.log('Fetching surveys from backend...');
+            const surveys = await surveysApi.getAll();
+            // Optional: Update local storage with fresh data
+             // For now, we return backend data directly to ensure latest view
+            return surveys;
         }
-    } catch (e) { }
-
+    } catch (error) {
+        console.error('Failed to fetch surveys from backend:', error);
+    }
     return await localStorage.getSurveys();
 };
 
@@ -251,7 +249,14 @@ export const saveAssetInspection = async (inspection: any) => {
 };
 
 export const getInspectionsForSurvey = async (surveyId: string) => {
-    // Always read from local storage
+    try {
+        if (await syncService.getStatus().isOnline) {
+             const inspections = await inspectionsApi.getBySurvey(surveyId);
+             return inspections;
+        }
+    } catch (error) {
+        console.error('Failed to fetch inspections from backend:', error);
+    }
     return await localStorage.getInspectionsForSurvey(surveyId);
 };
 
