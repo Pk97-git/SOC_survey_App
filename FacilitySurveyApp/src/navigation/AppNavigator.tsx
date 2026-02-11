@@ -22,6 +22,8 @@ import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import SavedReportsScreen from '../screens/SavedReportsScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -227,7 +229,11 @@ export const AppNavigator = () => {
                     <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
                 )
             ) : (
-                <Stack.Screen name="Login" component={LoginScreen} />
+                <>
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                    <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                    <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+                </>
             )}
         </Stack.Navigator>
     );

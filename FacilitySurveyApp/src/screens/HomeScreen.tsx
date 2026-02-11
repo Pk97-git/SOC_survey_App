@@ -33,11 +33,11 @@ export default function HomeScreen() {
 
     const StatusBadge = ({ status }: { status: string }) => {
         const isCompleted = status === 'completed';
-        const color = isCompleted ? '#22c55e' : '#f59e0b'; // Green or Amber
-        const bg = isCompleted ? '#ecfdf5' : '#fffbeb';
+        const color = isCompleted ? '#800000' : '#B45309'; // Maroon or Gold
+        const bg = isCompleted ? '#FFD7D7' : '#FEF3C7';
         return (
-            <View style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: color }}>
-                <Text style={{ color: color, fontSize: 10, fontWeight: '700' }}>{status.toUpperCase()}</Text>
+            <View style={{ backgroundColor: bg, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: color + '40' }}>
+                <Text style={{ color: color, fontSize: 11, fontWeight: '800' }}>{status.toUpperCase()}</Text>
             </View>
         );
     }
@@ -59,27 +59,27 @@ export default function HomeScreen() {
             <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
 
             {/* Header / Banner */}
-            <Surface style={[styles.header, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
+            <Surface style={[styles.header, { backgroundColor: theme.colors.surface }]} elevation={1}>
                 <SafeAreaView>
                     <View style={styles.headerContent}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{ backgroundColor: theme.colors.primary, width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                                <Text style={{ fontSize: 24 }}>🏗️</Text>
-                            </View>
+                            <Surface style={{ backgroundColor: theme.colors.primary, width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 }} elevation={2}>
+                                <Text style={{ fontSize: 26 }}>🏗️</Text>
+                            </Surface>
                             <View>
-                                <Text style={{ color: theme.colors.onSurface, fontSize: 20, fontWeight: 'bold' }}>Field Ops</Text>
+                                <Text style={{ color: theme.colors.primary, fontSize: 22, fontWeight: '900', letterSpacing: -0.5 }}>CIT OPS</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22c55e', marginRight: 6 }} />
-                                    <Text style={{ color: '#22c55e', fontSize: 12, fontWeight: '700' }}>ONLINE & SYNCED</Text>
+                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#800000', marginRight: 6 }} />
+                                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>CONNECTED</Text>
                                 </View>
                             </View>
                         </View>
                         <IconButton
-                            icon="bell-badge-outline"
-                            iconColor={theme.colors.onSurfaceVariant}
-                            size={26}
+                            icon="account-circle-outline"
+                            iconColor={theme.colors.primary}
+                            size={28}
                             style={{ margin: 0 }}
-                            onPress={() => { }}
+                            onPress={() => navigation.navigate('ProfileTab')}
                         />
                     </View>
                 </SafeAreaView>

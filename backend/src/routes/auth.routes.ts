@@ -4,6 +4,8 @@ import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
 import { validatePassword, hashPassword, comparePassword } from '../services/password.service';
 import { logAuth, logUserManagement, getClientIp, AuditAction } from '../services/audit.service';
+import { EmailService } from '../services/email.service';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -266,6 +268,110 @@ router.post('/logout', authenticate, async (req: AuthRequest, res: Response) => 
     } catch (error: any) {
         console.error('Logout error:', error);
         res.status(500).json({ error: 'Failed to logout' });
+    }
+});
+
+// Forgot Password
+router.post('/forgot-password', async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        // Find user
+        const result = await pool.query(
+            'SELECT id, email FROM users WHERE email = $1',
+            [email.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) {
+            // Security: Don't reveal if user exists. Just return 200.
+            return res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+        }
+
+        const user = result.rows[0];
+
+        // Generate token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 3600000); // 1 hour
+
+        // Save token to DB
+        await pool.query(
+            'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE id = $3',
+            [token, expires, user.id]
+        );
+
+        // Send Email
+        await EmailService.sendPasswordResetEmail(user.email, token);
+
+        // Log audit
+        await logUserManagement(AuditAction.PASSWORD_CHANGE, user.id, user.id, req, { action: 'forgot_password_request' });
+
+        res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+    } catch (error: any) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Failed to process forgot password request' });
+    }
+});
+
+// Reset Password
+router.post('/reset-password', async (req: Request, res: Response) => {
+    try {
+        const { token, password } = req.body;
+
+        if (!token || !password) {
+            return res.status(400).json({ error: 'Token and password are required' });
+        }
+
+        // Validate password strength
+        const validation = validatePassword(password);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Password does not meet requirements',
+                details: validation.errors
+            });
+        }
+
+        // Find user by token and check expiry
+        const result = await pool.query(
+            `SELECT id, email FROM users 
+             WHERE reset_password_token = $1 
+             AND reset_password_expires > NOW()`,
+            [token]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired password reset token' });
+        }
+
+        const user = result.rows[0];
+
+        // Hash new password
+        const hashedPassword = await hashPassword(password);
+
+        // Update user
+        await pool.query(
+            `UPDATE users 
+             SET password_hash = $1, 
+                 reset_password_token = NULL, 
+                 reset_password_expires = NULL,
+                 updated_at = NOW() 
+             WHERE id = $2`,
+            [hashedPassword, user.id]
+        );
+
+        // Send confirmation email
+        await EmailService.sendPasswordResetConfirmation(user.email);
+
+        // Log audit
+        await logUserManagement(AuditAction.PASSWORD_CHANGE, user.id, user.id, req, { action: 'reset_password_success' });
+
+        res.json({ message: 'Password has been reset successfully' });
+    } catch (error: any) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
     }
 });
 

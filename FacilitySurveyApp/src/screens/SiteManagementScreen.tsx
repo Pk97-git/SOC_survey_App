@@ -3,6 +3,7 @@ import MapPicker from '../components/MapPicker';
 import * as Location from 'expo-location';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { Text, FAB, Surface, useTheme, IconButton, TextInput, Portal, Dialog, Button } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import * as hybridStorage from '../services/hybridStorage'; // Use hybrid storage
 // import { storage, SiteRecord } from '../services/storage'; // Removed local storage
@@ -18,6 +19,7 @@ export interface SiteRecord {
 
 export default function SiteManagementScreen() {
     const theme = useTheme();
+    const navigation = useNavigation<any>();
     const [sites, setSites] = useState<SiteRecord[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -179,7 +181,18 @@ export default function SiteManagementScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.onBackground }]}>Site Management</Text>
+                <Surface style={styles.screenHeader} elevation={1}>
+                    <IconButton
+                        icon="arrow-left"
+                        size={24}
+                        onPress={() => navigation.goBack()}
+                        iconColor={theme.colors.primary}
+                    />
+                    <Text style={[styles.title, { color: theme.colors.primary }]}>
+                        Sites
+                    </Text>
+                </Surface>
+                <Text style={styles.subtitle}>{sites.length} total sites managed</Text>
             </View>
 
             <FlatList
@@ -286,46 +299,66 @@ const styles = StyleSheet.create({
     },
     header: {
         padding: 20,
-        paddingBottom: 10,
+        paddingBottom: 0,
+    },
+    screenHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        borderRadius: 16,
+        marginBottom: 12,
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    subtitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        opacity: 0.6,
+        marginLeft: 4,
+        marginBottom: 12,
     },
     listContent: {
-        padding: 16,
-        paddingBottom: 80,
+        padding: 20,
+        paddingBottom: 100,
     },
     card: {
-        marginBottom: 12,
-        borderRadius: 12,
+        marginBottom: 16,
+        borderRadius: 20,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E7E5E4'
     },
     cardContent: {
         flexDirection: 'row',
-        padding: 16,
+        padding: 20,
         alignItems: 'center',
     },
     siteName: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '900',
         marginBottom: 4,
+        letterSpacing: -0.3,
     },
     actions: {
         flexDirection: 'row',
+        marginLeft: 8,
     },
     fab: {
         position: 'absolute',
-        margin: 16,
+        margin: 20,
         right: 0,
         bottom: 0,
+        borderRadius: 16,
     },
     emptyContainer: {
         alignItems: 'center',
         marginTop: 50,
     },
     input: {
-        marginBottom: 12,
+        marginBottom: 16,
         backgroundColor: 'transparent'
     }
 });

@@ -109,16 +109,13 @@ export default function UserManagementScreen() {
     };
 
     const RoleBadge = ({ role }: { role: string }) => {
-        const colors: any = {
-            admin: { bg: '#fef3c7', text: '#f59e0b' },
-            surveyor: { bg: '#dbeafe', text: '#3b82f6' },
-            reviewer: { bg: '#dcfce7', text: '#22c55e' },
-        };
-        const color = colors[role] || colors.surveyor;
+        const isAdmin = role.toLowerCase() === 'admin';
+        const color = isAdmin ? theme.colors.primary : theme.colors.tertiary;
+        const bg = isAdmin ? theme.colors.primaryContainer : theme.colors.tertiaryContainer;
 
         return (
-            <View style={{ backgroundColor: color.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                <Text style={{ color: color.text, fontSize: 11, fontWeight: '700' }}>
+            <View style={{ backgroundColor: bg, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: color + '30' }}>
+                <Text style={{ color: color, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>
                     {role.toUpperCase()}
                 </Text>
             </View>
@@ -129,17 +126,17 @@ export default function UserManagementScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Surface style={styles.screenHeader} elevation={1}>
                     <IconButton
                         icon="arrow-left"
                         size={24}
                         onPress={() => navigation.goBack()}
-                        style={{ marginLeft: -8 }}
+                        iconColor={theme.colors.primary}
                     />
-                    <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-                        User Management
+                    <Text style={[styles.title, { color: theme.colors.primary }]}>
+                        Users
                     </Text>
-                </View>
+                </Surface>
                 <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant, marginLeft: 4 }]}>
                     {filteredUsers.length} users
                 </Text>
@@ -150,7 +147,9 @@ export default function UserManagementScreen() {
                 placeholder="Search users..."
                 onChangeText={setSearchQuery}
                 value={searchQuery}
-                style={styles.searchBar}
+                style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
+                iconColor={theme.colors.primary}
+                elevation={1}
             />
 
             {/* User List */}
@@ -244,57 +243,77 @@ export default function UserManagementScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
     },
     header: {
-        marginBottom: 20,
+        padding: 20,
+        paddingBottom: 10,
+    },
+    screenHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        borderRadius: 16,
+        marginBottom: 8,
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 14,
-        marginTop: 4,
+        fontSize: 13,
+        fontWeight: '700',
+        opacity: 0.6,
     },
     searchBar: {
-        marginBottom: 16,
-        borderRadius: 12,
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: 14,
+        height: 48,
     },
     listContent: {
+        padding: 20,
+        paddingTop: 0,
         paddingBottom: 100,
     },
     card: {
-        marginBottom: 12,
-        borderRadius: 16,
+        marginBottom: 16,
+        borderRadius: 20,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#E7E5E4'
     },
     cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
+        padding: 20,
     },
     userName: {
         fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 2,
+        fontWeight: '900',
+        marginBottom: 4,
+        letterSpacing: -0.3,
     },
     userEmail: {
         fontSize: 14,
-        marginBottom: 2,
+        marginBottom: 4,
+        opacity: 0.7,
     },
     lastLogin: {
         fontSize: 12,
+        opacity: 0.5,
     },
     actions: {
         flexDirection: 'row',
+        marginLeft: 8,
     },
     fab: {
         position: 'absolute',
         right: 20,
         bottom: 20,
+        borderRadius: 16,
     },
     input: {
-        marginBottom: 12,
+        marginBottom: 16,
     },
 });

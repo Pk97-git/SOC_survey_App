@@ -4,27 +4,31 @@ export const theme = {
     ...MD3LightTheme,
     colors: {
         ...MD3LightTheme.colors,
-        primary: '#2563EB', // Royal Blue
+        primary: '#800000', // Maroon
         onPrimary: '#FFFFFF',
-        primaryContainer: '#DBEAFE',
-        onPrimaryContainer: '#1E40AF',
-        secondary: '#10B981', // Emerald Green
-        secondaryContainer: '#D1FAE5',
-        onSecondaryContainer: '#065F46',
-        tertiary: '#F59E0B', // Amber
-        background: '#F8FAFC', // Very light grey/blue
+        primaryContainer: '#FFD7D7', // Light Maroon
+        onPrimaryContainer: '#460000',
+        secondary: '#1E293B', // Slate 800 (Professional)
+        secondaryContainer: '#E2E8F0',
+        onSecondaryContainer: '#0F172A',
+        tertiary: '#B45309', // Dark Amber / Gold
+        onTertiary: '#FFFFFF',
+        tertiaryContainer: '#FEF3C7',
+        background: '#FAF9F6', // Off-white / Cream
         surface: '#FFFFFF',
-        surfaceVariant: '#F1F5F9', // Slate 100
-        error: '#EF4444',
-        onSurface: '#1E293B', // Slate 800
+        surfaceVariant: '#F3F1ED', // Neutral warm grey
+        onSurface: '#1C1917', // Warm black
+        onSurfaceVariant: '#57534E',
+        outline: '#D6D3D1',
+        error: '#B91C1C',
         elevation: {
             level0: 'transparent',
-            level1: '#F1F5F9',
-            level2: '#E2E8F0',
-            level3: '#CBD5E1',
-            level4: '#94A3B8',
-            level5: '#64748B',
+            level1: '#F5F5F4',
+            level2: '#E7E5E4',
+            level3: '#D6D3D1',
+            level4: '#A8A29E',
+            level5: '#78716C',
         },
     },
-    roundness: 12,
+    roundness: 10, // Modern but professional
 };

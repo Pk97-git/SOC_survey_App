@@ -612,6 +612,24 @@ export const storage = {
         }
     },
 
+    // --- USER PREFERENCES ---
+    async saveLastSelectedSite(siteId: string) {
+        try {
+            await AsyncStorage.setItem('last_selected_site', siteId);
+        } catch (e) {
+            console.error('Failed to save last selected site', e);
+        }
+    },
+
+    async getLastSelectedSite(): Promise<string | null> {
+        try {
+            return await AsyncStorage.getItem('last_selected_site');
+        } catch (e) {
+            console.error('Failed to get last selected site', e);
+            return null;
+        }
+    },
+
     async getSites(): Promise<SiteRecord[]> {
         if (Platform.OS === 'web' || isExpoGo) {
             const str = await AsyncStorage.getItem('sites_data');

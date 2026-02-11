@@ -79,6 +79,15 @@ export default function StartSurveyScreen() {
                 setSiteName(initialSite.name);
                 setSiteId(initialSite.id);
             }
+        } else {
+            // Check for last selected site preference
+            const lastSiteId = await storage.getLastSelectedSite();
+            if (lastSiteId) {
+                const match = mergedSites.find((s: any) => s.id === lastSiteId);
+                if (match) {
+                    handleSiteSelect(match);
+                }
+            }
         }
     };
 
@@ -86,6 +95,9 @@ export default function StartSurveyScreen() {
         setSiteName(site.name);
         setSiteId(site.id);
         setSiteMenuVisible(false);
+
+        // Save as preference
+        await storage.saveLastSelectedSite(site.id);
 
         // Reset sub-selections
         setLocationFilter('');
@@ -176,17 +188,17 @@ export default function StartSurveyScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
-                <View style={styles.header}>
+                <Surface style={[styles.screenHeader, { backgroundColor: theme.colors.surface }]} elevation={1}>
                     <IconButton
                         icon="arrow-left"
                         size={24}
                         onPress={() => navigation.goBack()}
-                        iconColor={theme.colors.onBackground}
+                        iconColor={theme.colors.primary}
                     />
-                    <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-                        Create New Survey
+                    <Text style={[styles.title, { color: theme.colors.primary }]}>
+                        New Survey
                     </Text>
-                </View>
+                </Surface>
 
                 {/* Form */}
                 <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
@@ -374,54 +386,58 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 20,
     },
-    header: {
+    screenHeader: {
         flexDirection: 'row',
         alignItems: 'center',
+        padding: 8,
+        borderRadius: 16,
         marginBottom: 20,
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginLeft: 8,
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     formCard: {
-        borderRadius: 16,
-        padding: 20,
+        borderRadius: 20,
+        padding: 24,
         marginBottom: 16,
     },
     fieldContainer: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     label: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '800',
         marginBottom: 8,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+        opacity: 0.8,
     },
     dropdown: {
-        justifyContent: 'flex-start',
+        borderRadius: 12,
+        borderWidth: 1.5,
     },
     input: {
         backgroundColor: 'transparent',
-    },
-    hint: {
-        fontSize: 12,
-        marginTop: 4,
     },
     gpsBox: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E7E5E4',
     },
     infoBox: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 12,
-        marginBottom: 16,
+        borderRadius: 16,
+        marginBottom: 24,
     },
     startButton: {
-        borderRadius: 12,
+        borderRadius: 14,
         marginTop: 8,
     },
 });

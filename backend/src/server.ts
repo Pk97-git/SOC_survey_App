@@ -18,6 +18,7 @@ import photoRoutes from './routes/photo.routes';
 import reviewRoutes from './routes/review.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import syncRoutes from './routes/sync.routes';
+import { validateJwtSecretStrength } from './utils/security.utils';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -25,9 +26,19 @@ const PORT = process.env.PORT || 3000;
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100000, // Effectively unlimited
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    max: 500, // Balanced for typical mobile app usage
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' }
+});
+
+// Stricter limiter for authentication routes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // 20 attempts per 15 mins (login/register/forgot-password)
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts, please try again in 15 minutes.' }
 });
 
 // Middleware
@@ -47,7 +58,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/assets', assetRoutes);
@@ -76,6 +87,18 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV}`);
+
+    // Validate JWT_SECRET strength
+    const jwtValidation = validateJwtSecretStrength(process.env.JWT_SECRET);
+    if (!jwtValidation.isValid) {
+        console.warn(`⚠️  SECURITY WARNING: ${jwtValidation.error}`);
+        if (process.env.NODE_ENV === 'production') {
+            console.error('❌ CRITICAL: Insecure JWT_SECRET in production. Shutting down...');
+            process.exit(1);
+        }
+    } else {
+        console.log('✅ JWT_SECRET strength validated');
+    }
 });
 
 export default app;

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, TextInput, Button, Surface, useTheme } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
     const { login } = useAuth();
+    const navigation = useNavigation<any>();
     const theme = useTheme();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -34,11 +36,11 @@ export default function LoginScreen() {
                 <View style={styles.content}>
 
                     <View style={styles.heroSection}>
-                        <Surface style={[styles.logoContainer, { backgroundColor: theme.colors.surfaceVariant }]} elevation={4}>
-                            <Text style={{ fontSize: 40 }}>🏗️</Text>
+                        <Surface style={[styles.logoContainer, { backgroundColor: theme.colors.primary }]} elevation={4}>
+                            <Text style={{ fontSize: 44 }}>🏗️</Text>
                         </Surface>
-                        <Text style={{ color: theme.colors.onSurface, fontWeight: 'bold', fontSize: 28, marginTop: 20 }}>Facility Survey App</Text>
-                        <Text style={{ color: theme.colors.secondary, marginTop: 5 }}>Operations Excellence</Text>
+                        <Text style={{ color: theme.colors.primary, fontWeight: 'bold', fontSize: 32, marginTop: 24, letterSpacing: -0.5 }}>Facility Survey</Text>
+                        <Text style={{ color: theme.colors.secondary, marginTop: 4, fontSize: 16, fontWeight: '500', opacity: 0.8 }}>Operations Excellence</Text>
                     </View>
 
                     <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
@@ -54,7 +56,7 @@ export default function LoginScreen() {
                             autoCapitalize="none"
                             keyboardType="email-address"
                             autoComplete="email"
-                            left={<TextInput.Icon icon="email" iconColor={theme.colors.secondary} />}
+                            left={<TextInput.Icon icon="email" color={theme.colors.secondary} />}
                         />
 
                         <TextInput
@@ -66,7 +68,7 @@ export default function LoginScreen() {
                             value={password}
                             onChangeText={setPassword}
                             autoComplete="password"
-                            left={<TextInput.Icon icon="lock" iconColor={theme.colors.secondary} />}
+                            left={<TextInput.Icon icon="lock" color={theme.colors.secondary} />}
                         />
 
                         <Button
@@ -74,11 +76,22 @@ export default function LoginScreen() {
                             onPress={handleLogin}
                             loading={loading}
                             disabled={loading}
-                            style={{ marginTop: 25, paddingVertical: 5 }}
+                            style={{ marginTop: 24, borderRadius: 12 }}
+                            contentStyle={{ height: 48 }}
                             buttonColor={theme.colors.primary}
                             textColor={theme.colors.onPrimary}
+                            labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
                         >
                             Sign In
+                        </Button>
+
+                        <Button
+                            mode="text"
+                            onPress={() => navigation.navigate('ForgotPassword')}
+                            style={{ marginTop: 10 }}
+                            labelStyle={{ fontSize: 13 }}
+                        >
+                            Forgot Password?
                         </Button>
 
                         <Text style={{ textAlign: 'center', color: theme.colors.secondary, marginTop: 15, fontSize: 11 }}>

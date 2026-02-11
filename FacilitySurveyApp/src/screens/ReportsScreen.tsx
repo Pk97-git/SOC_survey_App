@@ -152,14 +152,14 @@ export default function ReportsScreen() {
     const renderItem = ({ item }: { item: any }) => (
         <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
             <View style={styles.cardContent}>
-                <View style={[styles.iconBox, { backgroundColor: theme.colors.secondaryContainer }]}>
+                <Surface style={[styles.iconBox, { backgroundColor: theme.colors.primaryContainer }]}>
                     <Avatar.Icon
                         size={32}
                         icon={item.status === 'submitted' ? 'file-check' : 'file-document'}
-                        color={theme.colors.onSecondaryContainer}
+                        color={theme.colors.onPrimaryContainer}
                         style={{ backgroundColor: 'transparent' }}
                     />
-                </View>
+                </Surface>
                 <View style={styles.surveyInfo}>
                     <Text style={styles.siteName}>{item.site_name || 'Unnamed Site'}</Text>
                     <Text style={styles.surveyDetails}>
@@ -425,9 +425,10 @@ export default function ReportsScreen() {
                     placeholder="Search surveys..."
                     onChangeText={setSearchQuery}
                     value={searchQuery}
-                    style={styles.searchBar}
+                    style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
                     inputStyle={styles.searchInput}
                     iconColor={theme.colors.primary}
+                    elevation={1}
                 />
             </View>
 
@@ -567,9 +568,7 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
     },
     searchBar: {
-        elevation: 0,
-        backgroundColor: '#f1f5f9', // Light gray standard
-        borderRadius: 12,
+        borderRadius: 14,
         height: 48,
     },
     searchInput: {
@@ -582,23 +581,21 @@ const styles = StyleSheet.create({
         marginRight: 8,
         borderRadius: 20,
         backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
     },
     card: {
         marginBottom: 16,
-        borderRadius: 16,
+        borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)' // Subtle border
+        borderColor: '#E7E5E4'
     },
-    cardContent: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-    iconBox: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    cardContent: { flexDirection: 'row', alignItems: 'center', padding: 20 },
+    iconBox: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     surveyInfo: { flex: 1, marginLeft: 16 },
-    siteName: { fontSize: 16, fontWeight: 'bold' },
-    surveyDetails: { fontSize: 13, marginTop: 4 },
-    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8, alignSelf: 'flex-start' },
-    actions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    siteName: { fontSize: 16, fontWeight: '900', letterSpacing: -0.3 },
+    surveyDetails: { fontSize: 13, marginTop: 4, opacity: 0.7 },
+    statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 10, alignSelf: 'flex-start' },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
     // Empty State
     emptyContainer: {
