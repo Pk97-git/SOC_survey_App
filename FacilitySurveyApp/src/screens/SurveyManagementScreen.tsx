@@ -1,254 +1,266 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Alert, Platform } from 'react-native';
-import { Text, FAB, useTheme, Surface, Button, Menu, Divider, IconButton, ActivityIndicator, Searchbar, Chip } from 'react-native-paper';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, Button, Surface, ActivityIndicator, IconButton, ProgressBar, useTheme, Menu, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as hybridStorage from '../services/hybridStorage';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { sitesApi, assetsApi, dashboardApi, surveysApi } from '../services/api';
 import { downloadSurveyReport } from '../services/excelService';
+import * as FileSystem from 'expo-file-system/legacy';
 
-// Root directory for saved reports
-const REPORTS_DIR = FileSystem.documentDirectory + 'SavedReports/';
+// Interfaces
+interface Asset {
+    id: string;
+    project_site?: string;
+    building?: string;
+    building_name?: string;
+    location?: string;
+    service_line?: string;
+    trade?: string; // sometimes used interchangeably
+    [key: string]: any;
+}
+
+interface SiteStats {
+    totalAssets: number;
+    uniqueLocations: number;
+    uniqueServiceLines: number;
+    potentialWorkbooks: number;
+}
+
+interface HierarchyNode {
+    name: string; // Building Name
+    trades: {
+        name: string; // Service Line
+        assetCount: number;
+        surveyId?: string;
+        surveyStatus?: string;
+    }[];
+}
 
 export default function SurveyManagementScreen() {
-    const navigation = useNavigation<any>();
     const theme = useTheme();
+    const navigation = useNavigation<any>();
 
+    // State
     const [sites, setSites] = useState<any[]>([]);
     const [selectedSite, setSelectedSite] = useState<any | null>(null);
-    const [surveys, setSurveys] = useState<any[]>([]);
-    const [filteredSurveys, setFilteredSurveys] = useState<any[]>([]);
     const [siteMenuVisible, setSiteMenuVisible] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [exporting, setExporting] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
 
+    const [loading, setLoading] = useState(false);
+    const [operationLoading, setOperationLoading] = useState(false); // for generate/export
+    const [operationMessage, setOperationMessage] = useState('');
+
+    const [assets, setAssets] = useState<Asset[]>([]);
+    const [surveys, setSurveys] = useState<any[]>([]);
+
+    const [expandedBuildings, setExpandedBuildings] = useState<Record<string, boolean>>({});
+
+    // Load Sites on Mount
     useFocusEffect(
         React.useCallback(() => {
             loadSites();
         }, [])
     );
 
-    // Reload surveys when site changes
-    React.useEffect(() => {
+    const loadSites = async () => {
+        try {
+            const allSites = await sitesApi.getAll();
+            setSites(allSites);
+        } catch (error) {
+            console.error("Failed to load sites", error);
+            Alert.alert("Error", "Failed to load sites.");
+        }
+    };
+
+    // Load Data when Site Selected
+    useEffect(() => {
         if (selectedSite) {
-            loadSurveysForSite(selectedSite);
+            loadSiteData(selectedSite);
         } else {
+            setAssets([]);
             setSurveys([]);
-            setFilteredSurveys([]);
         }
     }, [selectedSite]);
 
-    // Filter surveys
-    React.useEffect(() => {
-        if (searchQuery) {
-            const lower = searchQuery.toLowerCase();
-            setFilteredSurveys(surveys.filter(s =>
-                (s.trade || '').toLowerCase().includes(lower) ||
-                (s.surveyor_name || '').toLowerCase().includes(lower) ||
-                (s.status || '').toLowerCase().includes(lower)
-            ));
-        } else {
-            setFilteredSurveys(surveys);
-        }
-    }, [searchQuery, surveys]);
-
-    const loadSites = async () => {
-        const allSites = await hybridStorage.getSites();
-        setSites(allSites);
-        // Auto-select first site if none selected? No, user explicitly Selects.
-    };
-
-    const loadSurveysForSite = async (site: any) => {
+    const loadSiteData = async (site: any) => {
         setLoading(true);
         try {
-            // Backend-Only Fetch
-            // We use dashboardApi for management view as it likely supports filtering/enrichment needed for admin
-            const { dashboardApi } = require('../services/api');
-            // Ensure dashboardApi.getSurveys supports siteId filter
+            // 1. Fetch backend surveys
             const siteSurveys = await dashboardApi.getSurveys({ siteId: site.id });
-
-            // Sort by date desc
-            siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
             setSurveys(siteSurveys);
-        } catch (error: any) {
-            console.error(error);
-            if (error.response?.status === 401) {
-                // Auth error handled by interceptor, but we might want to clear list
-                setSurveys([]);
-            } else {
-                Alert.alert("Error", "Failed to load surveys from server. Please check your internet connection.");
-            }
+
+            // 2. Fetch all assets to compute stats & hierarchy
+            // We need full asset list to know what *should* exist
+            const siteAssets = await assetsApi.getAll(site.id);
+            setAssets(siteAssets);
+
+        } catch (error) {
+            console.error("Failed to load site data", error);
+            Alert.alert("Error", "Failed to load dashboard data. Check internet.");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateSurvey = () => {
-        if (!selectedSite) {
-            Alert.alert("Select Site", "Please select a site first.");
-            return;
-        }
-        // Navigate to StartSurvey, pre-filling site? 
-        // StartSurvey uses its own selection logic. We can pass params if it supports it.
-        // It doesn't look like it supports params yet, but we can update it or just let user pick.
-        // For now, simple navigation. User manually picks site again... inefficient.
-        // TODO: Update StartSurvey to accept initialSite param.
-        navigation.navigate('StartSurvey');
-    };
-
-    const handleBatchExport = async () => {
-        if (!selectedSite || surveys.length === 0) {
-            Alert.alert("Nothing to Export", "No surveys found for this site.");
-            return;
+    // --- Analytics Computation ---
+    const stats: SiteStats = useMemo(() => {
+        if (!selectedSite || assets.length === 0) {
+            return { totalAssets: 0, uniqueLocations: 0, uniqueServiceLines: 0, potentialWorkbooks: 0 };
         }
 
-        setExporting(true);
+        const locations = new Set<string>();
+        const serviceLines = new Set<string>();
+        const workbookKeys = new Set<string>(); // Location + ServiceLine
+
+        assets.forEach(a => {
+            const loc = a.building || a.building_name || a.location || 'Unknown Building';
+            const sl = a.service_line || a.trade || 'General';
+
+            locations.add(loc);
+            serviceLines.add(sl);
+            workbookKeys.add(`${loc}::${sl}`);
+        });
+
+        return {
+            totalAssets: assets.length,
+            uniqueLocations: locations.size,
+            uniqueServiceLines: serviceLines.size,
+            potentialWorkbooks: workbookKeys.size
+        };
+    }, [assets, selectedSite]);
+
+    // --- Hierarchy Computation ---
+    const hierarchy: HierarchyNode[] = useMemo(() => {
+        if (!selectedSite) return [];
+
+        const groups: Record<string, Record<string, number>> = {}; // Building -> Trade -> Count
+
+        assets.forEach(a => {
+            const loc = a.building || a.building_name || a.location || 'Unknown Building';
+            const sl = a.service_line || a.trade || 'General';
+
+            if (!groups[loc]) groups[loc] = {};
+            if (!groups[loc][sl]) groups[loc][sl] = 0;
+            groups[loc][sl]++;
+        });
+
+        // Map to array and attach existing surveys
+        const nodes: HierarchyNode[] = Object.keys(groups).sort().map(buildingName => {
+            const tradesObj = groups[buildingName];
+            const trades = Object.keys(tradesObj).sort().map(tradeName => {
+                // Find existing survey for this Trade
+                const survey = surveys.find(s => s.trade === tradeName);
+
+                return {
+                    name: tradeName,
+                    assetCount: tradesObj[tradeName],
+                    surveyId: survey?.id,
+                    surveyStatus: survey?.status
+                };
+            });
+
+            return { name: buildingName, trades };
+        });
+
+        return nodes;
+    }, [assets, surveys, selectedSite]);
+
+
+    // --- Actions ---
+
+    const handleBatchCreate = async () => {
+        if (!selectedSite) return;
+        setOperationLoading(true);
+        setOperationMessage('Analyzing & Creating Surveys...');
+
         try {
-            // Logic:
-            // 1. Iterate all surveys for this site.
-            // 2. Fetch assets & inspections for each survey.
-            // 3. Group by Location (Building).
-            // 4. Generate Excel for each Group.
-            // 5. Zip them? Or just save them to a specialized folder? 
-            //    On iOS, we can save to 'Documents/Surveys/Site/...' and open the folder?
-            //    Or just share one by one?
-            //    The user wants "organized into folders".
-            //    On mobile, creating actual folders visible to user is tricky without StorageAccessFramework (Android only).
-            //    On iOS, we can use Sharing.shareAsync with a ZIP file containing the folders?
-            //    Or just flat export with naming convention: "Site - Building - ServiceLine.xlsx".
+            // Identify unique trades needed
+            const neededTrades = new Set<string>();
+            assets.forEach(a => {
+                const sl = a.service_line || a.trade || 'General';
+                neededTrades.add(sl);
+            });
 
-            Alert.alert(
-                "Export Feature",
-                "This will generate multiple Excel files based on Location and Service Line.\n\nSince folder creation is restricted on mobile, files will be named:\n'[Location]_[ServiceLine].xlsx'",
-                [
-                    { text: "Cancel", style: "cancel", onPress: () => setExporting(false) },
-                    { text: "Continue", onPress: () => performBatchExport() }
-                ]
+            const tradesToCreate = Array.from(neededTrades).filter(trade =>
+                !surveys.find(s => s.trade === trade)
             );
 
+            if (tradesToCreate.length === 0) {
+                // Even if no NEW surveys needed, user clicked "Recreate/Sync".
+                Alert.alert("Sync Complete", "All required trade surveys already exist.");
+            } else {
+                // Create missing surveys
+                let createdCount = 0;
+                for (const trade of tradesToCreate) {
+                    setOperationMessage(`Creating survey for ${trade}...`);
+                    await surveysApi.create({
+                        siteId: selectedSite.id,
+                        trade: trade
+                    });
+                    createdCount++;
+                }
+                Alert.alert("Success", `Created ${createdCount} new surveys.`);
+                await loadSiteData(selectedSite); // refresh
+            }
+
         } catch (error) {
-            console.error(error);
-            setExporting(false);
+            console.error("Batch Create Error", error);
+            Alert.alert("Error", "Failed to generate surveys.");
+        } finally {
+            setOperationLoading(false);
         }
     };
 
-    const handleDeleteSurvey = (survey: any) => {
-        Alert.alert(
-            "Delete Survey",
-            `Are you sure you want to delete the survey for ${survey.trade}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            // Backend-Only Delete
-                            const { surveysApi } = require('../services/api');
-                            await surveysApi.delete(survey.id);
+    const handleViewReport = async (tradeItem: any, buildingName: string) => {
+        if (!tradeItem.surveyId) {
+            Alert.alert("No Survey", "No survey record exists for this trade yet. Please run 'Generate All'.");
+            return;
+        }
 
-                            // Also clear from local storage just in case it exists, to keep it clean
-                            // But primarily we rely on backend confirmation
-                            await hybridStorage.deleteSurvey(survey.id); // This attempts backend too in hybrid, but safe to call.
-                            // Actually, hybridStorage.deleteSurvey tries backend first. 
-                            // If we want purely backend explicit call:
-                            // await surveysApi.delete(survey.id);
-                            // BUT hybridStorage.deleteSurvey does: await surveysApi.delete(id) then local delete.
-                            // So calling hybridStorage.deleteSurvey is effectively doing what we want + cleaning local.
-                            // However, let's be explicit as requested "Backend Only" for the action, 
-                            // but we MUST clean local if we want to avoid re-syncing it down?
-                            // Actually, if we delete on backend, next sync will NOT download it.
-                            // But existing local copy will remain.
-                            // So we SHOULD delete locally too to keep device clean.
-                            // The user said "not depend on local storage", implying "don't read from it".
-                            // I will use surveysApi directly for the operation to fail if offline.
-
-
-                            // Refresh list
-                            if (selectedSite) {
-                                await loadSurveysForSite(selectedSite);
-                            }
-                            Alert.alert('Success', 'Survey deleted successfully');
-                        } catch (error) {
-                            console.error("Failed to delete survey:", error);
-                            Alert.alert("Error", "Failed to delete survey. Check internet.");
-                        } finally {
-                            setLoading(false);
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-
-
-    const performBatchExport = async () => {
+        setOperationLoading(true);
+        setOperationMessage(`Generating Report for ${buildingName}...`);
         try {
-            let filesGenerated = 0;
-            const generatedFiles: string[] = [];
+            // Naming convention: Site_Building_Trade.xlsx
+            const safeSite = selectedSite!.name.replace(/[^a-zA-Z0-9]/g, '_');
+            const safeBuilding = buildingName.replace(/[^a-zA-Z0-9]/g, '_');
+            const safeTrade = tradeItem.name.replace(/[^a-zA-Z0-9]/g, '_');
+            const filename = `${safeSite}_${safeBuilding}_${safeTrade}.xlsx`;
 
-            // Ensure directory exists
-            const dirInfo = await FileSystem.getInfoAsync(REPORTS_DIR);
-            if (!dirInfo.exists) {
-                await FileSystem.makeDirectoryAsync(REPORTS_DIR, { intermediates: true });
+            // Construct absolute path using FileSystem
+            const destination = `${FileSystem.documentDirectory}SavedReports/${filename}`;
+
+            const fileUri = await downloadSurveyReport(
+                tradeItem.surveyId,
+                buildingName,
+                destination
+            );
+
+            // Attempt to open/share
+            const Sharing = require('expo-sharing');
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri);
+            } else {
+                Alert.alert("Saved", `Report saved to: ${fileUri}`);
             }
 
-            for (const survey of surveys) {
-                const inspections = await hybridStorage.getInspectionsForSurvey(survey.id);
-                if (inspections.length === 0) continue;
-
-                // We need assets to know the location/building
-                const allAssets = await hybridStorage.getAssets(selectedSite.id);
-                const surveyData = inspections.map(insp => {
-                    const asset = allAssets.find(a => a.id === insp.asset_id);
-                    return { inspection: insp, asset };
-                }).filter(item => item.asset);
-
-                // Group by Building (Location)
-                const byBuilding: Record<string, any[]> = {};
-                surveyData.forEach(item => {
-                    const building = item.asset.building || item.asset.building_name || 'Unknown Building';
-                    if (!byBuilding[building]) byBuilding[building] = [];
-                    byBuilding[building].push(item);
-                });
-
-                // Generate Excel for each Building
-                for (const building of Object.keys(byBuilding)) {
-                    // Sanitize filename
-                    const safeBuilding = building.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-                    const safeSite = selectedSite.name.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-                    const safeTrade = survey.trade.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-
-                    const filename = `${safeSite}_${safeBuilding}_${safeTrade}.xlsx`;
-                    const destination = REPORTS_DIR + filename;
-
-                    // Use backend export feature which supports location filter
-                    // We simply request the export with 'location' param
-                    await downloadSurveyReport(survey.id, building, destination);
-
-                    console.log(`Generated ${filename}`);
-                    filesGenerated++;
-                    generatedFiles.push(filename);
-                }
-            }
-
-            setExporting(false);
-            Alert.alert("Export Complete", `Generated ${filesGenerated} files.\nChecked ${surveys.length} surveys.`);
-
-        } catch (e: any) {
-            Alert.alert("Error", e.message);
-            setExporting(false);
+        } catch (error: any) {
+            console.error("Report Gen Error", error);
+            Alert.alert("Error", error.message || "Failed to generate report.");
+        } finally {
+            setOperationLoading(false);
         }
     };
+
+    const toggleBuilding = (name: string) => {
+        setExpandedBuildings(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+
+    // --- Render ---
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: theme.colors.onBackground }}>Survey Management</Text>
+                <Text style={styles.title}>Command Center</Text>
 
                 {/* Site Selector */}
                 <Menu
@@ -259,8 +271,8 @@ export default function SurveyManagementScreen() {
                             mode="outlined"
                             onPress={() => setSiteMenuVisible(true)}
                             icon="chevron-down"
-                            contentStyle={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}
-                            style={{ marginBottom: 16, borderColor: theme.colors.outline }}
+                            contentStyle={{ flexDirection: 'row-reverse' }}
+                            style={{ borderColor: theme.colors.outline }}
                         >
                             {selectedSite ? selectedSite.name : "Select Site Scope..."}
                         </Button>
@@ -277,104 +289,126 @@ export default function SurveyManagementScreen() {
                         />
                     ))}
                 </Menu>
-
-                {/* Actions Bar */}
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-                    <Searchbar
-                        placeholder="Search surveys..."
-                        onChangeText={setSearchQuery}
-                        value={searchQuery}
-                        style={{ flex: 1, height: 45 }}
-                        inputStyle={{ minHeight: 0 }}
-                    />
-                    <IconButton
-                        icon="microsoft-excel"
-                        mode="contained"
-                        containerColor="#1D6F42"
-                        iconColor="white"
-                        size={24}
-                        disabled={!selectedSite || exporting}
-                        onPress={handleBatchExport}
-                    />
-                </View>
             </View>
 
             {loading ? (
-                <ActivityIndicator style={{ marginTop: 50 }} size="large" />
-            ) : (
-                <FlatList
-                    data={filteredSurveys}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
-                    renderItem={({ item }) => (
-                        <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                            <View style={styles.cardHeader}>
-                                <View>
-                                    <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.trade}</Text>
-                                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
-                                        {new Date(item.created_at).toLocaleDateString()} • {item.surveyor_name || 'Unknown Surveyor'}
-                                    </Text>
-                                </View>
-                                <Chip
-                                    style={{ backgroundColor: item.status === 'completed' || item.status === 'submitted' ? '#E6F4EA' : '#FEF7E0' }}
-                                    textStyle={{ color: item.status === 'completed' || item.status === 'submitted' ? '#1E8E3E' : '#D93025' }}
-                                    compact
-                                >
-                                    {item.status?.toUpperCase() || 'DRAFT'}
-                                </Chip>
-                            </View>
+                <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+            ) : selectedSite ? (
+                <ScrollView contentContainerStyle={{ padding: 16 }}>
 
-                            <Divider style={{ marginVertical: 12 }} />
+                    {/* Phase A: Analytics Header */}
+                    <Surface style={[styles.statsCard]} elevation={2}>
+                        <Text style={styles.statsTitle}>State of the Site</Text>
 
-                            <View style={styles.cardActions}>
-                                <Button
-                                    mode="text"
-                                    compact
-                                    onPress={() => navigation.navigate('AssetInspection', {
-                                        surveyId: item.id,
-                                        siteName: item.site_name,
-                                        trade: item.trade,
-                                        assetOption: 'resume' // Ensure this option loads existing
-                                    })}
-                                >
-                                    Resume / Edit
-                                </Button>
-                                <Button
-                                    mode="text"
-                                    compact
-                                    textColor={theme.colors.error}
-                                    onPress={() => handleDeleteSurvey(item)}
-                                >
-                                    Delete
-                                </Button>
+                        <View style={styles.statsGrid}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.totalAssets.toLocaleString()}</Text>
+                                <Text style={styles.statLabel}>Total Assets</Text>
                             </View>
-                        </Surface>
-                    )}
-                    ListEmptyComponent={
-                        <View style={{ alignItems: 'center', marginTop: 50 }}>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>
-                                {selectedSite ? "No surveys found for this site." : "Select a site to view surveys."}
-                            </Text>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.uniqueLocations}</Text>
+                                <Text style={styles.statLabel}>Locations</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.uniqueServiceLines}</Text>
+                                <Text style={styles.statLabel}>Service Lines</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.potentialWorkbooks}</Text>
+                                <Text style={styles.statLabel}>Workbooks</Text>
+                            </View>
                         </View>
-                    }
-                />
+
+                        <Divider style={{ marginVertical: 16 }} />
+
+                        <Button
+                            mode="contained"
+                            onPress={handleBatchCreate}
+                            disabled={operationLoading}
+                            style={{ backgroundColor: theme.colors.primary }}
+                        >
+                            {surveys.length === 0 ? "Generate All Surveys" : "Recreate Surveys & Sync Assets"}
+                        </Button>
+                        {operationLoading && <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 12 }}>{operationMessage}</Text>}
+                    </Surface>
+
+
+                    {/* Phase B: Hierarchy */}
+                    <Text style={styles.sectionTitle}>Workbooks (By Location)</Text>
+
+                    {hierarchy.map((node) => {
+                        const isExpanded = expandedBuildings[node.name];
+                        return (
+                            <Surface key={node.name} style={styles.buildingCard} elevation={1}>
+                                <Button
+                                    onPress={() => toggleBuilding(node.name)}
+                                    contentStyle={{ justifyContent: 'space-between' }}
+                                    labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+                                    style={{ borderRadius: 8 }}
+                                    icon={isExpanded ? "chevron-up" : "chevron-down"}
+                                >
+                                    {node.name} ({node.trades.length})
+                                </Button>
+
+                                {isExpanded && (
+                                    <View style={styles.tradesList}>
+                                        <Divider />
+                                        {node.trades.map(t => (
+                                            <View key={t.name} style={styles.tradeRow}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={{ fontWeight: '600' }}>{t.name}</Text>
+                                                    <Text style={{ fontSize: 12, color: 'gray' }}>{t.assetCount} assets • {t.surveyStatus || 'Missing'}</Text>
+                                                </View>
+                                                <Button
+                                                    mode="text"
+                                                    compact
+                                                    onPress={() => handleViewReport(t, node.name)}
+                                                    disabled={operationLoading || !t.surveyId}
+                                                >
+                                                    View Excel
+                                                </Button>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </Surface>
+                        );
+                    })}
+
+                    {hierarchy.length === 0 && (
+                        <Text style={{ textAlign: 'center', marginTop: 20, opacity: 0.5 }}>No assets found. Import assets to generate hierarchy.</Text>
+                    )}
+
+                </ScrollView>
+            ) : (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ opacity: 0.5 }}>Please select a site to view the command center.</Text>
+                </View>
             )}
 
-            <FAB
-                icon="plus"
-                label="New Survey"
-                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                onPress={handleCreateSurvey}
-            />
+            {/* Global Loader Overlay if needed for blocking ops */}
+            {operationLoading && (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="large" color="white" />
+                </View>
+            )}
+
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { padding: 20, paddingBottom: 0 },
-    card: { marginBottom: 12, borderRadius: 12, padding: 16 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    cardActions: { flexDirection: 'row', justifyContent: 'flex-end' },
-    fab: { position: 'absolute', right: 20, bottom: 20 },
+    header: { padding: 20, paddingBottom: 10 },
+    title: { fontSize: 28, fontWeight: '900', marginBottom: 16 },
+    statsCard: { padding: 20, borderRadius: 16, marginBottom: 24, backgroundColor: '#fff' },
+    statsTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    statItem: { width: '48%', marginBottom: 16, alignItems: 'flex-start' },
+    statValue: { fontSize: 24, fontWeight: 'bold', color: '#1B5E20' }, // Greenish for data
+    statLabel: { fontSize: 12, opacity: 0.6, textTransform: 'uppercase' },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginLeft: 4 },
+    buildingCard: { marginBottom: 12, borderRadius: 12, backgroundColor: '#fff', overflow: 'hidden' },
+    tradesList: { padding: 16, paddingTop: 0, backgroundColor: '#FAFAFA' },
+    tradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#eee' }
 });
