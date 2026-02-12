@@ -8,7 +8,8 @@ import * as hybridStorage from '../services/hybridStorage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as excelService from '../services/excelService';
-import { generateAndShareExcel } from '../services/excelService';
+import { syncService } from '../services/syncService';
+
 
 export default function ReportsScreen() {
     const theme = useTheme();
@@ -29,7 +30,10 @@ export default function ReportsScreen() {
     const [generatedFiles, setGeneratedFiles] = useState<any[]>([]);
 
     useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', loadReports);
+        const unsubscribe = navigation.addListener('focus', () => {
+            loadReports();
+            loadSites(); // Refresh sites in case they were synced
+        });
         return unsubscribe;
     }, [navigation]);
 
@@ -37,13 +41,16 @@ export default function ReportsScreen() {
         applyFilters();
     }, [searchQuery, statusFilter, allSurveys, selectedSite]);
 
-    useEffect(() => {
-        loadSites();
-    }, []);
+    // loadSites is now called on focus, initial useEffect removed to avoid duplicate logic
 
     const loadSites = async () => {
-        const allSites = await hybridStorage.getSites();
-        setSites(allSites);
+        try {
+            const allSites = await hybridStorage.getSites();
+            console.log(`ReportsScreen: Loaded ${allSites.length} sites`);
+            setSites(allSites);
+        } catch (e) {
+            console.error("ReportsScreen: Failed to load sites", e);
+        }
     };
 
     const loadReports = async () => {
@@ -99,7 +106,7 @@ export default function ReportsScreen() {
             const filename = `Survey_${survey.trade || 'General'}_${survey.id.substring(0, 8)}.xlsx`;
             const destination = `${siteDir}/${filename}`;
 
-            await generateAndShareExcel(survey, inspections, assets, destination);
+            await excelService.generateAndShareExcel(survey, inspections, assets, destination);
         } catch (e: any) {
             // Log only the message to avoid crashing LogBox with circular/deep error objects
             console.error('Error generating report:', e.message || String(e));
@@ -281,7 +288,32 @@ export default function ReportsScreen() {
                         setExporting(true);
                         setGeneratedFiles([]);
                         try {
-                            // Base SavedReports directory
+                            // 1. Auto-Create Surveys FIRST (if any missing)
+                            if (missingTrades.length > 0 && selectedSite) {
+                                for (const trade of missingTrades) {
+                                    try {
+                                        await hybridStorage.saveSurvey({
+                                            site_id: selectedSite.id,
+                                            trade: trade
+                                        });
+                                    } catch (e) {
+                                        console.error(`Failed to auto-create survey for ${trade}`, e);
+                                    }
+                                }
+                            }
+
+                            // 2. Force Sync ALL attempts (including new ones)
+                            try {
+                                console.log("Forcing sync before export...");
+                                await syncService.syncAll();
+                            } catch (e) {
+                                console.warn("Sync failed before export, some files may fail:", e);
+                            }
+
+                            // 3. RE-FETCH surveys from storage to get the latest server_ids after sync
+                            const freshSurveys = await storage.getSurveys();
+
+                            // 4. PREPARE DIRECTORIES
                             const baseReportsDir = FileSystem.documentDirectory + 'SavedReports';
                             await FileSystem.makeDirectoryAsync(baseReportsDir, { intermediates: true });
 
@@ -289,24 +321,18 @@ export default function ReportsScreen() {
                             const siteDir = `${baseReportsDir}/${cleanSiteName}`;
                             await FileSystem.makeDirectoryAsync(siteDir, { intermediates: true });
 
-                            const surveysToExport: any[] = [...filteredSurveys];
+                            // 5. FILTER FOR EXPORT
+                            const validIds = new Set(filteredSurveys.map(s => s.id));
+                            let surveysToExport: any[] = [];
 
-                            if (missingTrades.length > 0 && selectedSite) {
-                                for (const trade of missingTrades) {
-                                    try {
-                                        const newSurvey = await hybridStorage.saveSurvey({
-                                            site_id: selectedSite.id,
-                                            trade: trade
-                                        });
-                                        surveysToExport.push({
-                                            ...newSurvey,
-                                            site_name: selectedSite.name
-                                        });
-                                    } catch (e) {
-                                        console.error(`Failed to auto-create survey for ${trade}`, e);
-                                    }
-                                }
-                                loadReports();
+                            if (selectedSite) {
+                                surveysToExport = freshSurveys.filter(s => {
+                                    const survey: any = s;
+                                    return (survey.site_id === selectedSite.id || survey.siteId === selectedSite.id) &&
+                                        (statusFilter === 'all' || survey.status === statusFilter);
+                                });
+                            } else {
+                                surveysToExport = freshSurveys.filter(s => validIds.has(s.id));
                             }
 
                             const files = [];
@@ -318,15 +344,19 @@ export default function ReportsScreen() {
 
                                 const locations = new Set(surveyAssets.map((a: any) => a.building).filter(Boolean));
 
+                                // ID to use for export: Priority server_id, else local id
+                                const exportId = survey.server_id || survey.id;
+
                                 if (locations.size === 0) {
-                                    const filename = `${survey.trade}_${survey.id}.xlsx`;
+                                    const filename = `${survey.trade}_${survey.id.substring(0, 8)}.xlsx`;
 
                                     // Default "General" location folder
                                     const locationDir = `${siteDir}/General`;
                                     await FileSystem.makeDirectoryAsync(locationDir, { intermediates: true });
 
                                     const path = `${locationDir}/${filename}`;
-                                    await excelService.downloadSurveyReport(survey.id, undefined, path);
+                                    // PASS exportId (server_id) to the service
+                                    await excelService.downloadSurveyReport(exportId, undefined, path);
                                     files.push({ name: filename, uri: path, trade: survey.trade, location: 'General' });
                                 } else {
                                     for (const location of locations) {
@@ -336,7 +366,7 @@ export default function ReportsScreen() {
 
                                         const filename = `${survey.trade}_${cleanLocation}.xlsx`;
                                         const path = `${locationDir}/${filename}`;
-                                        await excelService.downloadSurveyReport(survey.id, location as string, path);
+                                        await excelService.downloadSurveyReport(exportId, location as string, path);
                                         files.push({ name: filename, uri: path, trade: survey.trade, location: location as string });
                                     }
                                 }
@@ -368,7 +398,7 @@ export default function ReportsScreen() {
                             {selectedSite?.name || 'All Sites'} ({filteredSurveys.length})
                         </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', gap: 4, zIndex: 100 }}>
                         <IconButton
                             icon="folder-text-outline"
                             mode="contained"
@@ -471,7 +501,7 @@ export default function ReportsScreen() {
             <FlatList
                 style={{ flex: 1 }}
                 data={filteredSurveys}
-                keyExtractor={item => item.id}
+                keyExtractor={(item, index) => `${item.id}-${index}`}
                 renderItem={renderItem}
                 contentContainerStyle={{ padding: 20, paddingTop: 0 }}
                 ListEmptyComponent={
