@@ -50,9 +50,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
 
         const user = userResult.rows[0];
+        console.log(`👤 Middleware Auth: User found ${user.email}, Role: ${user.role}, Active: ${user.is_active}`);
 
         // Check if user is active
         if (user.is_active === false) {
+            console.log(`🚫 Middleware Auth: User ${user.email} is inactive`);
             return res.status(403).json({ error: 'Account is deactivated. Please contact administrator.' });
         }
 
@@ -83,6 +85,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 export const authorize = (...allowedRoles: string[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
         if (!req.user) {
+            console.log(`🚫 Middleware Authorize: No user on request object`);
             return res.status(401).json({ error: 'Not authenticated' });
         }
 
@@ -90,6 +93,7 @@ export const authorize = (...allowedRoles: string[]) => {
         const hasRole = allowedRoles.some(role => role.toLowerCase() === userRole);
 
         if (!hasRole) {
+            console.log(`🚫 Middleware Authorize: User ${req.user.email} with role ${req.user.role} does not have required roles: ${allowedRoles}`);
             return res.status(403).json({
                 error: 'Insufficient permissions',
                 required: allowedRoles,
@@ -97,6 +101,7 @@ export const authorize = (...allowedRoles: string[]) => {
             });
         }
 
+        console.log(`✅ Middleware Authorize: User ${req.user.email} authorized`);
         next();
     };
 };
