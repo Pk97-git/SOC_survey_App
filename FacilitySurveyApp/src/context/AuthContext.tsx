@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 import { authApi, getAuthToken, removeAuthToken } from '../services/api';
 
 interface User {
@@ -28,10 +29,20 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const isLoggingOut = React.useRef(false);
 
     useEffect(() => {
         // Check for existing session
         checkLogin();
+
+        // Listen for auth:logout event (from api interceptor)
+        const subscription = DeviceEventEmitter.addListener('auth:logout', () => {
+            logout();
+        });
+
+        return () => {
+            subscription.remove();
+        };
     }, []);
 
     const checkLogin = async () => {
@@ -82,14 +93,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logout = async () => {
+        if (isLoggingOut.current) return;
+        isLoggingOut.current = true;
+
         try {
             await authApi.logout();
         } catch (error: any) {
-            console.error('Logout error:', error.message || String(error));
+            // Ignore 401 (Unauthorized) and 429 (Too Many Requests) during logout
+            if (error.response?.status !== 401 && error.response?.status !== 429) {
+                console.error('Logout error:', error.message || String(error));
+            }
         } finally {
             setUser(null);
             await removeAuthToken();
             await AsyncStorage.removeItem('user');
+            isLoggingOut.current = false;
         }
     };
 

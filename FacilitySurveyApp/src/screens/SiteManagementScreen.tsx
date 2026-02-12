@@ -201,19 +201,21 @@ export default function SiteManagementScreen() {
                 contentContainerStyle={styles.listContent}
                 renderItem={({ item }) => (
                     <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                        <View style={styles.cardContent}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.siteName, { color: theme.colors.onSurface }]}>{item.name}</Text>
-                                {item.location ? (
-                                    <Text style={{ color: theme.colors.secondary }}>📍 {item.location}</Text>
-                                ) : null}
-                                {item.client ? (
-                                    <Text style={{ color: theme.colors.outline }}>🏢 {item.client}</Text>
-                                ) : null}
-                            </View>
-                            <View style={styles.actions}>
-                                <IconButton icon="pencil" size={20} onPress={() => showDialog(item)} />
-                                <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => handleDelete(item)} />
+                        <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+                            <View style={styles.cardContent}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.siteName, { color: theme.colors.onSurface }]}>{item.name}</Text>
+                                    {item.location ? (
+                                        <Text style={{ color: theme.colors.secondary }}>📍 {item.location}</Text>
+                                    ) : null}
+                                    {item.client ? (
+                                        <Text style={{ color: theme.colors.outline }}>🏢 {item.client}</Text>
+                                    ) : null}
+                                </View>
+                                <View style={styles.actions}>
+                                    <IconButton icon="pencil" size={20} onPress={() => showDialog(item)} />
+                                    <IconButton icon="delete" size={20} iconColor={theme.colors.error} onPress={() => handleDelete(item)} />
+                                </View>
                             </View>
                         </View>
                     </Surface>
@@ -330,7 +332,7 @@ const styles = StyleSheet.create({
     card: {
         marginBottom: 16,
         borderRadius: 20,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
         borderWidth: 1,
         borderColor: '#E7E5E4'
     },

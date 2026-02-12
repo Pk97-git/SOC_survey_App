@@ -72,7 +72,7 @@ export default function ReviewerDashboardScreen() {
                 borderColor: color.border
             }}>
                 <Text style={{ color: color.text, fontSize: 10, fontWeight: '700' }}>
-                    {status.toUpperCase().replace('_', ' ')}
+                    {status?.toUpperCase().replace('_', ' ') || 'UNKNOWN'}
                 </Text>
             </View>
         );

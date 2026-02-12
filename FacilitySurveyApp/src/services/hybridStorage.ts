@@ -5,6 +5,7 @@ import { storage as localStorage } from './storage';
 
 // syncService handles background sync
 import { syncService } from './syncService';
+export { syncService };
 
 // Feature flag removed: Always offline-first for core field operations
 // Admin operations (Sites, Assets) might still be online-dependent for now until full sync is implemented.
@@ -21,8 +22,10 @@ export const getSites = async () => {
             // For now, cache is fine for read-heavy sites.
             return sites;
         }
-    } catch (error) {
-        console.error('Failed to fetch sites from backend, using cache:', error);
+    } catch (error: any) {
+        if (error.response?.status !== 401) {
+            console.error('Failed to fetch sites from backend, using cache:', error);
+        }
     }
     return await getCachedData('sites_cache') || await localStorage.getSites();
 };
@@ -102,8 +105,10 @@ export const getAssets = async (siteId?: string) => {
             await cacheData(`assets_cache_${siteId || 'all'}`, assets);
             return assets;
         }
-    } catch (error) {
-        console.error('Failed to fetch assets from backend, using cache:', error);
+    } catch (error: any) {
+        if (error.response?.status !== 401) {
+            console.error('Failed to fetch assets from backend, using cache:', error);
+        }
     }
     return await getCachedData(`assets_cache_${siteId || 'all'}`) || await localStorage.getAssets(siteId);
 };
@@ -211,8 +216,10 @@ export const getSurveys = async () => {
             // For now, we return backend data directly to ensure latest view
             return surveys;
         }
-    } catch (error) {
-        console.error('Failed to fetch surveys from backend:', error);
+    } catch (error: any) {
+        if (error.response?.status !== 401) {
+            console.error('Failed to fetch surveys from backend:', error);
+        }
     }
     return await localStorage.getSurveys();
 };
@@ -263,8 +270,10 @@ export const getInspectionsForSurvey = async (surveyId: string) => {
             const inspections = await inspectionsApi.getBySurvey(surveyId);
             return inspections;
         }
-    } catch (error) {
-        console.error('Failed to fetch inspections from backend:', error);
+    } catch (error: any) {
+        if (error.response?.status !== 401) {
+            console.error('Failed to fetch inspections from backend:', error);
+        }
     }
     return await localStorage.getInspectionsForSurvey(surveyId);
 };
@@ -298,5 +307,16 @@ const getCachedData = async (key: string) => {
     } catch (error) {
         console.error('Failed to get cached data:', error);
         return null;
+    }
+};
+
+export const clearCache = async () => {
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+        const cacheKeys = keys.filter(key => key.includes('assets_cache') || key.includes('sites_cache'));
+        await AsyncStorage.multiRemove(cacheKeys);
+        console.log('Main cache cleared');
+    } catch (error) {
+        console.error('Failed to clear cache:', error);
     }
 };

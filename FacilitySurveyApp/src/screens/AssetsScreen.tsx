@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     card: {
         marginBottom: 12,
         borderRadius: 16,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
     },
     cardContent: {
         flexDirection: 'row',
@@ -88,31 +88,33 @@ const styles = StyleSheet.create({
 
 const AssetItem = React.memo(({ item, onEdit, onDelete, theme }: any) => (
     <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
-        <View style={styles.cardContent}>
-            <View style={{ flex: 1 }}>
-                <Text style={[styles.assetName, { color: theme.colors.onSurface }]} numberOfLines={1}>
-                    {item.name} <Text style={{ fontSize: 12, color: item.status === 'Active' ? theme.colors.primary : theme.colors.error }}>({item.status})</Text>
-                </Text>
-                <Text style={[styles.assetDetails, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-                    {item.service_line} • {item.ref_code} {item.asset_tag ? `/ ${item.asset_tag}` : ''}
-                </Text>
-                <Text style={[styles.assetLocation, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-                    {item.building} • {item.location}
-                </Text>
-            </View>
-            <View style={styles.actions}>
-                <IconButton
-                    icon="pencil"
-                    size={20}
-                    iconColor={theme.colors.primary}
-                    onPress={() => onEdit(item)}
-                />
-                <IconButton
-                    icon="delete"
-                    size={20}
-                    iconColor={theme.colors.error}
-                    onPress={() => onDelete(item.id)}
-                />
+        <View style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <View style={styles.cardContent}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.assetName, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                        {item.name} <Text style={{ fontSize: 12, color: item.status === 'Active' ? theme.colors.primary : theme.colors.error }}>({item.status})</Text>
+                    </Text>
+                    <Text style={[styles.assetDetails, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                        {item.service_line} • {item.ref_code} {item.asset_tag ? `/ ${item.asset_tag}` : ''}
+                    </Text>
+                    <Text style={[styles.assetLocation, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+                        {item.building} • {item.location}
+                    </Text>
+                </View>
+                <View style={styles.actions}>
+                    <IconButton
+                        icon="pencil"
+                        size={20}
+                        iconColor={theme.colors.primary}
+                        onPress={() => onEdit(item)}
+                    />
+                    <IconButton
+                        icon="delete"
+                        size={20}
+                        iconColor={theme.colors.error}
+                        onPress={() => onDelete(item.id)}
+                    />
+                </View>
             </View>
         </View>
     </Surface>
@@ -124,6 +126,13 @@ export default function AssetsScreen() {
     const [assets, setAssets] = useState<any[]>([]);
     const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [selectedServiceLine, setSelectedServiceLine] = useState<string | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+    const [serviceLines, setServiceLines] = useState<string[]>([]);
+    const [locations, setLocations] = useState<string[]>([]);
+    const [serviceLineMenuVisible, setServiceLineMenuVisible] = useState(false);
+    const [locationMenuVisible, setLocationMenuVisible] = useState(false);
 
     // Phase 5: Enforce Site Selection
     const [selectedSite, setSelectedSite] = useState<any | null>(null);
@@ -141,15 +150,20 @@ export default function AssetsScreen() {
     useEffect(() => {
         if (selectedSite) {
             loadAssetsForSite(selectedSite);
+            // Reset filters when site changes
+            setSelectedServiceLine(null);
+            setSelectedLocation(null);
         } else {
             setAssets([]);
             setFilteredAssets([]);
+            setServiceLines([]);
+            setLocations([]);
         }
     }, [selectedSite]);
 
     useEffect(() => {
         filterAssets();
-    }, [searchQuery, assets]);
+    }, [searchQuery, assets, selectedServiceLine, selectedLocation]);
 
     const loadSites = async () => {
         const allSites = await hybridStorage.getSites();
@@ -163,6 +177,12 @@ export default function AssetsScreen() {
             console.log(`Loaded ${siteAssets.length} assets for site ${site.name}`);
             setAssets(siteAssets);
             setFilteredAssets(siteAssets);
+
+            // Extract unique filter options
+            const uniqueServiceLines = Array.from(new Set(siteAssets.map((a: any) => a.service_line).filter(Boolean))).sort() as string[];
+            const uniqueLocations = Array.from(new Set(siteAssets.map((a: any) => a.location).filter(Boolean))).sort() as string[];
+            setServiceLines(uniqueServiceLines);
+            setLocations(uniqueLocations);
         } catch (error) {
             console.error('Failed to load assets:', error);
             Alert.alert('Error', 'Failed to load assets for this site.');
@@ -179,6 +199,15 @@ export default function AssetsScreen() {
                 asset.service_line?.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
+
+        if (selectedServiceLine) {
+            filtered = filtered.filter((asset: any) => asset.service_line === selectedServiceLine);
+        }
+
+        if (selectedLocation) {
+            filtered = filtered.filter((asset: any) => asset.location === selectedLocation);
+        }
+
         setFilteredAssets(filtered);
     };
 
@@ -386,6 +415,71 @@ export default function AssetsScreen() {
                         />
                     </View>
 
+                    {/* Filters */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                        {/* Service Line Filter */}
+                        <Menu
+                            visible={serviceLineMenuVisible}
+                            onDismiss={() => setServiceLineMenuVisible(false)}
+                            anchor={
+                                <Button
+                                    mode={selectedServiceLine ? "contained" : "outlined"}
+                                    onPress={() => setServiceLineMenuVisible(true)}
+                                    icon="filter-variant"
+                                    compact
+                                    contentStyle={{ flexDirection: 'row-reverse' }}
+                                >
+                                    {selectedServiceLine || "Service Line"}
+                                </Button>
+                            }
+                        >
+                            <Menu.Item onPress={() => { setSelectedServiceLine(null); setServiceLineMenuVisible(false); }} title="All Service Lines" />
+                            <Divider />
+                            {serviceLines.map(sl => (
+                                <Menu.Item
+                                    key={sl}
+                                    onPress={() => { setSelectedServiceLine(sl); setServiceLineMenuVisible(false); }}
+                                    title={sl}
+                                />
+                            ))}
+                        </Menu>
+
+                        {/* Location Filter */}
+                        <Menu
+                            visible={locationMenuVisible}
+                            onDismiss={() => setLocationMenuVisible(false)}
+                            anchor={
+                                <Button
+                                    mode={selectedLocation ? "contained" : "outlined"}
+                                    onPress={() => setLocationMenuVisible(true)}
+                                    icon="map-marker"
+                                    compact
+                                    contentStyle={{ flexDirection: 'row-reverse' }}
+                                >
+                                    {selectedLocation || "Location"}
+                                </Button>
+                            }
+                        >
+                            <Menu.Item onPress={() => { setSelectedLocation(null); setLocationMenuVisible(false); }} title="All Locations" />
+                            <Divider />
+                            {locations.map(loc => (
+                                <Menu.Item
+                                    key={loc}
+                                    onPress={() => { setSelectedLocation(loc); setLocationMenuVisible(false); }}
+                                    title={loc}
+                                />
+                            ))}
+                        </Menu>
+
+                        {(selectedServiceLine || selectedLocation) && (
+                            <IconButton
+                                icon="close-circle-outline"
+                                size={20}
+                                onPress={() => { setSelectedServiceLine(null); setSelectedLocation(null); }}
+                            />
+                        )}
+                    </View>
+
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
                         <Text style={{ color: theme.colors.onSurfaceVariant }}>
                             {filteredAssets.length} assets found
@@ -396,7 +490,7 @@ export default function AssetsScreen() {
                     <FlatList
                         data={filteredAssets}
                         style={{ flex: 1 }}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item, index) => item.id ? `${item.id}-${index}` : `asset-${index}`}
                         contentContainerStyle={styles.listContent}
                         initialNumToRender={10}
                         maxToRenderPerBatch={10}

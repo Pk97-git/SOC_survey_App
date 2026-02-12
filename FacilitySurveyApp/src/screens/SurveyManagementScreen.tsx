@@ -6,8 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as hybridStorage from '../services/hybridStorage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { StorageAccessFramework } from 'expo-file-system'; // For Android folder access if needed
-import { generateExcelBuffer } from '../services/excelService'; // We'll need to expose the buffer generator
+import { downloadSurveyReport } from '../services/excelService';
+
+// Root directory for saved reports
+const REPORTS_DIR = FileSystem.documentDirectory + 'SavedReports/';
 
 export default function SurveyManagementScreen() {
     const navigation = useNavigation<any>();
@@ -43,9 +45,9 @@ export default function SurveyManagementScreen() {
         if (searchQuery) {
             const lower = searchQuery.toLowerCase();
             setFilteredSurveys(surveys.filter(s =>
-                s.trade?.toLowerCase().includes(lower) ||
-                s.surveyor_name?.toLowerCase().includes(lower) ||
-                s.status?.toLowerCase().includes(lower)
+                (s.trade || '').toLowerCase().includes(lower) ||
+                (s.surveyor_name || '').toLowerCase().includes(lower) ||
+                (s.status || '').toLowerCase().includes(lower)
             ));
         } else {
             setFilteredSurveys(surveys);
@@ -168,27 +170,25 @@ export default function SurveyManagementScreen() {
         );
     };
 
+
+
     const performBatchExport = async () => {
         try {
             let filesGenerated = 0;
             const generatedFiles: string[] = [];
 
-            // We need to group ALL inspection data for this Site.
-            // Instead of per-survey, let's just get ALL inspections for this site across known surveys.
-            // BUT each survey might correspond to a specific timeframe. 
-            // The user implied "create surveys" -> "create excels".
-            // Maybe they want to export *selected* surveys? 
-            // Let's assume export ALL for now.
+            // Ensure directory exists
+            const dirInfo = await FileSystem.getInfoAsync(REPORTS_DIR);
+            if (!dirInfo.exists) {
+                await FileSystem.makeDirectoryAsync(REPORTS_DIR, { intermediates: true });
+            }
 
             for (const survey of surveys) {
                 const inspections = await hybridStorage.getInspectionsForSurvey(survey.id);
                 if (inspections.length === 0) continue;
 
                 // We need assets to know the location/building
-                // Inspections have 'asset_id'.
-                // We need to fetch assets.
-                const allAssets = await hybridStorage.getAssets(selectedSite.id); // Assuming we can get all assets for site
-                // Map assets to inspections
+                const allAssets = await hybridStorage.getAssets(selectedSite.id);
                 const surveyData = inspections.map(insp => {
                     const asset = allAssets.find(a => a.id === insp.asset_id);
                     return { inspection: insp, asset };
@@ -204,16 +204,19 @@ export default function SurveyManagementScreen() {
 
                 // Generate Excel for each Building
                 for (const building of Object.keys(byBuilding)) {
-                    const items = byBuilding[building];
-                    const filename = `${selectedSite.name}_${building}_${survey.trade}.xlsx`.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                    // Sanitize filename
+                    const safeBuilding = building.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                    const safeSite = selectedSite.name.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                    const safeTrade = survey.trade.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
 
-                    // We need a service that generates the file buffer/uri
-                    // I will reuse generateAndShareExcel logic but adapted for saving/returning URI instead of sharing immediately.
-                    // NOTE: generateAndShareExcel in excelService shares immediately. I might need to refactor it.
-                    // For now, I'll call a hypothetical 'generateExcelFile' I will add to excelService.
+                    const filename = `${safeSite}_${safeBuilding}_${safeTrade}.xlsx`;
+                    const destination = REPORTS_DIR + filename;
 
-                    // placeholder
-                    console.log(`Generating ${filename} with ${items.length} items...`);
+                    // Use backend export feature which supports location filter
+                    // We simply request the export with 'location' param
+                    await downloadSurveyReport(survey.id, building, destination);
+
+                    console.log(`Generated ${filename}`);
                     filesGenerated++;
                     generatedFiles.push(filename);
                 }

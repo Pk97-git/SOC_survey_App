@@ -36,8 +36,11 @@ export default function SavedReportsScreen() {
     const [parsing, setParsing] = useState(false);
 
     useEffect(() => {
-        ensureDirectoryExists();
-        loadDir(currentPath);
+        const init = async () => {
+            await ensureDirectoryExists();
+            loadDir(currentPath);
+        };
+        init();
     }, [currentPath]);
 
     const ensureDirectoryExists = async () => {

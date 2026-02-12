@@ -64,6 +64,28 @@ export default function ProfileScreen() {
         }
     };
 
+    const handleClearCache = async () => {
+        Alert.alert(
+            'Clear Cache',
+            'This will clear locally cached data (Sites & Assets) and force a fresh fetch from the backend on next load. Continue?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setLoading(true);
+                        // Import dynamically to avoid cycle if needed, or just use imported
+                        const { clearCache } = require('../services/hybridStorage');
+                        await clearCache();
+                        setLoading(false);
+                        Alert.alert('Success', 'Local cache cleared. Data will be fetched from backend now.');
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Text style={[styles.screenTitle, { color: theme.colors.onBackground }]}>My Profile</Text>
@@ -107,17 +129,28 @@ export default function ProfileScreen() {
                     </Text>
                     <View style={styles.syncContainer}>
                         <View>
-                            <Text style={[styles.syncLabel, { color: theme.colors.onSurface }]}>Sync Status</Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>Last synced: Just now</Text>
+                            <Text style={[styles.syncLabel, { color: theme.colors.onSurface }]}>Data & Cache</Text>
+                            <Text style={{ color: theme.colors.onSurfaceVariant }}>Manage local data</Text>
                         </View>
-                        <IconButton
-                            icon="database-sync"
-                            mode="contained"
-                            iconColor={theme.colors.primary}
-                            containerColor={theme.colors.primaryContainer}
-                            size={28}
-                            onPress={() => Alert.alert('Sync', 'Syncing data...')}
-                        />
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Button
+                                mode="outlined"
+                                onPress={handleClearCache}
+                                disabled={loading}
+                                icon="delete-sweep"
+                                compact
+                            >
+                                Clear Cache
+                            </Button>
+                            <IconButton
+                                icon="database-sync"
+                                mode="contained"
+                                iconColor={theme.colors.primary}
+                                containerColor={theme.colors.primaryContainer}
+                                size={28}
+                                onPress={() => Alert.alert('Sync', 'Syncing data...')}
+                            />
+                        </View>
                     </View>
                 </View>
 

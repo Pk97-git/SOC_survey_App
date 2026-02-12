@@ -44,6 +44,11 @@ router.get('/:surveyId/inspections', authenticate, async (req: AuthRequest, res:
         res.json({ inspections: result.rows });
     } catch (error: any) {
         console.error('Get inspections error:', error);
+        // Temporary logging
+        const fs = require('fs');
+        const path = require('path');
+        fs.appendFileSync(path.join(__dirname, '../../error.log'), `${new Date().toISOString()} - Get inspections error: ${error.message} - ${JSON.stringify(error)}\n`);
+
         res.status(500).json({ error: 'Failed to get inspections' });
     }
 });

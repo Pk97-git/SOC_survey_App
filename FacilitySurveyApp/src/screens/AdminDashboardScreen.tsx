@@ -42,8 +42,10 @@ export default function AdminDashboardScreen() {
                         completedToday: onlineStats.completedToday,
                     });
                     return;
-                } catch (error) {
-                    console.error('Failed to fetch dashboard stats from backend, falling back to local:', error);
+                } catch (error: any) {
+                    if (error.response?.status !== 401) {
+                        console.error('Failed to fetch dashboard stats from backend, falling back to local:', error);
+                    }
                 }
             }
 
@@ -120,19 +122,21 @@ export default function AdminDashboardScreen() {
 
     const ActionCard = ({ title, description, icon, onPress }: any) => (
         <Surface style={[styles.actionCard, { backgroundColor: theme.colors.surface }]} elevation={2} onTouchEnd={onPress}>
-            <View style={styles.actionContent}>
-                <View style={[styles.actionIconBox, { backgroundColor: theme.colors.secondaryContainer }]}>
-                    <IconButton icon={icon} iconColor={theme.colors.onSecondaryContainer} size={24} />
+            <View style={{ borderRadius: 16, overflow: 'hidden' }}>
+                <View style={styles.actionContent}>
+                    <View style={[styles.actionIconBox, { backgroundColor: theme.colors.secondaryContainer }]}>
+                        <IconButton icon={icon} iconColor={theme.colors.onSecondaryContainer} size={24} />
+                    </View>
+                    <View style={{ flex: 1, paddingHorizontal: 16 }}>
+                        <Text style={[styles.actionTitle, { color: theme.colors.onSurface }]}>
+                            {title}
+                        </Text>
+                        <Text style={[styles.actionDescription, { color: theme.colors.onSurfaceVariant }]}>
+                            {description}
+                        </Text>
+                    </View>
+                    <IconButton icon="chevron-right" iconColor={theme.colors.onSurfaceVariant} size={24} />
                 </View>
-                <View style={{ flex: 1, paddingHorizontal: 16 }}>
-                    <Text style={[styles.actionTitle, { color: theme.colors.onSurface }]}>
-                        {title}
-                    </Text>
-                    <Text style={[styles.actionDescription, { color: theme.colors.onSurfaceVariant }]}>
-                        {description}
-                    </Text>
-                </View>
-                <IconButton icon="chevron-right" iconColor={theme.colors.onSurfaceVariant} size={24} />
             </View>
         </Surface>
     );
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
     actionCard: {
         marginBottom: 16,
         borderRadius: 16,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
         shadowColor: '#000',
         shadowOpacity: 0.05,
         shadowRadius: 10,

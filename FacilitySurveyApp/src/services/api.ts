@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Platform, DeviceEventEmitter } from 'react-native';
 
 // API Configuration
 const API_BASE_URL = __DEV__
@@ -81,7 +81,11 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             // Token expired or invalid - clear token
             await removeAuthToken();
-            // You could also trigger a logout/redirect here
+
+            // Only emit logout if the request wasn't already a logout attempt (prevents loops)
+            if (!error.config.url?.includes('/auth/logout')) {
+                DeviceEventEmitter.emit('auth:logout');
+            }
         }
         return Promise.reject(error);
     }
@@ -362,7 +366,9 @@ export const syncApi = {
                 return;
             }
             // Silent fail for logs
-            console.warn('Failed to log sync event:', error);
+            if (axios.isAxiosError(error) && error.response?.status !== 401) {
+                console.warn('Failed to log sync event:', error);
+            }
         }
     }
 };

@@ -151,84 +151,86 @@ export default function ReportsScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1}>
-            <View style={styles.cardContent}>
-                <Surface style={[styles.iconBox, { backgroundColor: theme.colors.primaryContainer }]}>
-                    <Avatar.Icon
-                        size={32}
-                        icon={item.status === 'submitted' ? 'file-check' : 'file-document'}
-                        color={theme.colors.onPrimaryContainer}
-                        style={{ backgroundColor: 'transparent' }}
-                    />
-                </Surface>
-                <View style={styles.surveyInfo}>
-                    <Text style={styles.siteName}>{item.site_name || 'Unnamed Site'}</Text>
-                    <Text style={styles.surveyDetails}>
-                        {item.trade || 'General'}
-                        {item.location ? ` • ${item.location}` : ''}
-                        • {new Date(item.created_at).toLocaleDateString()}
-                    </Text>
-                    {item.surveyor_name && (
-                        <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-                            By: {item.surveyor_name}
+            <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+                <View style={styles.cardContent}>
+                    <Surface style={[styles.iconBox, { backgroundColor: theme.colors.primaryContainer }]}>
+                        <Avatar.Icon
+                            size={32}
+                            icon={item.status === 'submitted' ? 'file-check' : 'file-document'}
+                            color={theme.colors.onPrimaryContainer}
+                            style={{ backgroundColor: 'transparent' }}
+                        />
+                    </Surface>
+                    <View style={styles.surveyInfo}>
+                        <Text style={styles.siteName}>{item.site_name || 'Unnamed Site'}</Text>
+                        <Text style={styles.surveyDetails}>
+                            {item.trade || 'General'}
+                            {item.location ? ` • ${item.location}` : ''}
+                            • {new Date(item.created_at).toLocaleDateString()}
                         </Text>
-                    )}
-                    <View style={[
-                        styles.statusBadge,
-                        { backgroundColor: item.status === 'submitted' ? theme.colors.primaryContainer : theme.colors.surfaceVariant }
-                    ]}>
-                        <Text style={{
-                            fontSize: 12,
-                            color: item.status === 'submitted' ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant
-                        }}>
-                            {item.status.toUpperCase()}
-                        </Text>
+                        {item.surveyor_name && (
+                            <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                                By: {item.surveyor_name}
+                            </Text>
+                        )}
+                        <View style={[
+                            styles.statusBadge,
+                            { backgroundColor: item.status === 'submitted' ? theme.colors.primaryContainer : theme.colors.surfaceVariant }
+                        ]}>
+                            <Text style={{
+                                fontSize: 12,
+                                color: item.status === 'submitted' ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant
+                            }}>
+                                {item.status?.toUpperCase() || 'UNKNOWN'}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.actions}>
+                        {item.status !== 'submitted' && (
+                            <Button
+                                mode="contained-tonal"
+                                compact
+                                onPress={async () => {
+                                    const assets = await storage.getAssets();
+                                    const surveyAssets = assets.filter((a: any) =>
+                                        a.site_name === item.site_name &&
+                                        (!item.trade || a.service_line === item.trade) &&
+                                        (!item.location || a.floor === item.location || a.area === item.location)
+                                    );
+
+                                    navigation.navigate('AssetInspection', {
+                                        surveyId: item.id,
+                                        siteName: item.site_name,
+                                        trade: item.trade,
+                                        location: item.location,
+                                        preloadedAssets: surveyAssets,
+                                        assetOption: 'resume'
+                                    })
+                                }}
+                            >
+                                Resume
+                            </Button>
+                        )}
+                        <IconButton
+                            icon="share-variant"
+                            mode="contained"
+                            containerColor={theme.colors.primaryContainer}
+                            iconColor={theme.colors.onPrimaryContainer}
+                            onPress={() => handleGenerateReport(item)}
+                            size={20}
+                        />
+                        <IconButton
+                            icon="delete"
+                            mode="contained"
+                            containerColor={theme.colors.errorContainer}
+                            iconColor={theme.colors.onErrorContainer}
+                            onPress={() => handleDeleteSurvey(item.id)}
+                            size={20}
+                        />
                     </View>
                 </View>
-                <View style={styles.actions}>
-                    {item.status !== 'submitted' && (
-                        <Button
-                            mode="contained-tonal"
-                            compact
-                            onPress={async () => {
-                                const assets = await storage.getAssets();
-                                const surveyAssets = assets.filter((a: any) =>
-                                    a.site_name === item.site_name &&
-                                    (!item.trade || a.service_line === item.trade) &&
-                                    (!item.location || a.floor === item.location || a.area === item.location)
-                                );
-
-                                navigation.navigate('AssetInspection', {
-                                    surveyId: item.id,
-                                    siteName: item.site_name,
-                                    trade: item.trade,
-                                    location: item.location,
-                                    preloadedAssets: surveyAssets,
-                                    assetOption: 'resume'
-                                })
-                            }}
-                        >
-                            Resume
-                        </Button>
-                    )}
-                    <IconButton
-                        icon="share-variant"
-                        mode="contained"
-                        containerColor={theme.colors.primaryContainer}
-                        iconColor={theme.colors.onPrimaryContainer}
-                        onPress={() => handleGenerateReport(item)}
-                        size={20}
-                    />
-                    <IconButton
-                        icon="delete"
-                        mode="contained"
-                        containerColor={theme.colors.errorContainer}
-                        iconColor={theme.colors.onErrorContainer}
-                        onPress={() => handleDeleteSurvey(item.id)}
-                        size={20}
-                    />
-                </View>
             </View>
-        </Surface>
+        </Surface >
     );
 
     const [exporting, setExporting] = useState(false);
@@ -585,7 +587,7 @@ const styles = StyleSheet.create({
     card: {
         marginBottom: 16,
         borderRadius: 20,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
         borderWidth: 1,
         borderColor: '#E7E5E4'
     },

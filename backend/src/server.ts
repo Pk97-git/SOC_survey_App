@@ -35,7 +35,7 @@ const limiter = rateLimit({
 // Stricter limiter for authentication routes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // 20 attempts per 15 mins (login/register/forgot-password)
+    max: 100, // Allow more attempts during development/testing
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many login attempts, please try again in 15 minutes.' }
@@ -44,13 +44,27 @@ const authLimiter = rateLimit({
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+    origin: (origin, callback) => {
+        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+            callback(null, true);
+        } else {
+            console.warn(`Blocked by CORS: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 app.use(limiter); // Apply rate limiting to all requests
 app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

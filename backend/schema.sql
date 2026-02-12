@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_by UUID REFERENCES users(id),
     deactivated_by UUID REFERENCES users(id),
     deactivated_at TIMESTAMP,
+    reset_password_token VARCHAR(255),
+    reset_password_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     last_login TIMESTAMP
@@ -41,6 +43,9 @@ CREATE TABLE IF NOT EXISTS assets (
     asset_tag VARCHAR(100),
     building VARCHAR(255),
     location VARCHAR(255),
+    floor VARCHAR(100),
+    area VARCHAR(255),
+    age VARCHAR(50),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -123,13 +128,13 @@ CREATE TABLE IF NOT EXISTS sync_log (
 CREATE TABLE IF NOT EXISTS audit_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id),
-    action VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
     resource_type VARCHAR(50),
-    resource_id UUID,
+    resource_id VARCHAR(50),
     details JSONB,
     ip_address VARCHAR(45),
     user_agent TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for performance

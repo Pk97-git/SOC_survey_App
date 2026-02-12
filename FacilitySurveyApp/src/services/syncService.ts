@@ -4,7 +4,7 @@ import { storage } from './storage';
 import { surveyService } from './surveyService';
 import { assetService } from './assetService';
 import { photoService } from './photoService';
-import { sitesApi, assetsApi, surveysApi, inspectionsApi } from './api';
+import { sitesApi, assetsApi, surveysApi, inspectionsApi, syncApi } from './api';
 
 export interface SyncStatus {
     isOnline: boolean;
@@ -100,8 +100,10 @@ class SyncService {
         if (!this.syncStatus.isOnline) return;
         try {
             await syncApi.logEvent('sync', status, details);
-        } catch (error) {
-            console.warn('Failed to log sync event:', error);
+        } catch (error: any) {
+            if (error.response?.status !== 401) {
+                console.warn('Failed to log sync event:', error);
+            }
         }
     }
 
@@ -139,10 +141,12 @@ class SyncService {
             await this.logSyncEvent('completed', { lastSync: this.syncStatus.lastSync });
 
         } catch (error: any) {
-            console.error('Sync failed:', error);
+            if (error.response?.status !== 401) {
+                console.error('Sync failed:', error);
+            }
             DeviceEventEmitter.emit('syncStatus', { status: 'error', message: 'Sync Failed' });
             await this.logSyncEvent('failed', { error: error.message || String(error) });
-            throw error;
+            // throw error; // Don't throw to prevent crashing UI
         } finally {
             this.syncStatus.isSyncing = false;
             this.notifyListeners();
@@ -326,8 +330,10 @@ class SyncService {
             }
 
             console.log('✅ Download sync complete');
-        } catch (error) {
-            console.error('Failed to download updates:', error);
+        } catch (error: any) {
+            if (error.response?.status !== 401) {
+                console.error('Failed to download updates:', error);
+            }
             // Don't throw, partial sync is better than none
         }
     }

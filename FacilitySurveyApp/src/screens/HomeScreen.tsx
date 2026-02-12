@@ -114,38 +114,40 @@ export default function HomeScreen() {
                                 style={[styles.resumeCard, { backgroundColor: theme.colors.secondaryContainer, marginBottom: 8 }]}
                                 elevation={1}
                             >
-                                <TouchableOpacity
-                                    style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}
-                                    onPress={async () => {
-                                        // Load assets and navigate to AssetInspectionScreen
-                                        const assets = await storage.getAssets();
-                                        const surveyAssets = assets.filter((a: any) =>
-                                            a.site_name === survey.site_name &&
-                                            (!survey.trade || a.service_line === survey.trade) &&
-                                            (!survey.location || a.floor === survey.location || a.area === survey.location)
-                                        );
+                                <View style={{ borderRadius: 16, overflow: 'hidden' }}>
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}
+                                        onPress={async () => {
+                                            // Load assets and navigate to AssetInspectionScreen
+                                            const assets = await storage.getAssets();
+                                            const surveyAssets = assets.filter((a: any) =>
+                                                a.site_name === survey.site_name &&
+                                                (!survey.trade || a.service_line === survey.trade) &&
+                                                (!survey.location || a.floor === survey.location || a.area === survey.location)
+                                            );
 
-                                        navigation.navigate('AssetInspection', {
-                                            surveyId: survey.id,
-                                            siteName: survey.site_name,
-                                            trade: survey.trade,
-                                            location: survey.location, // Pass location too
-                                            preloadedAssets: surveyAssets,
-                                            assetOption: 'resume'
-                                        });
-                                    }}
-                                >
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>RESUME</Text>
-                                        <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 16, fontWeight: 'bold' }}>
-                                            {survey.site_name || 'Unnamed Site'}
-                                        </Text>
-                                        <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 12 }}>
-                                            {survey.trade || 'No Trade'} • {new Date(survey.updated_at || survey.created_at).toLocaleDateString()}
-                                        </Text>
-                                    </View>
-                                    <Avatar.Icon size={40} icon="chevron-right" style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
-                                </TouchableOpacity>
+                                            navigation.navigate('AssetInspection', {
+                                                surveyId: survey.id,
+                                                siteName: survey.site_name,
+                                                trade: survey.trade,
+                                                location: survey.location, // Pass location too
+                                                preloadedAssets: surveyAssets,
+                                                assetOption: 'resume'
+                                            });
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>RESUME</Text>
+                                            <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 16, fontWeight: 'bold' }}>
+                                                {survey.site_name || 'Unnamed Site'}
+                                            </Text>
+                                            <Text style={{ color: theme.colors.onSecondaryContainer, fontSize: 12 }}>
+                                                {survey.trade || 'No Trade'} • {new Date(survey.updated_at || survey.created_at).toLocaleDateString()}
+                                            </Text>
+                                        </View>
+                                        <Avatar.Icon size={40} icon="chevron-right" style={{ backgroundColor: theme.colors.primary }} color={theme.colors.onPrimary} />
+                                    </TouchableOpacity>
+                                </View>
                             </Surface>
                         ))}
                         {inProgressSurveys.length > 3 && (
@@ -176,19 +178,21 @@ export default function HomeScreen() {
                     showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <Surface style={[styles.listCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Survey', { surveyId: item.id, templateId: item.template_id })}
-                                style={styles.listCardInner}
-                            >
-                                <View style={[styles.listIcon, { backgroundColor: theme.colors.surfaceVariant }]}>
-                                    <Avatar.Icon size={24} icon="file-document-check-outline" color={theme.colors.onSurfaceVariant} style={{ backgroundColor: 'transparent' }} />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Text style={{ fontWeight: '700', fontSize: 16, color: theme.colors.onSurface, marginBottom: 2 }}>{item.location}</Text>
-                                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>{item.department} • {new Date(item.created_at).toLocaleDateString()}</Text>
-                                </View>
-                                <StatusBadge status={item.status} />
-                            </TouchableOpacity>
+                            <View style={{ borderRadius: 16, overflow: 'hidden' }}>
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('Survey', { surveyId: item.id, templateId: item.template_id })}
+                                    style={styles.listCardInner}
+                                >
+                                    <View style={[styles.listIcon, { backgroundColor: theme.colors.surfaceVariant }]}>
+                                        <Avatar.Icon size={24} icon="file-document-check-outline" color={theme.colors.onSurfaceVariant} style={{ backgroundColor: 'transparent' }} />
+                                    </View>
+                                    <View style={{ flex: 1, marginLeft: 16 }}>
+                                        <Text style={{ fontWeight: '700', fontSize: 16, color: theme.colors.onSurface, marginBottom: 2 }}>{item.location}</Text>
+                                        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13 }}>{item.department} • {new Date(item.created_at).toLocaleDateString()}</Text>
+                                    </View>
+                                    <StatusBadge status={item.status} />
+                                </TouchableOpacity>
+                            </View>
                         </Surface>
                     )}
                     ListEmptyComponent={
@@ -242,7 +246,7 @@ const styles = StyleSheet.create({
     resumeCard: {
         borderRadius: 16,
         marginBottom: 24,
-        overflow: 'hidden'
+        // overflow: 'hidden' // Moved to inner View
     },
     iconBox: {
         width: 48,
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
     listCard: {
         marginBottom: 12,
         borderRadius: 16,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
     },
     listCardInner: {
         flexDirection: 'row',
