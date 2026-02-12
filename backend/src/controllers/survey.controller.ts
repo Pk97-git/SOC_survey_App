@@ -45,8 +45,13 @@ export class SurveyController {
 
     create = async (req: AuthRequest, res: Response) => {
         try {
+            console.log('🔍 Survey Create Request:');
+            console.log('   User:', req.user?.email, `(${req.user?.role})`);
+            console.log('   Body:', req.body);
+
             const { siteId, trade } = req.body;
             if (!siteId) {
+                console.log('❌ Missing siteId');
                 return res.status(400).json({ error: 'Site ID is required' });
             }
 
@@ -56,6 +61,7 @@ export class SurveyController {
                 surveyorId: req.user!.userId
             });
 
+            console.log('✅ Survey created:', survey.id);
             res.status(201).json({
                 message: 'Survey created successfully',
                 survey
@@ -136,9 +142,16 @@ export class SurveyController {
             const id = req.params.id as string;
             const location = req.query.location as string; // Optional location filter
 
+            // DEBUG LOGGING
+            console.log(`🔍 Export Request Received:`);
+            console.log(`   Survey ID: ${id}`);
+            console.log(`   Location: ${location || 'ALL'}`);
+            console.log(`   User: ${req.user?.email} (${req.user?.role})`);
+
             const buffer = await this.service.exportExcel(req.user, id, location);
 
             if (!buffer) {
+                console.log(`❌ Export failed: Survey ${id} not found`);
                 return res.status(404).json({ error: 'Survey not found' });
             }
 
@@ -148,6 +161,7 @@ export class SurveyController {
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+            console.log(`✅ Export successful: ${filename}`);
             res.send(buffer);
         } catch (error: any) {
             if (error.message === 'Unauthorized') {

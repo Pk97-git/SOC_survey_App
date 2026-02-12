@@ -156,7 +156,9 @@ class SyncService {
     private async uploadPendingSurveys(): Promise<void> {
         // Get surveys that haven't been synced
         const surveys = await storage.getSurveys();
-        const pendingSurveys = surveys.filter(s => !(s as any).synced && s.status === 'submitted');
+        const pendingSurveys = surveys.filter(s => !(s as any).synced);
+
+        console.log(`📤 Uploading ${pendingSurveys.length} pending surveys...`);
 
         for (const survey of pendingSurveys) {
             try {
@@ -173,6 +175,13 @@ class SyncService {
                     );
                 } else {
                     // Create new
+                    console.log(`Creating survey on backend:`, {
+                        id: survey.id,
+                        site_id: (survey as any).site_id,
+                        trade: survey.trade,
+                        status: survey.status
+                    });
+
                     serverSurvey = await surveyService.createSurvey(
                         (survey as any).site_id!,
                         survey.trade
@@ -180,6 +189,7 @@ class SyncService {
 
                     // Save server ID to local record
                     await storage.updateSurveyServerId(survey.id, serverSurvey.id);
+                    console.log(`✅ Survey ${survey.id} created with server ID: ${serverSurvey.id}`);
                 }
 
                 // Mark as synced

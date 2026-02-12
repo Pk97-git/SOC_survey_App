@@ -9,6 +9,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as excelService from '../services/excelService';
 import { syncService } from '../services/syncService';
+import { surveysApi } from '../services/api';
+
+// Simple UUID v4 generator for React Native
+const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
 
 
 export default function ReportsScreen() {
@@ -243,148 +253,139 @@ export default function ReportsScreen() {
     const [exporting, setExporting] = useState(false);
 
     const handleBatchExport = async () => {
-        // 1. Get all assets for this site to determine ALL locations and TRADES
-        let allSiteAssets: any[] = [];
-        if (selectedSite) {
-            try {
-                allSiteAssets = await hybridStorage.getAssets(selectedSite.id);
-            } catch (e) {
-                console.error("Failed to load assets for auto-create", e);
-            }
-        }
-
-        // 2. Identify all unique trades (Service Lines)
-        const allTrades = Array.from(new Set(allSiteAssets.map((a: any) => a.serviceLine || a.service_line).filter(Boolean)));
-
-        // 3. Check which trades don't have a survey yet
-        const existingTrades = new Set(filteredSurveys.map(s => s.trade));
-        const missingTrades = allTrades.filter(trade => !existingTrades.has(trade));
-
-        // 4. Calculate total FILES to be generated (Trades * Locations per Trade)
-        let totalFileCount = 0;
-        const allTargetTrades = Array.from(new Set([...Array.from(existingTrades), ...missingTrades]));
-
-        for (const trade of allTargetTrades) {
-            const tradeAssets = allSiteAssets.filter((a: any) =>
-                (a.serviceLine || a.service_line) === trade
-            );
-            const uniqueLocations = new Set(tradeAssets.map((a: any) => a.building).filter(Boolean));
-            totalFileCount += (uniqueLocations.size > 0 ? uniqueLocations.size : 1);
-        }
-
-        if (totalFileCount === 0) {
-            Alert.alert('No Data', 'No surveys found and no assets available to create surveys from. Please select a site with assets first.');
+        if (!selectedSite) {
+            Alert.alert('Error', 'Please select a site first.');
             return;
         }
 
-        Alert.alert(
-            'Batch Export & Auto-Create',
-            `Found ${filteredSurveys.length} existing survey records.\nWill Auto-Create ${missingTrades.length} new survey records.\n\nTotal: ${totalFileCount} Excel files will be generated (one per location).`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Proceed',
-                    onPress: async () => {
-                        setExporting(true);
-                        setGeneratedFiles([]);
-                        try {
-                            // 1. Auto-Create Surveys FIRST (if any missing)
-                            if (missingTrades.length > 0 && selectedSite) {
-                                for (const trade of missingTrades) {
-                                    try {
-                                        await hybridStorage.saveSurvey({
-                                            site_id: selectedSite.id,
-                                            trade: trade
-                                        });
-                                    } catch (e) {
-                                        console.error(`Failed to auto-create survey for ${trade}`, e);
-                                    }
-                                }
-                            }
+        try {
+            // 1. Fetch all assets for this site from backend
+            const allSiteAssets = await hybridStorage.getAssets();
+            const siteAssets = allSiteAssets.filter((a: any) => a.site_id === selectedSite.id || a.siteId === selectedSite.id);
 
-                            // 2. Force Sync ALL attempts (including new ones)
-                            try {
-                                console.log("Forcing sync before export...");
-                                await syncService.syncAll();
-                            } catch (e) {
-                                console.warn("Sync failed before export, some files may fail:", e);
-                            }
+            if (siteAssets.length === 0) {
+                Alert.alert('No Assets', 'No assets found for this site. Please upload an asset register first.');
+                return;
+            }
 
-                            // 3. RE-FETCH surveys from storage to get the latest server_ids after sync
-                            const freshSurveys = await storage.getSurveys();
+            // 2. Identify unique combinations of location × service_line
+            const combinations = new Map<string, { location: string; serviceLine: string }>();
 
-                            // 4. PREPARE DIRECTORIES
-                            const baseReportsDir = FileSystem.documentDirectory + 'SavedReports';
-                            await FileSystem.makeDirectoryAsync(baseReportsDir, { intermediates: true });
+            siteAssets.forEach((asset: any) => {
+                const location = asset.building || 'General';
+                const serviceLine = asset.serviceLine || asset.service_line;
 
-                            const cleanSiteName = selectedSite ? selectedSite.name.replace(/[^a-z0-9]/gi, '_') : 'Unknown_Site';
-                            const siteDir = `${baseReportsDir}/${cleanSiteName}`;
-                            await FileSystem.makeDirectoryAsync(siteDir, { intermediates: true });
-
-                            // 5. FILTER FOR EXPORT
-                            const validIds = new Set(filteredSurveys.map(s => s.id));
-                            let surveysToExport: any[] = [];
-
-                            if (selectedSite) {
-                                surveysToExport = freshSurveys.filter(s => {
-                                    const survey: any = s;
-                                    return (survey.site_id === selectedSite.id || survey.siteId === selectedSite.id) &&
-                                        (statusFilter === 'all' || survey.status === statusFilter);
-                                });
-                            } else {
-                                surveysToExport = freshSurveys.filter(s => validIds.has(s.id));
-                            }
-
-                            const files = [];
-
-                            for (const survey of surveysToExport) {
-                                const surveyAssets = allSiteAssets.filter((a: any) =>
-                                    (a.serviceLine || a.service_line) === survey.trade
-                                );
-
-                                const locations = new Set(surveyAssets.map((a: any) => a.building).filter(Boolean));
-
-                                // ID to use for export: Priority server_id, else local id
-                                const exportId = survey.server_id || survey.id;
-
-                                if (locations.size === 0) {
-                                    const filename = `${survey.trade}_${survey.id.substring(0, 8)}.xlsx`;
-
-                                    // Default "General" location folder
-                                    const locationDir = `${siteDir}/General`;
-                                    await FileSystem.makeDirectoryAsync(locationDir, { intermediates: true });
-
-                                    const path = `${locationDir}/${filename}`;
-                                    // PASS exportId (server_id) to the service
-                                    await excelService.downloadSurveyReport(exportId, undefined, path);
-                                    files.push({ name: filename, uri: path, trade: survey.trade, location: 'General' });
-                                } else {
-                                    for (const location of locations) {
-                                        const cleanLocation = (location as string).replace(/[^a-z0-9]/gi, '_');
-                                        const locationDir = `${siteDir}/${cleanLocation}`;
-                                        await FileSystem.makeDirectoryAsync(locationDir, { intermediates: true });
-
-                                        const filename = `${survey.trade}_${cleanLocation}.xlsx`;
-                                        const path = `${locationDir}/${filename}`;
-                                        await excelService.downloadSurveyReport(exportId, location as string, path);
-                                        files.push({ name: filename, uri: path, trade: survey.trade, location: location as string });
-                                    }
-                                }
-                            }
-
-                            setGeneratedFiles(files);
-                            setReportModalVisible(true);
-
-                        } catch (error) {
-                            console.error('Batch export failed:', error);
-                            Alert.alert('Error', 'Failed to batch export surveys.');
-                        } finally {
-                            setExporting(false);
-                        }
+                if (serviceLine) {
+                    const key = `${location}|${serviceLine}`;
+                    if (!combinations.has(key)) {
+                        combinations.set(key, { location, serviceLine });
                     }
                 }
-            ]
-        );
+            });
+
+            const totalCombinations = combinations.size;
+
+            if (totalCombinations === 0) {
+                Alert.alert('No Data', 'No valid location × service line combinations found in assets.');
+                return;
+            }
+
+            // 3. Show confirmation dialog
+            Alert.alert(
+                'Create & Export Surveys',
+                `This will create ${totalCombinations} surveys (one per location × service line combination) and export them.\n\nProceed?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Create & Export',
+                        onPress: async () => {
+                            setExporting(true);
+                            setGeneratedFiles([]);
+                            const files: any[] = [];
+
+                            try {
+                                // 4. Create surveys on backend for each combination
+                                console.log(`📝 Creating ${totalCombinations} surveys on backend...`);
+                                const createdSurveys: any[] = [];
+
+                                for (const [key, combo] of combinations) {
+                                    try {
+                                        console.log(`Creating survey: ${combo.location} × ${combo.serviceLine}`);
+                                        const survey = await surveysApi.create({
+                                            siteId: selectedSite.id,
+                                            trade: combo.serviceLine
+                                        });
+                                        createdSurveys.push({
+                                            ...survey,
+                                            location: combo.location
+                                        });
+                                        console.log(`✅ Created survey ID: ${survey.id}`);
+                                    } catch (error: any) {
+                                        console.error(`Failed to create survey for ${combo.location} × ${combo.serviceLine}:`, error);
+                                        // Continue with other surveys even if one fails
+                                    }
+                                }
+
+                                if (createdSurveys.length === 0) {
+                                    throw new Error('Failed to create any surveys');
+                                }
+
+                                // 5. Create directory structure
+                                const timestamp = new Date().toISOString().split('T')[0];
+                                const siteDir = `${FileSystem.documentDirectory}SavedReports/${selectedSite.name}_${timestamp}`;
+                                await FileSystem.makeDirectoryAsync(siteDir, { intermediates: true });
+
+                                // 6. Export each survey
+                                console.log(`📤 Exporting ${createdSurveys.length} surveys...`);
+
+                                for (const survey of createdSurveys) {
+                                    try {
+                                        const locationDir = `${siteDir}/${survey.location.replace(/[^a-z0-9]/gi, '_')}`;
+                                        await FileSystem.makeDirectoryAsync(locationDir, { intermediates: true });
+
+                                        const filename = `${survey.trade}_${survey.location.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+                                        const path = `${locationDir}/${filename}`;
+
+                                        console.log(`📤 Exporting: /surveys/${survey.id}/export?location=${survey.location}`);
+                                        await excelService.downloadSurveyReport(survey.id, survey.location, path);
+
+                                        files.push({
+                                            name: filename,
+                                            uri: path,
+                                            trade: survey.trade,
+                                            location: survey.location
+                                        });
+                                        console.log(`✅ Exported: ${filename}`);
+                                    } catch (error: any) {
+                                        console.error(`Failed to export survey ${survey.id}:`, error);
+                                        // Continue with other exports
+                                    }
+                                }
+
+                                setGeneratedFiles(files);
+                                setReportModalVisible(true);
+
+                                // Reload surveys to show newly created ones
+                                await loadReports();
+
+                                Alert.alert(
+                                    'Success',
+                                    `Created ${createdSurveys.length} surveys and exported ${files.length} files to:\n${siteDir}`
+                                );
+                            } catch (error: any) {
+                                console.error('Batch export failed:', error);
+                                Alert.alert('Error', `Failed to create/export surveys: ${error.message}`);
+                            } finally {
+                                setExporting(false);
+                            }
+                        }
+                    }
+                ]
+            );
+        } catch (error: any) {
+            console.error('Failed to prepare batch export:', error);
+            Alert.alert('Error', 'Failed to load assets for batch export.');
+        }
     };
 
     return (
