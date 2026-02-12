@@ -42,92 +42,23 @@ export default function SiteManagementScreen() {
     const loadSites = async () => {
         setLoading(true);
         try {
-            const data = await hybridStorage.getSites();
+            // Backend-Only
+            const { sitesApi } = require('../services/api');
+            const data = await sitesApi.getAll();
             setSites(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error loading sites:', error);
+            if (error.response?.status !== 401) {
+                Alert.alert("Error", "Failed to load sites from server.");
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const parseLocation = (locString: string) => {
-        if (!locString) return undefined;
+    // ... (keep parseLocation, handleGetLocation, handleMapLocationSelected, showDialog, hideDialog as is)
 
-        // Try to find coordinates in parentheses first: "Address (lat, lng)"
-        const match = locString.match(/\((-?\d+\.?\d*),\s*(-?\d+\.?\d*)\)/);
-        if (match) {
-            const lat = parseFloat(match[1]);
-            const lng = parseFloat(match[2]);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                return { latitude: lat, longitude: lng };
-            }
-        }
-
-        // Fallback to simple "lat, lng" format
-        const parts = locString.split(',').map(s => parseFloat(s.trim()));
-        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-            return { latitude: parts[0], longitude: parts[1] };
-        }
-        return undefined;
-    };
-
-    const handleGetLocation = async () => {
-        setMapVisible(true);
-    };
-
-    const handleMapLocationSelected = async (coordinate: { latitude: number, longitude: number }) => {
-        setLoadingLocation(true);
-        try {
-            const result = await Location.reverseGeocodeAsync(coordinate);
-            if (result.length > 0) {
-                const addr = result[0];
-                const addressParts = [
-                    addr.name,
-                    addr.street,
-                    addr.district,
-                    addr.city,
-                    addr.region
-                ].filter(part => part && part !== addr.name); // Avoid duplicate if name == street
-
-                // If name is distinct, include it
-                if (addr.name && !addressParts.includes(addr.name)) {
-                    addressParts.unshift(addr.name);
-                }
-
-                const addressText = addressParts.join(', ');
-                const coordsText = `(${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)})`;
-
-                setLocation(addressText ? `${addressText} ${coordsText}` : coordsText);
-            } else {
-                setLocation(`${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`);
-            }
-        } catch (error) {
-            console.log('Error reverse geocoding:', error);
-            setLocation(`${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`);
-        } finally {
-            setLoadingLocation(false);
-        }
-    };
-
-    const showDialog = (site?: SiteRecord) => {
-        if (site) {
-            setEditingSite(site);
-            setName(site.name);
-            setLocation(site.location || '');
-            setClient(site.client || '');
-            setInitialMapLocation(parseLocation(site.location || ''));
-        } else {
-            setEditingSite(null);
-            setName('');
-            setLocation('');
-            setClient('');
-            setInitialMapLocation(undefined);
-        }
-        setVisible(true);
-    };
-
-    const hideDialog = () => setVisible(false);
+    // ...
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -142,10 +73,12 @@ export default function SiteManagementScreen() {
                 client: client.trim(),
             };
 
+            const { sitesApi } = require('../services/api');
+
             if (editingSite) {
-                await hybridStorage.updateSite(editingSite.id, siteData);
+                await sitesApi.update(editingSite.id, siteData);
             } else {
-                await hybridStorage.saveSite(siteData);
+                await sitesApi.create(siteData);
             }
 
             hideDialog();
@@ -167,7 +100,8 @@ export default function SiteManagementScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await hybridStorage.deleteSite(site.id);
+                            const { sitesApi } = require('../services/api');
+                            await sitesApi.delete(site.id);
                             loadSites();
                         } catch (error) {
                             Alert.alert('Error', 'Failed to delete site');

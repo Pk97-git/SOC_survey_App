@@ -25,22 +25,47 @@ export default function AssetListScreen() {
     }, [navigation]);
 
     const loadAssets = async () => {
-        // Use hybridStorage to properly fallback or fetch from backend
-        // We can pass siteId if available from route to filter backend side
-        const data = await hybridStorage.getAssets(siteId);
-        setAssets(data);
+        // Backend-Only Fetch
+        try {
+            const { assetsApi } = require('../services/api');
+            if (siteId) {
+                const data = await assetsApi.getAll(siteId);
+                setAssets(data);
+            } else {
+                // If no siteId, we might want to fetch all or prompt? 
+                // Usually AssetList is navigated to with a site/facility context.
+                // But if not, assetsApi.getAll() might return all or error.
+                // safe fallback
+                const data = await assetsApi.getAll();
+                setAssets(data);
+            }
+        } catch (error: any) {
+            console.error("Failed to load assets", error);
+            if (error.response?.status !== 401) {
+                Alert.alert("Error", "Failed to load assets from server.");
+            }
+        }
     };
 
     const handleImport = async () => {
+        if (!siteId) {
+            Alert.alert("Error", "Cannot import assets without a specific site context.");
+            return;
+        }
         setImporting(true);
         try {
-            const count = await importAssetsFromExcel();
-            if (count && count > 0) {
-                Alert.alert("Success", `Successfully imported ${count} assets.`);
-                loadAssets(); // Refresh
+            const assets = await importAssetsFromExcel();
+            if (assets && assets.length > 0) {
+                // Upload to Backend
+                const { assetsApi } = require('../services/api');
+                await assetsApi.bulkImport(siteId, assets);
+
+                Alert.alert("Success", `Successfully imported ${assets.length} assets.`);
+                loadAssets(); // Refresh from backend
             }
-        } catch (e) {
-            // Already handled in service, but ensure loading stops
+        } catch (e: any) {
+            console.error("Import failed:", e);
+            Alert.alert("Import Failed", e.message || "Failed to import assets.");
         } finally {
             setImporting(false);
         }

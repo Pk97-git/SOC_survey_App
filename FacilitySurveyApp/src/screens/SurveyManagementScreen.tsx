@@ -63,30 +63,23 @@ export default function SurveyManagementScreen() {
     const loadSurveysForSite = async (site: any) => {
         setLoading(true);
         try {
-            if (await hybridStorage.syncService.getStatus().isOnline) {
-                // Use backend filtering
-                // We need to import dashboardApi. 
-                // However, hybridStorage doesn't expose dashboardApi directly.
-                // Let's import it from '../services/api'
-                // But wait, we should stick to hybridStorage abstraction if possible.
-                // hybridStorage.getSurveys returns ALL. 
-                // Let's allow hybridStorage.getSurveys to accept filters?
-                // Or just use dashboardApi here directly for "Management" view which is Online-First preference.
-                const { dashboardApi } = require('../services/api');
-                const siteSurveys = await dashboardApi.getSurveys({ siteId: site.id });
-                // Sort by date desc
-                siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                setSurveys(siteSurveys);
-            } else {
-                // Offline fallback
-                const allSurveys = await hybridStorage.getSurveys();
-                const siteSurveys = allSurveys.filter((s: any) => s.site_name === site.name);
-                siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                setSurveys(siteSurveys);
-            }
-        } catch (error) {
+            // Backend-Only Fetch
+            // We use dashboardApi for management view as it likely supports filtering/enrichment needed for admin
+            const { dashboardApi } = require('../services/api');
+            // Ensure dashboardApi.getSurveys supports siteId filter
+            const siteSurveys = await dashboardApi.getSurveys({ siteId: site.id });
+
+            // Sort by date desc
+            siteSurveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            setSurveys(siteSurveys);
+        } catch (error: any) {
             console.error(error);
-            Alert.alert("Error", "Failed to load surveys");
+            if (error.response?.status === 401) {
+                // Auth error handled by interceptor, but we might want to clear list
+                setSurveys([]);
+            } else {
+                Alert.alert("Error", "Failed to load surveys from server. Please check your internet connection.");
+            }
         } finally {
             setLoading(false);
         }
@@ -153,14 +146,35 @@ export default function SurveyManagementScreen() {
                     onPress: async () => {
                         try {
                             setLoading(true);
-                            await hybridStorage.deleteSurvey(survey.id);
+                            // Backend-Only Delete
+                            const { surveysApi } = require('../services/api');
+                            await surveysApi.delete(survey.id);
+
+                            // Also clear from local storage just in case it exists, to keep it clean
+                            // But primarily we rely on backend confirmation
+                            await hybridStorage.deleteSurvey(survey.id); // This attempts backend too in hybrid, but safe to call.
+                            // Actually, hybridStorage.deleteSurvey tries backend first. 
+                            // If we want purely backend explicit call:
+                            // await surveysApi.delete(survey.id);
+                            // BUT hybridStorage.deleteSurvey does: await surveysApi.delete(id) then local delete.
+                            // So calling hybridStorage.deleteSurvey is effectively doing what we want + cleaning local.
+                            // However, let's be explicit as requested "Backend Only" for the action, 
+                            // but we MUST clean local if we want to avoid re-syncing it down?
+                            // Actually, if we delete on backend, next sync will NOT download it.
+                            // But existing local copy will remain.
+                            // So we SHOULD delete locally too to keep device clean.
+                            // The user said "not depend on local storage", implying "don't read from it".
+                            // I will use surveysApi directly for the operation to fail if offline.
+
+
                             // Refresh list
                             if (selectedSite) {
-                                loadSurveysForSite(selectedSite);
+                                await loadSurveysForSite(selectedSite);
                             }
+                            Alert.alert('Success', 'Survey deleted successfully');
                         } catch (error) {
                             console.error("Failed to delete survey:", error);
-                            Alert.alert("Error", "Failed to delete survey");
+                            Alert.alert("Error", "Failed to delete survey. Check internet.");
                         } finally {
                             setLoading(false);
                         }
