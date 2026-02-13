@@ -52,6 +52,13 @@ export class SurveyRepository {
     }
 
     async findById(id: string): Promise<Survey | null> {
+        // Debug logging
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            fs.appendFileSync(path.join(__dirname, '../../debug_queries.log'), `[${new Date().toISOString()}] findById called with ID: '${id}' (Length: ${id.length})\n`);
+        } catch (e) { console.error("Log error", e); }
+
         const result = await pool.query(
             `SELECT s.*, 
                     si.name as site_name,
@@ -62,6 +69,13 @@ export class SurveyRepository {
              WHERE s.id = $1`,
             [id]
         );
+
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            fs.appendFileSync(path.join(__dirname, '../../debug_queries.log'), `[${new Date().toISOString()}] findById result: ${result.rows.length > 0 ? 'Found' : 'NOT FOUND'}\n`);
+        } catch (e) { }
+
         return result.rows[0] || null;
     }
 
@@ -110,8 +124,21 @@ export class SurveyRepository {
     }
 
     async findWithDetails(id: string): Promise<any> {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            fs.appendFileSync(path.join(__dirname, '../../debug_queries.log'), `[${new Date().toISOString()}] findWithDetails called with ID: '${id}'\n`);
+        } catch (e) { }
+
         const survey = await this.findById(id);
-        if (!survey) return null;
+        if (!survey) {
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                fs.appendFileSync(path.join(__dirname, '../../debug_queries.log'), `[${new Date().toISOString()}] findWithDetails aborted: Survey not found via findById\n`);
+            } catch (e) { }
+            return null;
+        }
 
         // Fetch ALL assets for this site and trade, joining with any existing inspections
         // This ensures the report includes all assets that NEED to be inspected, 
