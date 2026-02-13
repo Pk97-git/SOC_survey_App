@@ -344,7 +344,7 @@ export default function SurveyManagementScreen() {
                                     onPress={() => toggleBuilding(node.name)}
                                     contentStyle={{ justifyContent: 'space-between' }}
                                     labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
-                                    style={{ borderRadius: 8 }}
+                                    style={{ borderRadius: 8, borderBottomLeftRadius: isExpanded ? 0 : 8, borderBottomRightRadius: isExpanded ? 0 : 8 }}
                                     icon={isExpanded ? "chevron-up" : "chevron-down"}
                                 >
                                     {node.name} ({node.trades.length})
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     statValue: { fontSize: 24, fontWeight: 'bold', color: '#1B5E20' }, // Greenish for data
     statLabel: { fontSize: 12, opacity: 0.6, textTransform: 'uppercase' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginLeft: 4 },
-    buildingCard: { marginBottom: 12, borderRadius: 12, backgroundColor: '#fff', overflow: 'hidden' },
-    tradesList: { padding: 16, paddingTop: 0, backgroundColor: '#FAFAFA' },
+    buildingCard: { marginBottom: 12, borderRadius: 12, backgroundColor: '#fff' }, // Removed overflow: hidden from Surface
+    tradesList: { padding: 16, paddingTop: 0, backgroundColor: '#FAFAFA', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }, // Apply radius to content container
     tradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#eee' }
 });
