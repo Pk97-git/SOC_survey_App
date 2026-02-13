@@ -228,6 +228,8 @@ export default function SurveyManagementScreen() {
             // Construct absolute path using FileSystem
             const destination = `${FileSystem.documentDirectory}SavedReports/${filename}`;
 
+            console.log(`📊 Requesting Export: SurveyID=${tradeItem.surveyId}, Building=${buildingName}, Path=${destination}`);
+
             const fileUri = await downloadSurveyReport(
                 tradeItem.surveyId,
                 buildingName,

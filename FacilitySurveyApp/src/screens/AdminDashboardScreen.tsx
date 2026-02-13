@@ -110,12 +110,16 @@ export default function AdminDashboardScreen() {
 
     const StatCard = ({ title, value, icon, color, onPress }: any) => (
         <Surface style={[styles.statCard, { backgroundColor: theme.colors.surface }]} elevation={2} onTouchEnd={onPress}>
-            <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
-                <IconButton icon={icon} iconColor={color} size={28} style={{ margin: 0 }} />
-            </View>
-            <View style={{ flex: 1 }}>
-                <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{value}</Text>
-                <Text style={[styles.statTitle, { color: theme.colors.onSurfaceVariant }]}>{title}</Text>
+            <View style={{ borderRadius: 20, overflow: 'hidden', flex: 1 }}>
+                <View style={{ flex: 1, padding: 16 }}>
+                    <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
+                        <IconButton icon={icon} iconColor={color} size={28} style={{ margin: 0 }} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{value}</Text>
+                        <Text style={[styles.statTitle, { color: theme.colors.onSurfaceVariant }]}>{title}</Text>
+                    </View>
+                </View>
             </View>
         </Surface>
     );

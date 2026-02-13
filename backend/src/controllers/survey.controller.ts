@@ -137,7 +137,7 @@ export class SurveyController {
         }
     };
 
-    export = async (req: AuthRequest, res: Response) => {
+    exportToExcel = async (req: AuthRequest, res: Response) => {
         try {
             const id = req.params.id as string;
             const location = req.query.location as string; // Optional location filter
@@ -151,8 +151,8 @@ export class SurveyController {
             const buffer = await this.service.exportExcel(req.user, id, location);
 
             if (!buffer) {
-                console.log(`❌ Export failed: Survey ${id} not found`);
-                return res.status(404).json({ error: 'Survey not found' });
+                console.error(`❌ Export failed: Survey ${id} data not found or null`);
+                return res.status(404).json({ error: `Survey ${id} not found or has no inspection data for the requested scope` });
             }
 
             const filename = location

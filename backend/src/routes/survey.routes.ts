@@ -10,7 +10,7 @@ const surveyController = new SurveyController();
 router.get('/', authenticate, surveyController.getAll);
 
 // Export survey to Excel
-router.get('/:id/export', authenticate, surveyController.export);
+router.get('/:id/export', authenticate, surveyController.exportToExcel);
 
 // Get survey by ID
 router.get('/:id', authenticate, surveyController.getById);

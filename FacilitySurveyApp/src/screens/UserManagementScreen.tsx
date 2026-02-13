@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     card: {
         marginBottom: 16,
         borderRadius: 20,
-        overflow: 'hidden',
+        // overflow: 'hidden', // Moved to inner View
         borderWidth: 1,
         borderColor: '#E7E5E4'
     },
