@@ -14,6 +14,7 @@ import AssetsScreen from '../screens/AssetsScreen';
 import AssetFormScreen from '../screens/AssetFormScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import SurveyManagementScreen from '../screens/SurveyManagementScreen';
 import StartSurveyScreen from '../screens/StartSurveyScreen';
 import AssetInspectionScreen from '../screens/AssetInspectionScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -60,7 +61,7 @@ const AdminStack = () => (
 // Stack for Survey Management (Reports, Resume, Edit)
 const SurveyManagementStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="SurveyManagement" component={ReportsScreen} />
+        <Stack.Screen name="SurveyManagement" component={SurveyManagementScreen} />
         <Stack.Screen name="StartSurvey" component={StartSurveyScreen} />
         <Stack.Screen name="AssetInspection" component={AssetInspectionScreen} />
 

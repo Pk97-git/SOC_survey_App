@@ -56,10 +56,73 @@ export default function SiteManagementScreen() {
         }
     };
 
-    // ... (keep parseLocation, handleGetLocation, handleMapLocationSelected, showDialog, hideDialog as is)
+    const parseLocation = (locStr: string) => {
+        if (!locStr) return undefined;
+        const parts = locStr.split(',').map(p => parseFloat(p.trim()));
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            return { latitude: parts[0], longitude: parts[1] };
+        }
+        return undefined;
+    };
 
-    // ...
+    const handleGetLocation = async () => {
+        setLoadingLocation(true);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission denied', 'Allow location access to get current position');
+                return;
+            }
 
+            const loc = await Location.getCurrentPositionAsync({});
+            const locStr = `${loc.coords.latitude}, ${loc.coords.longitude}`;
+            setLocation(locStr);
+
+            // Reverse geocode to get a better description if possible
+            const [address] = await Location.reverseGeocodeAsync({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude
+            });
+
+            if (address) {
+                const addrStr = [address.name, address.street, address.district, address.city].filter(Boolean).join(', ');
+                if (addrStr) setLocation(`${locStr} (${addrStr})`);
+            }
+        } catch (error) {
+            console.error('Error getting location:', error);
+            Alert.alert('Error', 'Failed to get current location');
+        } finally {
+            setLoadingLocation(false);
+        }
+    };
+
+    const handleMapLocationSelected = (coords: { latitude: number, longitude: number }, address?: string) => {
+        const locStr = address ? `${coords.latitude}, ${coords.longitude} (${address})` : `${coords.latitude}, ${coords.longitude}`;
+        setLocation(locStr);
+        setMapVisible(false);
+    };
+
+    const showDialog = (site?: SiteRecord) => {
+        if (site) {
+            setEditingSite(site);
+            setName(site.name);
+            setLocation(site.location || '');
+            setClient(site.client || '');
+            setInitialMapLocation(parseLocation(site.location || ''));
+        } else {
+            setEditingSite(null);
+            setName('');
+            setLocation('');
+            setClient('');
+            setInitialMapLocation(undefined);
+        }
+        setVisible(true);
+    };
+
+    const hideDialog = () => {
+        setVisible(false);
+        setMapVisible(false);
+    };
     const handleSave = async () => {
         if (!name.trim()) {
             Alert.alert('Error', 'Site name is required');

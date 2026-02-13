@@ -359,14 +359,39 @@ export default function SurveyManagementScreen() {
                                                     <Text style={{ fontWeight: '600' }}>{t.name}</Text>
                                                     <Text style={{ fontSize: 12, color: 'gray' }}>{t.assetCount} assets • {t.surveyStatus || 'Missing'}</Text>
                                                 </View>
-                                                <Button
-                                                    mode="text"
-                                                    compact
-                                                    onPress={() => handleViewReport(t, node.name)}
-                                                    disabled={operationLoading || !t.surveyId}
-                                                >
-                                                    View Excel
-                                                </Button>
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <Button
+                                                        mode="text"
+                                                        compact
+                                                        onPress={() => {
+                                                            const surveyAssets = assets.filter((a: any) => {
+                                                                const loc = a.building || a.building_name || a.location || 'Unknown Building';
+                                                                const sl = a.service_line || a.trade || 'General';
+                                                                return loc === node.name && sl === t.name;
+                                                            });
+
+                                                            navigation.navigate('AssetInspection', {
+                                                                surveyId: t.surveyId,
+                                                                siteName: selectedSite.name,
+                                                                trade: t.name,
+                                                                location: node.name,
+                                                                preloadedAssets: surveyAssets,
+                                                                assetOption: 'resume'
+                                                            });
+                                                        }}
+                                                        disabled={operationLoading || !t.surveyId}
+                                                    >
+                                                        Inspect
+                                                    </Button>
+                                                    <Button
+                                                        mode="text"
+                                                        compact
+                                                        onPress={() => handleViewReport(t, node.name)}
+                                                        disabled={operationLoading || !t.surveyId}
+                                                    >
+                                                        View Excel
+                                                    </Button>
+                                                </View>
                                             </View>
                                         ))}
                                     </View>
