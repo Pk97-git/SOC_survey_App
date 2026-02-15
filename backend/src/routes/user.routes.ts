@@ -26,7 +26,7 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
 // Get user by ID (Admin only)
 router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
 
         const result = await pool.query(
             `SELECT id, email, full_name, role, is_active, created_at, last_login,
@@ -50,7 +50,7 @@ router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
 // Update user (Admin only)
 router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
         const { fullName, role, email, password } = req.body;
 
         // Prevent admin from modifying themselves
@@ -157,7 +157,7 @@ router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
 // Activate user (Admin only)
 router.post('/:id/activate', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
 
         // Check if user exists
         const userCheck = await pool.query('SELECT id, email, is_active FROM users WHERE id = $1', [id]);
@@ -199,7 +199,7 @@ router.post('/:id/activate', authenticate, authorize('admin'), async (req: AuthR
 // Deactivate user (Admin only)
 router.post('/:id/deactivate', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
 
         // Prevent admin from deactivating themselves
         if (id === req.user!.userId) {
@@ -247,7 +247,7 @@ router.post('/:id/deactivate', authenticate, authorize('admin'), async (req: Aut
 router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     const client = await pool.connect();
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
 
         // Prevent admin from deleting themselves
         if (id === req.user!.userId) {
@@ -305,7 +305,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
 // Get user audit logs (Admin only)
 router.get('/:id/audit-logs', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id } = req.params as { id: string };
         const limit = parseInt(req.query.limit as string) || 50;
         const offset = parseInt(req.query.offset as string) || 0;
 
