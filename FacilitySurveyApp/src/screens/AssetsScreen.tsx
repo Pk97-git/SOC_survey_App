@@ -171,12 +171,16 @@ export default function AssetsScreen() {
         filterAssets();
     }, [searchQuery, assets, selectedServiceLine, selectedLocation]);
 
-    const loadSites = async () => {
+    const loadSites = React.useCallback(async () => {
         console.log('[AssetsScreen] Loading sites...');
         const allSites = await hybridStorage.getSites();
-        console.log(`[AssetsScreen] Loaded ${allSites.length} sites`);
-        setSites(allSites);
-    };
+        if (allSites && allSites.length > 0) {
+            console.log(`[AssetsScreen] Loaded ${allSites.length} sites`);
+            setSites(allSites);
+        }
+    }, []);
+
+    const openSiteMenu = () => setSiteMenuVisible(true);
 
     const loadAssetsForSite = async (site: any) => {
         try {
