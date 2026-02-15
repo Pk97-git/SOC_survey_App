@@ -212,10 +212,16 @@ router.post('/log', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { deviceId, syncType, entityType, entityId, status, errorMessage } = req.body;
 
+        // Map status to allowed values if needed
+        let dbStatus = status;
+        if (status === 'started' || status === 'in_progress') {
+            dbStatus = 'pending';
+        }
+
         await pool.query(
             `INSERT INTO sync_log (user_id, device_id, sync_type, entity_type, entity_id, status, error_message)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [req.user!.userId, deviceId, syncType, entityType, entityId, status, errorMessage]
+            [req.user!.userId, deviceId, syncType, entityType, entityId, dbStatus, errorMessage]
         );
 
         res.json({ message: 'Sync event logged' });
