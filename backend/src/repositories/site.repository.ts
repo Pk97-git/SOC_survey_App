@@ -39,10 +39,26 @@ export class SiteRepository {
     }
 
     async delete(id: string): Promise<boolean> {
-        const result = await pool.query(
-            'DELETE FROM sites WHERE id = $1 RETURNING id',
-            [id]
-        );
-        return (result.rows.length > 0);
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Delete Surveys (Cascades to asset_inspections, photos, etc.)
+            await client.query('DELETE FROM surveys WHERE site_id = $1', [id]);
+
+            // 2. Delete Site (Cascades to assets, and now that inspections are gone, this should succeed)
+            const result = await client.query(
+                'DELETE FROM sites WHERE id = $1 RETURNING id',
+                [id]
+            );
+
+            await client.query('COMMIT');
+            return (result.rows.length > 0);
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
     }
 }

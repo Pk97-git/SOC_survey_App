@@ -111,14 +111,27 @@ export default function UserManagementScreen() {
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        try {
-            await usersApi.delete(userId);
-            loadUsers();
-        } catch (error) {
-            console.error('Failed to delete user:', error);
-            alert('Failed to delete user.');
-        }
+    const handleDeleteUser = (userId: string) => {
+        Alert.alert(
+            'Delete User',
+            'Are you sure you want to delete this user?\n\nWARNING: This will remove their login access and anonymize their contributions (Sites, Surveys, Logs). This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await usersApi.delete(userId);
+                            loadUsers();
+                        } catch (error) {
+                            console.error('Failed to delete user:', error);
+                            alert('Failed to delete user.');
+                        }
+                    }
+                }
+            ]
+        );
     };
     const handleActivateUser = async (userId: string) => {
         try {

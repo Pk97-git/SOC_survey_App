@@ -243,8 +243,9 @@ router.post('/:id/deactivate', authenticate, authorize('admin'), async (req: Aut
     }
 });
 
-// Delete user (Admin only) - Soft delete preferred, this is hard delete
+// Delete user (Admin only)
 router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
 
@@ -253,34 +254,51 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
             return res.status(400).json({ error: 'Cannot delete your own account' });
         }
 
-        // Get user info before deletion
-        const userCheck = await pool.query('SELECT email FROM users WHERE id = $1', [id]);
+        const userCheck = await client.query('SELECT email FROM users WHERE id = $1', [id]);
         if (userCheck.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        // 1. Unlink from Surveys (preserve history, just remove surveyor reference)
+        await client.query('UPDATE surveys SET surveyor_id = NULL WHERE surveyor_id = $1', [id]);
+
+        // 2. Unlink from Sites (created_by)
+        await client.query('UPDATE sites SET created_by = NULL WHERE created_by = $1', [id]);
+
+        // 3. Unlink from Users (created_by, deactivated_by)
+        await client.query('UPDATE users SET created_by = NULL WHERE created_by = $1', [id]);
+        await client.query('UPDATE users SET deactivated_by = NULL WHERE deactivated_by = $1', [id]);
+
+        // 4. Anonymize Audit Logs (keep the action, remove the actor)
+        await client.query('UPDATE audit_log SET user_id = NULL WHERE user_id = $1', [id]);
+
+        // 5. Delete the User
+        const result = await client.query(
             'DELETE FROM users WHERE id = $1 RETURNING id',
             [id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+        await client.query('COMMIT');
 
-        // Log deletion
+        // Log deletion (system action since user is gone)
+        // We log it using the requester's ID
         await logUserManagement(
             AuditAction.USER_DELETE,
             req.user!.userId,
-            id,
+            id, // ID is preserved in log details even if table record is gone
             req,
-            { email: userCheck.rows[0].email }
+            { email: userCheck.rows[0].email, status: 'Deleted and anonymized references' }
         );
 
-        res.json({ message: 'User deleted successfully' });
+        res.json({ message: 'User deleted and references anonymized successfully' });
     } catch (error: any) {
+        await client.query('ROLLBACK');
         console.error('Delete user error:', error);
         res.status(500).json({ error: 'Failed to delete user' });
+    } finally {
+        client.release();
     }
 });
 

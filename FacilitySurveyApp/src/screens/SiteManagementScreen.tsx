@@ -155,7 +155,7 @@ export default function SiteManagementScreen() {
     const handleDelete = (site: SiteRecord) => {
         Alert.alert(
             'Delete Site',
-            `Are you sure you want to delete ${site.name}?`,
+            `Are you sure you want to delete ${site.name}?\n\nWARNING: This will permanently delete ALL associated Surveys, Inspections, and Assets. This action cannot be undone.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
