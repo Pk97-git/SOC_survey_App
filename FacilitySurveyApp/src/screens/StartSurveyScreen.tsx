@@ -91,10 +91,13 @@ export default function StartSurveyScreen() {
         }
     };
 
-    // Optimization: dedicated open handler to dismiss keyboard
+    // Optimization: dedicated open handler to dismiss keyboard with delay
     const openSiteMenu = () => {
         Keyboard.dismiss();
-        setSiteMenuVisible(true);
+        // Small delay to allow keyboard to dismiss without layout shift closing the menu immediately
+        setTimeout(() => {
+            setSiteMenuVisible(true);
+        }, 100);
     };
 
     const handleSiteSelect = (site: any) => {
