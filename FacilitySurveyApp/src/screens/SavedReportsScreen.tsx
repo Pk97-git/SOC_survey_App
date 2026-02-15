@@ -264,15 +264,58 @@ export default function SavedReportsScreen() {
                     <Divider />
                     <ScrollView horizontal>
                         <View>
-                            <ScrollView style={{ maxHeight: 500 }}>
+                            <ScrollView style={{ maxHeight: 600 }}>
                                 <DataTable>
                                     {previewData.map((row, rowIndex) => (
-                                        <DataTable.Row key={rowIndex}>
-                                            {row.map((cell: any, cellIndex: number) => (
-                                                <DataTable.Cell key={cellIndex} style={{ width: 100, borderRightWidth: 1, borderRightColor: '#eee' }}>
-                                                    <Text numberOfLines={2} style={{ fontSize: 11 }}>{String(cell || '')}</Text>
-                                                </DataTable.Cell>
-                                            ))}
+                                        <DataTable.Row key={rowIndex} style={rowIndex <= 1 ? { backgroundColor: '#800000', height: rowIndex === 0 ? 50 : 80 } : undefined}>
+                                            {row.map((cell: any, cellIndex: number) => {
+                                                // Column Widths
+                                                let cellWidth = 100;
+                                                if (cellIndex === 5) cellWidth = 200; // Description
+                                                if (cellIndex >= 6 && cellIndex <= 12) cellWidth = 60; // Condition cols
+
+                                                // Colors
+                                                let bgColor: string | undefined = undefined;
+                                                let textColor = 'black';
+
+                                                if (rowIndex <= 1) {
+                                                    bgColor = '#800000'; // Maroon
+                                                    textColor = 'white';
+
+                                                    // Condition Sub-headers (Row 1)
+                                                    if (rowIndex === 1 && cellIndex >= 6 && cellIndex <= 12) {
+                                                        const colors = ['#0070C0', '#00B050', '#92D050', '#FFFF00', '#FFC000', '#FF0000', '#BFBFBF'];
+                                                        bgColor = colors[cellIndex - 6];
+                                                        // Contrast for Yellow/LightGreen
+                                                        if (cellIndex === 9 || cellIndex === 8) textColor = 'black';
+                                                    }
+                                                }
+
+                                                return (
+                                                    <DataTable.Cell
+                                                        key={cellIndex}
+                                                        style={{
+                                                            width: cellWidth,
+                                                            borderRightWidth: 1,
+                                                            borderRightColor: rowIndex <= 1 ? 'rgba(255,255,255,0.2)' : '#eee',
+                                                            backgroundColor: bgColor,
+                                                            justifyContent: 'center'
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            numberOfLines={4}
+                                                            style={{
+                                                                fontSize: rowIndex <= 1 ? 10 : 11,
+                                                                fontWeight: rowIndex <= 1 ? 'bold' : 'normal',
+                                                                color: textColor,
+                                                                textAlign: 'center'
+                                                            }}
+                                                        >
+                                                            {String(cell || '')}
+                                                        </Text>
+                                                    </DataTable.Cell>
+                                                );
+                                            })}
                                         </DataTable.Row>
                                     ))}
                                 </DataTable>

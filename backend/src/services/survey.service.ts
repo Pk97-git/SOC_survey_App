@@ -126,7 +126,7 @@ export class SurveyService {
             valCell.border = borderStyle;
         };
 
-        setHeaderRow(1, 'Location:', `${data.site_name || ''} ${locationFilter ? '- ' + locationFilter : ''}`);
+        setHeaderRow(1, 'Location:', locationFilter || data.site_name || '');
         setHeaderRow(2, 'Trade:', data.trade || 'All');
         setHeaderRow(3, 'Date:', new Date(data.created_at).toLocaleDateString());
 
