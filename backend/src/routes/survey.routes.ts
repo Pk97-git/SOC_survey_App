@@ -9,11 +9,20 @@ const surveyController = new SurveyController();
 // Get all surveys (filtered by role)
 router.get('/', authenticate, surveyController.getAll);
 
+// Create survey (Admin or Surveyor)
+router.post('/', authenticate, authorize('admin', 'surveyor'), surveyController.create);
+
 // Export survey to Excel
 router.get('/:id/export', authenticate, surveyController.exportToExcel);
 
 // Get survey by ID
 router.get('/:id', authenticate, surveyController.getById);
+
+// Update survey (Admin or own surveyor)
+router.put('/:id', authenticate, authorize('admin', 'surveyor'), surveyController.update);
+
+// Submit survey (Surveyor or Admin)
+router.post('/:id/submit', authenticate, authorize('admin', 'surveyor'), surveyController.submit);
 
 // Delete survey (Admin or own surveyor)
 router.delete('/:id', authenticate, surveyController.delete);
