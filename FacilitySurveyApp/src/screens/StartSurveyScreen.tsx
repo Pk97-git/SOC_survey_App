@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Keyboard } from 'react-native';
 import { Text, Button, Surface, TextInput, useTheme, Avatar, Menu, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -91,27 +91,37 @@ export default function StartSurveyScreen() {
         }
     };
 
-    const handleSiteSelect = async (site: any) => {
+    // Optimization: dedicated open handler to dismiss keyboard
+    const openSiteMenu = () => {
+        Keyboard.dismiss();
+        setSiteMenuVisible(true);
+    };
+
+    const handleSiteSelect = (site: any) => {
+        // 1. Immediate UI Feedback
         setSiteName(site.name);
         setSiteId(site.id);
         setSiteMenuVisible(false);
 
-        // Save as preference
-        await storage.saveLastSelectedSite(site.id);
-
-        // Reset sub-selections
+        // 2. Clear previous selections immediately
         setLocationFilter('');
         setServiceLine('');
         setLocations([]);
         setServiceLines([]);
 
-        // Load Locations for this site
-        const siteLocations = await storage.getLocationsBySite(site.id);
-        setLocations(siteLocations);
+        // 3. Defer heavy async storage calls to next tick to allow UI to update
+        setTimeout(async () => {
+            // Save as preference
+            await storage.saveLastSelectedSite(site.id);
 
-        // Load Service Lines (All for site initially)
-        const siteServiceLines = await storage.getServiceLinesBySiteAndLocation(site.id, '');
-        setServiceLines(siteServiceLines);
+            // Load Locations for this site
+            const siteLocations = await storage.getLocationsBySite(site.id);
+            setLocations(siteLocations);
+
+            // Load Service Lines (All for site initially)
+            const siteServiceLines = await storage.getServiceLinesBySiteAndLocation(site.id, '');
+            setServiceLines(siteServiceLines);
+        }, 0);
     };
 
     const handleLocationSelect = async (loc: string) => {
@@ -211,7 +221,7 @@ export default function StartSurveyScreen() {
                             anchor={
                                 <Button
                                     mode="outlined"
-                                    onPress={() => setSiteMenuVisible(true)}
+                                    onPress={openSiteMenu}
                                     style={styles.dropdown}
                                     contentStyle={{ justifyContent: 'flex-start' }}
                                 >
