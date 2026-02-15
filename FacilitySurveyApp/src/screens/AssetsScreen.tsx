@@ -138,6 +138,12 @@ export default function AssetsScreen() {
     const [selectedSite, setSelectedSite] = useState<any | null>(null);
     const [sites, setSites] = useState<any[]>([]);
     const [siteMenuVisible, setSiteMenuVisible] = useState(false);
+
+    // Debug Menu
+    useEffect(() => {
+        console.log(`[AssetsScreen] Menu Visible: ${siteMenuVisible}, Sites: ${sites.length}`);
+    }, [siteMenuVisible, sites]);
+
     const [importing, setImporting] = useState(false);
     const [importProgress, setImportProgress] = useState({ current: 0, total: 0, message: '' });
 
@@ -166,7 +172,9 @@ export default function AssetsScreen() {
     }, [searchQuery, assets, selectedServiceLine, selectedLocation]);
 
     const loadSites = async () => {
+        console.log('[AssetsScreen] Loading sites...');
         const allSites = await hybridStorage.getSites();
+        console.log(`[AssetsScreen] Loaded ${allSites.length} sites`);
         setSites(allSites);
     };
 
@@ -354,7 +362,7 @@ export default function AssetsScreen() {
                     anchor={
                         <Button
                             mode="outlined"
-                            onPress={() => setSiteMenuVisible(true)}
+                            onPress={openSiteMenu}
                             icon="chevron-down"
                             contentStyle={{ flexDirection: 'row-reverse' }}
                             style={{ marginTop: 8 }}
