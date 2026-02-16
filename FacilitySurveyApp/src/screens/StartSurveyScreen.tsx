@@ -91,28 +91,24 @@ export default function StartSurveyScreen() {
         }
     };
 
-    // Optimization: dedicated open handler to dismiss keyboard with delay
+    // Simplified open handler
     const openSiteMenu = () => {
-        Keyboard.dismiss();
-        // Small delay to allow keyboard to dismiss without layout shift closing the menu immediately
-        setTimeout(() => {
-            setSiteMenuVisible(true);
-        }, 100);
+        // Keyboard.dismiss(); // Removing to prevent layout shift closing menu
+        setSiteMenuVisible(true);
     };
 
     const handleSiteSelect = (site: any) => {
-        // 1. Immediate UI Feedback
+        // ... (rest same, keeping optimization)
         setSiteName(site.name);
         setSiteId(site.id);
         setSiteMenuVisible(false);
 
-        // 2. Clear previous selections immediately
+        // ...
         setLocationFilter('');
         setServiceLine('');
         setLocations([]);
         setServiceLines([]);
 
-        // 3. Defer heavy async storage calls to next tick to allow UI to update
         setTimeout(async () => {
             // Save as preference
             await storage.saveLastSelectedSite(site.id);
@@ -127,79 +123,14 @@ export default function StartSurveyScreen() {
         }, 0);
     };
 
-    const handleLocationSelect = async (loc: string) => {
-        setLocationFilter(loc);
-        setLocationMenuVisible(false);
-        setServiceLine('');
-
-        // Filter service lines by location
-        const filteredServiceLines = await storage.getServiceLinesBySiteAndLocation(siteId, loc);
-        setServiceLines(filteredServiceLines);
-    };
-
-    const handleStartInspection = async () => {
-        if (!canStart) {
-            Alert.alert('Missing Information', 'Please select site and service line');
-            return;
-        }
-
-        // Try to load assets filtered by site + location + serviceLine
-        // We first get assets by site/serviceLine, then filter by location in memory if needed
-        // Or update storage to have a specific query. 
-        // For simplicity: getAssetsBySiteAndServiceLine -> filter
-
-        const assets = await storage.getAssetsBySiteAndServiceLine(siteId, serviceLine); // Currently uses siteId as raw match
-        // Wait, storage.ts implementation of getAssetsBySiteAndServiceLine uses site_id.
-        // And we need to filter by locationFilter.
-
-        const filteredAssets = locationFilter
-            ? assets.filter((a: any) => {
-                const loc = a.location;
-                const bldg = a.building;
-                const combined = bldg && loc ? `${bldg} - ${loc}` : (bldg || loc || '');
-                return combined === locationFilter;
-            })
-            : assets;
-
-        const hasPreloadedAssets = filteredAssets.length > 0;
-
-        // Create survey record
-        const surveyData = {
-            site_id: siteId,
-            site_name: siteName,
-            trade: serviceLine,
-            location: locationFilter, // Save selected location/building context
-            surveyor_name: surveyorName,
-            status: 'in_progress',
-            gps_lat: locationData?.latitude,
-            gps_lng: locationData?.longitude,
-            created_at: new Date().toISOString(),
-        };
-
-        try {
-            // Use hybridStorage to save (calls Backend if enabled)
-            const savedSurvey = await hybridStorage.saveSurvey(surveyData);
-
-            // If backend, savedSurvey.id is UUID.
-            const surveyId = savedSurvey.id || `survey_${Date.now()}`;
-
-            navigation.navigate('AssetInspection', {
-                surveyId,
-                siteId, // Pass siteId for asset creation
-                siteName,
-                trade: serviceLine,
-                preloadedAssets: hasPreloadedAssets ? filteredAssets : [],
-                assetOption: hasPreloadedAssets ? 'preloaded' : 'manual'
-            });
-        } catch (error) {
-            console.error('Error creating survey:', error);
-            Alert.alert('Error', 'Failed to create survey. Check connectivity.');
-        }
-    };
+    // ...
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+            >
                 {/* Header */}
                 <Surface style={[styles.screenHeader, { backgroundColor: theme.colors.surface }]} elevation={1}>
                     <IconButton
