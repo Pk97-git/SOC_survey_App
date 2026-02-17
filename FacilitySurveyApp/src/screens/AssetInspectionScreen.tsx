@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Text, FAB, useTheme, ProgressBar, Button, Surface, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,7 +37,10 @@ export default function AssetInspectionScreen() {
         }
     };
 
+    const [loadingAssets, setLoadingAssets] = useState(false);
+
     const loadAssets = async () => {
+        setLoadingAssets(true);
         try {
             if (siteId) {
                 const siteAssets = await hybridStorage.getAssets(siteId);
@@ -57,6 +60,8 @@ export default function AssetInspectionScreen() {
         } catch (error) {
             console.error('Error loading assets:', error);
             Alert.alert('Error', 'Failed to load assets for this survey');
+        } finally {
+            setLoadingAssets(false);
         }
     };
     const captureGPS = async (): Promise<{ lat: number; lng: number } | null> => {
@@ -68,10 +73,16 @@ export default function AssetInspectionScreen() {
             }
 
             const location = await Location.getCurrentPositionAsync({});
-            return {
-                lat: location.coords.latitude,
-                lng: location.coords.longitude
-            };
+            const lat = location.coords.latitude;
+            const lng = location.coords.longitude;
+
+            // Validate GPS range
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                Alert.alert('GPS Error', 'Invalid coordinates received. Please try again.');
+                return null;
+            }
+
+            return { lat, lng };
         } catch (error) {
             console.error('Error capturing GPS:', error);
             Alert.alert('Error', 'Failed to capture GPS coordinates');

@@ -269,16 +269,17 @@ export default function SurveyManagementScreen() {
             } else {
                 // Create missing surveys
                 let createdCount = 0;
+                const totalTrades = tradesToCreate.length;
                 for (const trade of tradesToCreate) {
-                    setOperationMessage(`Creating survey for ${trade}...`);
+                    setOperationMessage(`Creating survey ${createdCount + 1} of ${totalTrades}: ${trade}...`);
                     await surveysApi.create({
                         siteId: selectedSite!.id,
                         trade: trade
                     });
                     createdCount++;
                 }
-                Alert.alert("Success", `Processed ${createdCount} surveys.`);
-                await loadSiteData(selectedSite!); // refresh
+                await loadSiteData(selectedSite!); // refresh before showing alert
+                Alert.alert("Success", `Created ${createdCount} survey${createdCount !== 1 ? 's' : ''} successfully.`);
             }
 
         } catch (error) {

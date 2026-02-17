@@ -175,12 +175,7 @@ class SyncService {
                     );
                 } else {
                     // Create new
-                    console.log(`Creating survey on backend:`, {
-                        id: survey.id,
-                        site_id: (survey as any).site_id,
-                        trade: survey.trade,
-                        status: survey.status
-                    });
+                    console.log(`Creating survey on backend: ${survey.id} (trade: ${survey.trade})`);
 
                     serverSurvey = await surveyService.createSurvey(
                         (survey as any).site_id!,

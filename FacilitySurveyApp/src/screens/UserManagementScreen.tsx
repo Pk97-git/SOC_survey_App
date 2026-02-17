@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Surface, useTheme, FAB, IconButton, Searchbar, Dialog, Portal, Button, TextInput, Menu, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
@@ -86,22 +86,31 @@ export default function UserManagementScreen() {
 
     const handleSaveUser = async () => {
         try {
+            if (!formData.fullName.trim() || !formData.email.trim()) {
+                Alert.alert('Validation Error', 'Full name and email are required.');
+                return;
+            }
+            if (!editingUser && !formData.password.trim()) {
+                Alert.alert('Validation Error', 'Password is required when creating a new user.');
+                return;
+            }
             if (editingUser) {
                 // Update existing user
                 await usersApi.update(editingUser.id, {
                     fullName: formData.fullName,
                     role: formData.role,
-                    email: formData.email, // If backend supports email update
+                    email: formData.email,
                     ...(formData.password ? { password: formData.password } : {})
                 });
             } else {
-                // Create new user (Register)
+                // Create new user
                 await authApi.register({
                     email: formData.email,
-                    password: formData.password || 'password123', // Default pwd if needed
+                    password: formData.password,
                     fullName: formData.fullName,
                     role: formData.role
                 });
+                Alert.alert('User Created', `Account created for ${formData.email}.\n\nPlease share the password securely with the user.`);
             }
             setDialogVisible(false);
             loadUsers();

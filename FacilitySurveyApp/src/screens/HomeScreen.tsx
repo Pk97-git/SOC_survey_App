@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeAreaView, Platform } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, StatusBar, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { Text, FAB, useTheme, Surface, Avatar, IconButton, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { storage } from '../services/storage';
@@ -9,6 +9,8 @@ export default function HomeScreen() {
     const theme = useTheme();
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [inProgressSurveys, setInProgressSurveys] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
@@ -18,17 +20,26 @@ export default function HomeScreen() {
     }, [navigation]);
 
     const loadDashboardData = async () => {
-        const allSurveys = await storage.getSurveys();
+        setLoading(true);
+        setLoadError(null);
+        try {
+            const allSurveys = await storage.getSurveys();
 
-        // Filter in-progress surveys
-        const inProgress = allSurveys.filter((s: any) => s.status === 'in_progress' || s.status === 'draft');
-        inProgress.sort((a: any, b: any) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
-        setInProgressSurveys(inProgress);
+            // Filter in-progress surveys
+            const inProgress = allSurveys.filter((s: any) => s.status === 'in_progress' || s.status === 'draft');
+            inProgress.sort((a: any, b: any) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
+            setInProgressSurveys(inProgress);
 
-        // Recent activity (all surveys)
-        const recent = [...allSurveys];
-        recent.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setRecentActivity(recent.slice(0, 5));
+            // Recent activity (all surveys)
+            const recent = [...allSurveys];
+            recent.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            setRecentActivity(recent.slice(0, 5));
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            setLoadError('Failed to load dashboard data. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const StatusBadge = ({ status }: { status: string }) => {
