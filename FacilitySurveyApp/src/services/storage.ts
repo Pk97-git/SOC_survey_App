@@ -24,15 +24,19 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 
 export interface SurveyRecord {
     id: string;
+    site_id?: string;        // Backend UUID — required for sync to work correctly
     site_name: string;
     trade?: string;
     location?: string;
+    surveyor_id?: string;    // NULL = unassigned admin survey; set when surveyor claims it
     surveyor_name?: string;
     status: string;
     gps_lat?: number;
     gps_lng?: number;
     created_at: string;
     updated_at?: string;
+    synced?: number;         // 0 = pending upload, 1 = synced with backend
+    server_id?: string;      // Backend UUID if this was created locally and synced
 }
 
 export interface SiteRecord {
@@ -58,17 +62,36 @@ const WEB_RESPONSES_KEY = 'responses_data';
 export const storage = {
     async saveSurvey(survey: SurveyRecord) {
         if (Platform.OS === 'web' || isExpoGo) {
+            // Upsert: replace existing survey with same id if it exists
             const existing = await this.getSurveys();
-            existing.unshift(survey);
+            const idx = existing.findIndex((s: any) => s.id === survey.id);
+            if (idx >= 0) {
+                existing[idx] = survey;
+            } else {
+                existing.unshift(survey);
+            }
             await AsyncStorage.setItem(WEB_SURVEYS_KEY, JSON.stringify(existing));
         } else {
             const db = await getDb();
+            // INSERT OR REPLACE handles upsert — critical for sync downloads which may re-save the same survey
             await db.runAsync(
-                'INSERT INTO surveys (id, site_name, trade, location, surveyor_name, status, gps_lat, gps_lng, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                survey.id, survey.site_name, survey.trade || '', survey.location || '', survey.surveyor_name || '', survey.status,
+                `INSERT OR REPLACE INTO surveys
+                 (id, site_id, site_name, trade, location, surveyor_id, surveyor_name, status, gps_lat, gps_lng, created_at, updated_at, synced, server_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                survey.id,
+                (survey as any).site_id || null,
+                survey.site_name || '',
+                survey.trade || '',
+                survey.location || '',
+                (survey as any).surveyor_id || null,
+                survey.surveyor_name || '',
+                survey.status,
                 survey.gps_lat ? Number(survey.gps_lat) : null,
                 survey.gps_lng ? Number(survey.gps_lng) : null,
-                survey.created_at, survey.updated_at || survey.created_at
+                survey.created_at,
+                survey.updated_at || survey.created_at,
+                (survey as any).synced ?? 0,
+                (survey as any).server_id || null
             );
         }
     },
@@ -92,13 +115,39 @@ export const storage = {
 
     async getSurveys(): Promise<SurveyRecord[]> {
         if (Platform.OS === 'web' || isExpoGo) {
-            const jwt = await AsyncStorage.getItem(WEB_SURVEYS_KEY);
-            return jwt ? JSON.parse(jwt) : [];
+            const data = await AsyncStorage.getItem(WEB_SURVEYS_KEY);
+            return data ? JSON.parse(data) : [];
         } else {
             const db = await getDb();
-            // Assuming schema has created_at default, but we might have missed it in INSERT above if not explicit.
-            // Let's use flexible query.
             return await db.getAllAsync('SELECT * FROM surveys ORDER BY rowid DESC');
+        }
+    },
+
+    async getSurveyById(id: string): Promise<SurveyRecord | null> {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const surveys = await this.getSurveys();
+            return surveys.find((s: any) => s.id === id) || null;
+        } else {
+            const db = await getDb();
+            const result = await db.getFirstAsync<SurveyRecord>(
+                'SELECT * FROM surveys WHERE id = ? LIMIT 1', [id]
+            );
+            return result || null;
+        }
+    },
+
+    async getSurveysBySiteAndTrade(siteId: string, trade: string): Promise<SurveyRecord[]> {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const surveys = await this.getSurveys();
+            return surveys.filter((s: any) =>
+                s.site_id === siteId && (!trade || s.trade === trade)
+            );
+        } else {
+            const db = await getDb();
+            return await db.getAllAsync<SurveyRecord>(
+                'SELECT * FROM surveys WHERE site_id = ? AND trade = ? ORDER BY created_at DESC',
+                [siteId, trade]
+            );
         }
     },
 
@@ -414,6 +463,25 @@ export const storage = {
             await db.runAsync(
                 'UPDATE surveys SET status = ?, updated_at = ? WHERE id = ?',
                 status, new Date().toISOString(), surveyId
+            );
+        }
+    },
+
+    async claimSurvey(surveyId: string, surveyorId: string, status: string = 'in_progress') {
+        if (Platform.OS === 'web' || isExpoGo) {
+            const surveys = await this.getSurveys();
+            const index = surveys.findIndex((s: any) => s.id === surveyId);
+            if (index >= 0) {
+                (surveys[index] as any).surveyor_id = surveyorId;
+                surveys[index].status = status;
+                surveys[index].updated_at = new Date().toISOString();
+                await AsyncStorage.setItem(WEB_SURVEYS_KEY, JSON.stringify(surveys));
+            }
+        } else {
+            const db = await getDb();
+            await db.runAsync(
+                'UPDATE surveys SET surveyor_id = ?, status = ?, updated_at = ?, synced = 0 WHERE id = ?',
+                surveyorId, status, new Date().toISOString(), surveyId
             );
         }
     },

@@ -37,12 +37,12 @@ export class SiteController {
 
     create = async (req: AuthRequest, res: Response) => {
         try {
-            const { name, location } = req.body;
+            const { name, location, client } = req.body;
             if (!name) {
                 return res.status(400).json({ error: 'Site name is required' });
             }
 
-            const site = await this.service.create({ name, location });
+            const site = await this.service.create({ name, location, client });
 
             res.status(201).json({
                 message: 'Site created successfully',
@@ -57,9 +57,9 @@ export class SiteController {
     update = async (req: AuthRequest, res: Response) => {
         try {
             const id = req.params.id as string;
-            const { name, location } = req.body;
+            const { name, location, client } = req.body;
 
-            const site = await this.service.update(id, { name, location });
+            const site = await this.service.update(id, { name, location, client });
 
             if (!site) {
                 return res.status(404).json({ error: 'Site not found' });

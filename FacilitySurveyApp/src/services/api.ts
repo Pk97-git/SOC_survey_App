@@ -141,12 +141,12 @@ export const sitesApi = {
         return response.data.site;
     },
 
-    create: async (data: { name: string; location?: string }) => {
+    create: async (data: { name: string; location?: string; client?: string }) => {
         const response = await api.post('/sites', data);
         return response.data.site;
     },
 
-    update: async (id: string, data: { name?: string; location?: string }) => {
+    update: async (id: string, data: { name?: string; location?: string; client?: string }) => {
         const response = await api.put(`/sites/${id}`, data);
         return response.data.site;
     },
@@ -241,12 +241,12 @@ export const surveysApi = {
         return response.data.survey;
     },
 
-    create: async (data: { siteId: string; trade: string }) => {
+    create: async (data: { siteId: string; trade: string; location?: string }) => {
         const response = await api.post('/surveys', data);
         return response.data.survey;
     },
 
-    update: async (id: string, data: { status?: string; trade?: string }) => {
+    update: async (id: string, data: { status?: string; trade?: string; surveyorId?: string; location?: string }) => {
         const response = await api.put(`/surveys/${id}`, data);
         return response.data.survey;
     },

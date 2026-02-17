@@ -563,6 +563,7 @@ export default function SurveyManagementScreen() {
 
                                                             navigation.navigate('AssetInspection', {
                                                                 surveyId: t.surveyId,
+                                                                siteId: selectedSite.id,
                                                                 siteName: selectedSite.name,
                                                                 trade: t.name,
                                                                 location: node.name,
