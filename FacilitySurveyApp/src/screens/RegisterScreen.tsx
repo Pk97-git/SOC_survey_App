@@ -62,7 +62,7 @@ export default function RegisterScreen() {
                             value={fullName}
                             onChangeText={setFullName}
                             autoCapitalize="words"
-                            left={<TextInput.Icon icon="account" iconColor={theme.colors.secondary} />}
+                            left={<TextInput.Icon icon="account" />}
                         />
 
                         <TextInput
@@ -75,7 +75,7 @@ export default function RegisterScreen() {
                             autoCapitalize="none"
                             keyboardType="email-address"
                             autoComplete="email"
-                            left={<TextInput.Icon icon="email" iconColor={theme.colors.secondary} />}
+                            left={<TextInput.Icon icon="email" />}
                         />
 
                         <TextInput
@@ -87,7 +87,7 @@ export default function RegisterScreen() {
                             value={password}
                             onChangeText={setPassword}
                             autoComplete="password"
-                            left={<TextInput.Icon icon="lock" iconColor={theme.colors.secondary} />}
+                            left={<TextInput.Icon icon="lock" />}
                         />
 
                         <Text style={{ color: theme.colors.onSurface, marginTop: 20, marginBottom: 10, fontWeight: '600' }}>Role</Text>

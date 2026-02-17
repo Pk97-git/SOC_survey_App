@@ -4,6 +4,7 @@ export const SEED_TEMPLATES: SurveyTemplate[] = [
     {
         id: 'tpl_facility_mgmt',
         title: 'Facility Management Inspection',
+        mode: 'standard',
         sections: [
             {
                 id: 'sec_fm_general',
@@ -27,6 +28,7 @@ export const SEED_TEMPLATES: SurveyTemplate[] = [
     {
         id: 'tpl_drilling',
         title: 'Drilling Site Survey',
+        mode: 'standard',
         sections: [
             {
                 id: 'sec_drill_equip',
@@ -49,6 +51,7 @@ export const SEED_TEMPLATES: SurveyTemplate[] = [
     {
         id: 'tpl_oil_waste',
         title: 'Oil Waste Management',
+        mode: 'standard',
         sections: [
             {
                 id: 'sec_waste_storage',

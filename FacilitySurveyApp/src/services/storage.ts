@@ -129,7 +129,7 @@ export const storage = {
             return surveys.find((s: any) => s.id === id) || null;
         } else {
             const db = await getDb();
-            const result = await db.getFirstAsync<SurveyRecord>(
+            const result = await db.getFirstAsync(
                 'SELECT * FROM surveys WHERE id = ? LIMIT 1', [id]
             );
             return result || null;
@@ -144,7 +144,7 @@ export const storage = {
             );
         } else {
             const db = await getDb();
-            return await db.getAllAsync<SurveyRecord>(
+            return await db.getAllAsync(
                 'SELECT * FROM surveys WHERE site_id = ? AND trade = ? ORDER BY created_at DESC',
                 [siteId, trade]
             );
