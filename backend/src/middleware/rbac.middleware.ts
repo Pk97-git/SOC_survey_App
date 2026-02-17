@@ -71,6 +71,14 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         Permission.SUBMIT_SURVEY,
         Permission.VIEW_REPORTS,
     ],
+    reviewer: [
+        // Can read surveys and add review comments
+        Permission.READ_SITE,
+        Permission.READ_ASSET,
+        Permission.READ_SURVEY,
+        Permission.VIEW_REPORTS,
+        Permission.EXPORT_REPORTS,
+    ],
 };
 
 /**

@@ -327,7 +327,7 @@ export default function AssetsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         await hybridStorage.deleteAsset(assetId);
-                        if (selectedSite) loadAssetsForSite(selectedSite.name);
+                        if (selectedSite) loadAssetsForSite(selectedSite);
                     },
                 },
             ]

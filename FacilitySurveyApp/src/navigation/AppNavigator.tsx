@@ -1,4 +1,5 @@
 import React from 'react';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { IconButton, useTheme, Button } from 'react-native-paper';
@@ -208,41 +209,41 @@ const AdminTabs = () => {
 export const AppNavigator = () => {
     const { user, isLoading } = useAuth();
 
-    // Debug logging
-    if (user) {
-        console.log('AppNavigator User:', JSON.stringify(user, null, 2));
-        console.log('AppNavigator Role:', user.role);
-    }
-
     if (isLoading) {
         return <View style={styles.loadingContainer} />; // Loading splash
     }
 
-    // Simple role-based navigation: Admin or Surveyor only
-    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    const role = user?.role?.toLowerCase();
+    const isAdmin = role === 'admin';
+    const isSurveyor = role === 'surveyor';
 
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {user ? (
-                isAdmin ? (
-                    <Stack.Screen name="AdminMain" component={AdminTabs} />
+        <ErrorBoundary fallbackTitle="Navigation Error">
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {user ? (
+                    isAdmin ? (
+                        <Stack.Screen name="AdminMain" component={AdminTabs} />
+                    ) : isSurveyor ? (
+                        <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
+                    ) : (
+                        // reviewer — read-only access to surveys and reports
+                        <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
+                    )
                 ) : (
-                    <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
-                )
-            ) : (
-                <>
-                    <Stack.Screen name="Login" component={LoginScreen} />
-                    <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-                    <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-                </>
-            )}
-        </Stack.Navigator>
+                    <>
+                        <Stack.Screen name="Login" component={LoginScreen} />
+                        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+                    </>
+                )}
+            </Stack.Navigator>
+        </ErrorBoundary>
     );
 };
 
 const styles = {
     loadingContainer: {
         flex: 1,
-        backgroundColor: '#000'
+        backgroundColor: '#F5F5F5'
     }
 };

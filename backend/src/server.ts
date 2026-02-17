@@ -23,10 +23,10 @@ import { validateJwtSecretStrength } from './utils/security.utils';
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
-// Rate limiting
+// Rate limiting — general API traffic
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500, // Balanced for typical mobile app usage
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' }
@@ -35,7 +35,7 @@ const limiter = rateLimit({
 // Stricter limiter for authentication routes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Allow more attempts during development/testing
+    max: 10, // 10 attempts per 15 minutes — brute force protection
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many login attempts, please try again in 15 minutes.' }
@@ -45,12 +45,17 @@ const authLimiter = rateLimit({
 app.use(helmet()); // Security headers
 app.use(cors({
     origin: (origin, callback) => {
-        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || [];
 
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
+        // Allow requests with no origin only in non-production environments (e.g. curl, local dev)
+        if (!origin) {
+            if (process.env.NODE_ENV !== 'production') {
+                return callback(null, true);
+            }
+            return callback(new Error('Origin header required in production'));
+        }
 
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             console.warn(`Blocked by CORS: ${origin}`);
@@ -63,8 +68,6 @@ app.use(limiter); // Apply rate limiting to all requests
 app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
-
-
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

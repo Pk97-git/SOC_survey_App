@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor', 'reviewer')),
     is_active BOOLEAN DEFAULT true,
     created_by UUID REFERENCES users(id),
     deactivated_by UUID REFERENCES users(id),
@@ -165,3 +165,10 @@ ALTER TABLE surveys ADD COLUMN IF NOT EXISTS location VARCHAR(255);
 
 -- Create default admin user (password: admin123 - CHANGE IN PRODUCTION!)
 
+
+-- Live migration: allow reviewer role (existing databases only had admin + surveyor)
+-- DROP CONSTRAINT first, then re-add with reviewer included
+DO $$ BEGIN
+  ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+  ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'surveyor', 'reviewer'));
+EXCEPTION WHEN others THEN NULL; END $$;
