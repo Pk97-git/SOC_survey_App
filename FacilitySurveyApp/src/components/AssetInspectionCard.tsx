@@ -139,7 +139,7 @@ export default function AssetInspectionCard({
                                 mode="outlined"
                                 keyboardType="numeric"
                                 value={inspection.quantity_installed?.toString() || ''}
-                                onChangeText={(text) => onUpdate({ ...inspection, quantity_installed: parseInt(text) || 0 })}
+                                onChangeText={(text) => onUpdate({ ...inspection, quantity_installed: Math.floor(parseFloat(text)) || 0 })}
                                 dense
                             />
                         </View>
@@ -149,7 +149,7 @@ export default function AssetInspectionCard({
                                 mode="outlined"
                                 keyboardType="numeric"
                                 value={inspection.quantity_working?.toString() || ''}
-                                onChangeText={(text) => onUpdate({ ...inspection, quantity_working: parseInt(text) || 0 })}
+                                onChangeText={(text) => onUpdate({ ...inspection, quantity_working: Math.floor(parseFloat(text)) || 0 })}
                                 dense
                             />
                         </View>

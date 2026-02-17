@@ -1,4 +1,5 @@
 import { SurveyRepository } from '../repositories/survey.repository';
+import pool from '../config/database';
 import { Survey, CreateSurveyDTO, UpdateSurveyDTO, SurveyFilter } from '../models/survey.model';
 import ExcelJS from 'exceljs';
 import path from 'path';
@@ -357,5 +358,28 @@ export class SurveyService {
         }
 
         return await workbook.xlsx.writeBuffer();
+    }
+    async deleteAllBySite(user: any, siteId: string): Promise<boolean> {
+        // Only admin can delete all
+        if (user.role !== 'admin') {
+            throw new Error('Unauthorized');
+        }
+
+        try {
+            await pool.query('BEGIN');
+
+            const result = await pool.query(
+                'DELETE FROM surveys WHERE site_id = $1 RETURNING id',
+                [siteId]
+            );
+
+            await pool.query('COMMIT');
+            console.log(`Deleted ${result.rowCount} surveys for site ${siteId}`);
+            return true;
+        } catch (error) {
+            await pool.query('ROLLBACK');
+            console.error('Delete all surveys error:', error);
+            return false;
+        }
     }
 }

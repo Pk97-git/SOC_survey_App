@@ -137,6 +137,25 @@ export class SurveyController {
         }
     };
 
+    deleteAllBySite = async (req: AuthRequest, res: Response) => {
+        try {
+            const { siteId } = req.params;
+            const success = await this.service.deleteAllBySite(req.user, siteId as string);
+
+            if (!success) {
+                return res.status(500).json({ error: 'Failed to delete surveys' });
+            }
+
+            res.json({ message: 'All surveys for site deleted successfully' });
+        } catch (error: any) {
+            if (error.message === 'Unauthorized') {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+            console.error('Delete all surveys error:', error);
+            res.status(500).json({ error: 'Failed to delete surveys' });
+        }
+    };
+
     exportToExcel = async (req: AuthRequest, res: Response) => {
         try {
             const id = req.params.id as string;

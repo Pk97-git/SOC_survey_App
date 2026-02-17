@@ -180,7 +180,24 @@ export default function HomeScreen() {
                         <Surface style={[styles.listCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
                             <View style={{ borderRadius: 16, overflow: 'hidden' }}>
                                 <TouchableOpacity
-                                    onPress={() => navigation.navigate('Survey', { surveyId: item.id, templateId: item.template_id })}
+                                    onPress={async () => {
+                                        // Navigate to AssetInspection to view/resume the survey
+                                        const assets = await storage.getAssets();
+                                        const surveyAssets = assets.filter((a: any) =>
+                                            a.site_name === item.site_name &&
+                                            (!item.trade || a.service_line === item.trade) &&
+                                            (!item.location || a.floor === item.location || a.area === item.location)
+                                        );
+
+                                        navigation.navigate('AssetInspection', {
+                                            surveyId: item.id,
+                                            siteName: item.site_name,
+                                            trade: item.trade,
+                                            location: item.location,
+                                            preloadedAssets: surveyAssets,
+                                            assetOption: 'resume'
+                                        });
+                                    }}
                                     style={styles.listCardInner}
                                 >
                                     <View style={[styles.listIcon, { backgroundColor: theme.colors.surfaceVariant }]}>

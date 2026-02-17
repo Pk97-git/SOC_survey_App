@@ -302,26 +302,50 @@ class SyncService {
                 await storage.saveSite(site);
             }
 
-            // 2. Download Assets
-            const assets = await assetsApi.getAll();
-            console.log(`📥 Downloaded ${assets.length} assets`);
-            for (const asset of assets) {
-                await storage.saveAsset(asset);
-            }
-
-            // 3. Download Surveys
+            // 2. Download Surveys FIRST (to know which sites we need assets for)
             const surveys = await surveysApi.getAll();
             console.log(`📥 Downloaded ${surveys.length} surveys`);
+
+            // Extract unique site IDs from surveys
+            const surveyedSiteIds = new Set<string>();
             for (const survey of surveys) {
-                // Save survey to local storage. 
+                // Save survey to local storage
                 await storage.saveSurvey({
                     ...survey,
-                    id: survey.id, // Ensure ID matches
+                    id: survey.id,
                     synced: 1,
                     server_id: survey.id
                 });
 
-                // 4. Download Inspections for this Survey
+                // Track which sites have surveys
+                if (survey.site_id) {
+                    surveyedSiteIds.add(survey.site_id);
+                }
+            }
+
+            // 3. Download Assets ONLY for sites with surveys
+            console.log(`📥 Downloading assets for ${surveyedSiteIds.size} sites with surveys...`);
+            let totalAssets = 0;
+
+            for (const siteId of surveyedSiteIds) {
+                try {
+                    // Download assets for this specific site
+                    const siteAssets = await assetsApi.getAll(siteId);
+                    console.log(`📥 Downloaded ${siteAssets.length} assets for site ${siteId}`);
+
+                    if (siteAssets.length > 0) {
+                        await storage.saveAssetsBulk(siteAssets);
+                        totalAssets += siteAssets.length;
+                    }
+                } catch (error: any) {
+                    console.error(`Failed to download assets for site ${siteId}:`, error.message);
+                }
+            }
+
+            console.log(`✅ Total assets downloaded: ${totalAssets}`);
+
+            // 4. Download Inspections for each Survey
+            for (const survey of surveys) {
                 try {
                     const inspections = await inspectionsApi.getBySurvey(survey.id);
                     for (const inspection of inspections) {
@@ -334,7 +358,6 @@ class SyncService {
                         });
                     }
                 } catch (e) {
-                    // Inspections might not exist or fail
                     console.warn(`Failed to get inspections for survey ${survey.id}`, e);
                 }
             }

@@ -175,21 +175,32 @@ export default function SiteManagementScreen() {
         );
     };
 
+    const canGoBack = navigation.canGoBack();
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Surface style={styles.screenHeader} elevation={1}>
-                    <IconButton
-                        icon="arrow-left"
-                        size={24}
-                        onPress={() => navigation.goBack()}
-                        iconColor={theme.colors.primary}
-                    />
-                    <Text style={[styles.title, { color: theme.colors.primary }]}>
-                        Sites
-                    </Text>
-                </Surface>
-                <Text style={styles.subtitle}>{sites.length} total sites managed</Text>
+                {canGoBack ? (
+                    <View style={styles.screenHeader}>
+                        <IconButton
+                            icon="arrow-left"
+                            size={24}
+                            onPress={() => navigation.goBack()}
+                            iconColor={theme.colors.onBackground}
+                            style={{ marginLeft: -8 }}
+                        />
+                        <Text style={[styles.titleLarge, { fontSize: 24, marginLeft: 8, color: theme.colors.onBackground }]}>
+                            Sites
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={{ marginBottom: 12 }}>
+                        <Text style={[styles.titleLarge, { color: theme.colors.onBackground }]}>
+                            Site Management
+                        </Text>
+                        <Text style={styles.subtitle}>{sites.length} total sites managed</Text>
+                    </View>
+                )}
             </View>
 
             <FlatList
@@ -306,21 +317,22 @@ const styles = StyleSheet.create({
     screenHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 8,
-        borderRadius: 16,
         marginBottom: 12,
     },
-    title: {
+    titlePill: {
         fontSize: 22,
         fontWeight: '900',
         letterSpacing: -0.5,
     },
+    titleLarge: {
+        fontSize: 28,
+        fontWeight: 'bold',
+    },
     subtitle: {
-        fontSize: 13,
-        fontWeight: '700',
-        opacity: 0.6,
-        marginLeft: 4,
-        marginBottom: 12,
+        fontSize: 14,
+        fontWeight: '500',
+        marginTop: 4,
+        color: '#49454F', // onSurfaceVariant equivalent
     },
     listContent: {
         padding: 20,

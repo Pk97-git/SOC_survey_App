@@ -260,6 +260,11 @@ export const surveysApi = {
         const response = await api.delete(`/surveys/${id}`);
         return response.data;
     },
+
+    deleteAllBySite: async (siteId: string) => {
+        const response = await api.delete(`/surveys/site/${siteId}`);
+        return response.data;
+    }
 };
 
 // ==================== Inspections API ====================

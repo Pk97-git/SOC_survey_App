@@ -6,6 +6,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { sitesApi, assetsApi, dashboardApi, surveysApi } from '../services/api';
 import { downloadSurveyReport } from '../services/excelService';
 import * as FileSystem from 'expo-file-system/legacy';
+import { SiteSelector } from '../components/SiteSelector';
+import { useAuth } from '../context/AuthContext';
 
 // Interfaces
 interface Asset {
@@ -39,6 +41,7 @@ interface HierarchyNode {
 export default function SurveyManagementScreen() {
     const theme = useTheme();
     const navigation = useNavigation<any>();
+    const { user } = useAuth();
 
     // State
     const [sites, setSites] = useState<any[]>([]);
@@ -128,6 +131,28 @@ export default function SurveyManagementScreen() {
         };
     }, [assets, selectedSite]);
 
+    const [selectedServiceLine, setSelectedServiceLine] = useState<string | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+
+    // --- Filter Options ---
+    const filterOptions = useMemo(() => {
+        if (!selectedSite || assets.length === 0) return { serviceLines: [], locations: [] };
+
+        const sls = new Set<string>();
+        const locs = new Set<string>();
+
+        assets.forEach(a => {
+            if (a.service_line || a.trade) sls.add(a.service_line || a.trade || 'General');
+            if (a.building || a.location) locs.add(a.building || a.building_name || a.location || 'Unknown');
+        });
+
+        return {
+            serviceLines: Array.from(sls).sort(),
+            locations: Array.from(locs).sort()
+        };
+    }, [assets, selectedSite]);
+
+
     // --- Hierarchy Computation ---
     const hierarchy: HierarchyNode[] = useMemo(() => {
         if (!selectedSite) return [];
@@ -137,6 +162,10 @@ export default function SurveyManagementScreen() {
         assets.forEach(a => {
             const loc = a.building || a.building_name || a.location || 'Unknown Building';
             const sl = a.service_line || a.trade || 'General';
+
+            // Filter Check
+            if (selectedLocation && loc !== selectedLocation) return;
+            if (selectedServiceLine && sl !== selectedServiceLine) return;
 
             if (!groups[loc]) groups[loc] = {};
             if (!groups[loc][sl]) groups[loc][sl] = 0;
@@ -162,17 +191,54 @@ export default function SurveyManagementScreen() {
         });
 
         return nodes;
-    }, [assets, surveys, selectedSite]);
+    }, [assets, surveys, selectedSite, selectedLocation, selectedServiceLine]);
 
 
     // --- Actions ---
 
     const handleBatchCreate = async () => {
         if (!selectedSite) return;
+
+        Alert.alert(
+            "Recreate Surveys",
+            "How would you like to proceed?\n\n'Sync Only': Adds missing surveys (Safe)\n'Full Reset': DELETES ALL existing surveys and inspection data for this site, then recreates them (Destructive)",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Sync Only (Safe)",
+                    onPress: () => performBatchCreate(false)
+                },
+                {
+                    text: "Full Reset (Destructive)",
+                    style: "destructive",
+                    onPress: () => {
+                        Alert.alert(
+                            "Confirm Full Reset",
+                            "Are you absolutely sure? All inspection data, photos, and remarks for this site will be permanently lost.",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                { text: "Yes, Delete & Recreate", style: "destructive", onPress: () => performBatchCreate(true) }
+                            ]
+                        );
+                    }
+                }
+            ]
+        );
+    };
+
+    const performBatchCreate = async (isReset: boolean) => {
         setOperationLoading(true);
-        setOperationMessage('Analyzing & Creating Surveys...');
+        setOperationMessage(isReset ? 'Deleting & Recreating...' : 'Analyzing & Creating Surveys...');
 
         try {
+            if (isReset) {
+                // Delete all surveys first
+                console.log(`[Batch] Deleting all surveys for site ${selectedSite!.id}`);
+                await surveysApi.deleteAllBySite(selectedSite!.id);
+                // Clear local state immediately to avoid stale data during creation
+                setSurveys([]);
+            }
+
             // Identify unique trades needed
             const neededTrades = new Set<string>();
             assets.forEach(a => {
@@ -180,12 +246,25 @@ export default function SurveyManagementScreen() {
                 neededTrades.add(sl);
             });
 
-            const tradesToCreate = Array.from(neededTrades).filter(trade =>
-                !surveys.find(s => s.trade === trade)
-            );
+            // If reset, we create ALL trades. If sync, only missing ones.
+            // Since we just deleted everything on reset, currentSurveys is effectively empty for the logic,
+            // but we need to be careful if state hasn't updated yet.
+            // Better to re-fetch or just assume 'surveys' local state is stale if we deleted.
+
+            // Actually, if we deleted, neededTrades ARE the trades to create.
+            // If we didn't, we filter.
+
+            let tradesToCreate: string[] = [];
+
+            if (isReset) {
+                tradesToCreate = Array.from(neededTrades);
+            } else {
+                tradesToCreate = Array.from(neededTrades).filter(trade =>
+                    !surveys.find(s => s.trade === trade)
+                );
+            }
 
             if (tradesToCreate.length === 0) {
-                // Even if no NEW surveys needed, user clicked "Recreate/Sync".
                 Alert.alert("Sync Complete", "All required trade surveys already exist.");
             } else {
                 // Create missing surveys
@@ -193,18 +272,18 @@ export default function SurveyManagementScreen() {
                 for (const trade of tradesToCreate) {
                     setOperationMessage(`Creating survey for ${trade}...`);
                     await surveysApi.create({
-                        siteId: selectedSite.id,
+                        siteId: selectedSite!.id,
                         trade: trade
                     });
                     createdCount++;
                 }
-                Alert.alert("Success", `Created ${createdCount} new surveys.`);
-                await loadSiteData(selectedSite); // refresh
+                Alert.alert("Success", `Processed ${createdCount} surveys.`);
+                await loadSiteData(selectedSite!); // refresh
             }
 
         } catch (error) {
             console.error("Batch Create Error", error);
-            Alert.alert("Error", "Failed to generate surveys.");
+            Alert.alert("Error", "Failed to generate surveys.\n" + (error as any).message);
         } finally {
             setOperationLoading(false);
         }
@@ -252,6 +331,52 @@ export default function SurveyManagementScreen() {
         }
     };
 
+    const handleExportAll = async () => {
+        if (!selectedSite) return;
+
+        setOperationLoading(true);
+        setOperationMessage('Preparing to export all surveys...');
+
+        try {
+            let exportedCount = 0;
+            let failedCount = 0;
+
+            // Iterate through all buildings and trades
+            for (const building of hierarchy) {
+                for (const trade of building.trades) {
+                    if (!trade.surveyId) continue; // Skip if no survey exists
+
+                    try {
+                        setOperationMessage(`Exporting ${building.name} - ${trade.name}...`);
+
+                        const safeSite = selectedSite.name.replace(/[^a-zA-Z0-9]/g, '_');
+                        const safeBuilding = building.name.replace(/[^a-zA-Z0-9]/g, '_');
+                        const safeTrade = trade.name.replace(/[^a-zA-Z0-9]/g, '_');
+                        const filename = `${safeSite}_${safeBuilding}_${safeTrade}.xlsx`;
+                        const destination = `${FileSystem.documentDirectory}SavedReports/${filename}`;
+
+                        await downloadSurveyReport(trade.surveyId, building.name, destination);
+                        exportedCount++;
+                    } catch (error) {
+                        console.error(`Failed to export ${building.name} - ${trade.name}:`, error);
+                        failedCount++;
+                    }
+                }
+            }
+
+            Alert.alert(
+                "Export Complete",
+                `Successfully exported ${exportedCount} survey(s).${failedCount > 0 ? `\n${failedCount} failed.` : ''}\n\nReports saved to SavedReports folder.`,
+                [{ text: "OK" }]
+            );
+        } catch (error: any) {
+            console.error("Bulk Export Error", error);
+            Alert.alert("Error", "Failed to export surveys.\n" + (error.message || ''));
+        } finally {
+            setOperationLoading(false);
+        }
+    };
+
     const toggleBuilding = (name: string) => {
         setExpandedBuildings(prev => ({ ...prev, [name]: !prev[name] }));
     };
@@ -262,35 +387,28 @@ export default function SurveyManagementScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Command Center</Text>
-
-                {/* Site Selector */}
-                <Menu
-                    visible={siteMenuVisible}
-                    onDismiss={() => setSiteMenuVisible(false)}
-                    anchor={
-                        <Button
-                            mode="outlined"
-                            onPress={() => setSiteMenuVisible(true)}
-                            icon="chevron-down"
-                            contentStyle={{ flexDirection: 'row-reverse' }}
-                            style={{ borderColor: theme.colors.outline }}
-                        >
-                            {selectedSite ? selectedSite.name : "Select Site Scope..."}
-                        </Button>
-                    }
-                >
-                    {sites.map(site => (
-                        <Menu.Item
-                            key={site.id}
-                            onPress={() => {
-                                setSelectedSite(site);
-                                setSiteMenuVisible(false);
-                            }}
-                            title={site.name}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {navigation.canGoBack() && (
+                        <IconButton
+                            icon="arrow-left"
+                            size={24}
+                            onPress={() => navigation.goBack()}
+                            iconColor={theme.colors.onBackground}
+                            style={{ marginLeft: -8, marginRight: 4 }}
                         />
-                    ))}
-                </Menu>
+                    )}
+                    <Text style={styles.title}>Survey Creation</Text>
+                </View>
+
+                {/* Site Selector - Always Visible */}
+                <SiteSelector
+                    selectedSite={selectedSite}
+                    onSiteSelected={(site: any) => {
+                        setSelectedSite(site);
+                        // Clear surveys when site changes to avoid stale data
+                        setSurveys([]);
+                    }}
+                />
             </View>
 
             {loading ? (
@@ -323,17 +441,88 @@ export default function SurveyManagementScreen() {
 
                         <Divider style={{ marginVertical: 16 }} />
 
-                        <Button
-                            mode="contained"
-                            onPress={handleBatchCreate}
-                            disabled={operationLoading}
-                            style={{ backgroundColor: theme.colors.primary }}
-                        >
-                            {surveys.length === 0 ? "Generate All Surveys" : "Recreate Surveys & Sync Assets"}
-                        </Button>
-                        {operationLoading && <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 12 }}>{operationMessage}</Text>}
+                        {/* Admin Action: Generate Surveys */}
+                        {user?.role === 'admin' && (
+                            <>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <Button
+                                        mode="contained"
+                                        onPress={handleBatchCreate}
+                                        disabled={operationLoading}
+                                        style={{ flex: 1, backgroundColor: theme.colors.primary }}
+                                    >
+                                        {surveys.length === 0 ? "Generate All Surveys" : "Recreate Surveys"}
+                                    </Button>
+                                    <Button
+                                        mode="contained-tonal"
+                                        onPress={handleExportAll}
+                                        disabled={operationLoading || hierarchy.length === 0}
+                                        icon="folder-download"
+                                        style={{ flex: 1 }}
+                                    >
+                                        Export All
+                                    </Button>
+                                </View>
+                                {operationLoading && <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 12 }}>{operationMessage}</Text>}
+                            </>
+                        )}
                     </Surface>
 
+
+                    {/* Filters */}
+                    <View style={{ marginBottom: 16 }}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {/* Service Line Filter */}
+                            <Menu
+                                visible={false} // Todo: separate state? Or just use a simple modal/sheet?
+                                // Actually, let's use a simple horizontal list of Chips for now or a unified Filter bar.
+                                // For simplicity and speed, let's use Chips for top-level filtering if items are few, 
+                                // but if many, a Menu is better. The user asked for "filter to select".
+                                // Let's replicate the AssetsScreen style filter logic simplistically here using a helper or just State.
+                                anchor={<View />}
+                                onDismiss={() => { }}
+                            >
+                                <View />
+                            </Menu>
+
+                            {/* Simple Chips Implementation for now */}
+                            <Button
+                                mode={selectedLocation ? "contained-tonal" : "outlined"}
+                                onPress={() => {
+                                    Alert.alert("Select Location", "Choose a location filter",
+                                        [
+                                            { text: "All Locations", onPress: () => setSelectedLocation(null) },
+                                            ...filterOptions.locations.map(l => ({ text: l, onPress: () => setSelectedLocation(l) })),
+                                            { text: "Cancel", style: "cancel" }
+                                        ]
+                                    );
+                                }}
+                                style={{ marginRight: 8, borderRadius: 20 }}
+                                icon="map-marker"
+                                compact
+                            >
+                                {selectedLocation || "All Locations"}
+                            </Button>
+
+                            <Button
+                                mode={selectedServiceLine ? "contained-tonal" : "outlined"}
+                                onPress={() => {
+                                    Alert.alert("Select Service Line", "Choose a service line filter",
+                                        [
+                                            { text: "All Trades", onPress: () => setSelectedServiceLine(null) },
+                                            ...filterOptions.serviceLines.map(s => ({ text: s, onPress: () => setSelectedServiceLine(s) })),
+                                            { text: "Cancel", style: "cancel" }
+                                        ]
+                                    );
+                                }}
+                                style={{ marginRight: 8, borderRadius: 20 }}
+                                icon="tools"
+                                compact
+                            >
+                                {selectedServiceLine || "All Trades"}
+                            </Button>
+                        </ScrollView>
+                    </View>
 
                     {/* Phase B: Hierarchy */}
                     <Text style={styles.sectionTitle}>Workbooks (By Location)</Text>
@@ -344,7 +533,7 @@ export default function SurveyManagementScreen() {
                             <Surface key={node.name} style={styles.buildingCard} elevation={1}>
                                 <Button
                                     onPress={() => toggleBuilding(node.name)}
-                                    contentStyle={{ justifyContent: 'space-between' }}
+                                    contentStyle={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}
                                     labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
                                     style={{ borderRadius: 8, borderBottomLeftRadius: isExpanded ? 0 : 8, borderBottomRightRadius: isExpanded ? 0 : 8 }}
                                     icon={isExpanded ? "chevron-up" : "chevron-down"}
@@ -427,7 +616,7 @@ export default function SurveyManagementScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 20, paddingBottom: 10 },
-    title: { fontSize: 28, fontWeight: '900', marginBottom: 16 },
+    title: { fontSize: 28, fontWeight: '900', color: '#1C1B1F' },
     statsCard: { padding: 20, borderRadius: 16, marginBottom: 24, backgroundColor: '#fff' },
     statsTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },

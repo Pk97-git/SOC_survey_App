@@ -394,9 +394,9 @@ export default function ReportsScreen() {
             <View style={styles.header}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontSize: 24, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>Survey Management</Text>
-                        <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, marginTop: 4 }} numberOfLines={1}>
-                            {selectedSite?.name || 'All Sites'} ({filteredSurveys.length})
+                        <Text style={{ fontSize: 28, fontWeight: '900', color: theme.colors.onBackground, letterSpacing: -0.5 }} numberOfLines={1} adjustsFontSizeToFit>Survey Management</Text>
+                        <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, marginTop: 4, fontWeight: '500' }} numberOfLines={1}>
+                            {selectedSite?.name || 'All Sites'} • {filteredSurveys.length} surveys
                         </Text>
                     </View>
                     <View style={{ flexDirection: 'row', gap: 4, zIndex: 100 }}>
@@ -595,7 +595,7 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
+    header: { padding: 20, paddingBottom: 10 },
     searchContainer: {
         paddingHorizontal: 20,
         paddingBottom: 16,

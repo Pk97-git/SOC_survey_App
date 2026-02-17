@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as hybridStorage from '../services/hybridStorage';
 import * as DocumentPicker from 'expo-document-picker';
+import { SiteSelector } from '../components/SiteSelector';
 
 
 const styles = StyleSheet.create({
@@ -136,13 +137,18 @@ export default function AssetsScreen() {
 
     // Phase 5: Enforce Site Selection
     const [selectedSite, setSelectedSite] = useState<any | null>(null);
-    const [sites, setSites] = useState<any[]>([]);
-    const [siteMenuVisible, setSiteMenuVisible] = useState(false);
+    const [sites, setSites] = useState<any[]>([]); // Need sites for import validation, but selector handles its own list? 
+    // Actually SiteSelector handles its own fetching, but we might still need 'sites' for logic in this screen? 
+    // The previous implementation used 'sites' for the menu loop. 
+    // Let's check if 'sites' is used elsewhere.
+
+    // In AssetsScreen, 'sites' is used in handleImport to validate site names if Excel has them.
+    // So we keep 'sites' and 'loadSites'.
+
+    // We REMOVE siteMenuVisible and setSiteMenuVisible.
 
     // Debug Menu
-    useEffect(() => {
-        console.log(`[AssetsScreen] Menu Visible: ${siteMenuVisible}, Sites: ${sites.length}`);
-    }, [siteMenuVisible, sites]);
+    // Debug Menu Removed
 
     const [importing, setImporting] = useState(false);
     const [importProgress, setImportProgress] = useState({ current: 0, total: 0, message: '' });
@@ -180,7 +186,7 @@ export default function AssetsScreen() {
         }
     }, []);
 
-    const openSiteMenu = () => setSiteMenuVisible(true);
+    // openSiteMenu removed as it is now handled by SiteSelector
 
     const loadAssetsForSite = async (site: any) => {
         try {
@@ -355,46 +361,26 @@ export default function AssetsScreen() {
 
             {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-                    Asset Register
-                </Text>
-
-                {/* Site Selector */}
-                <Menu
-                    visible={siteMenuVisible}
-                    onDismiss={() => setSiteMenuVisible(false)}
-                    anchor={
-                        <Button
-                            mode="outlined"
-                            onPress={openSiteMenu}
-                            icon="chevron-down"
-                            contentStyle={{ flexDirection: 'row-reverse' }}
-                            style={{ marginTop: 8 }}
-                        >
-                            {selectedSite ? selectedSite.name : "Select Site Scope..."}
-                        </Button>
-                    }
-                >
-                    {sites.map(site => (
-                        <Menu.Item
-                            key={site.id}
-                            onPress={() => {
-                                setSelectedSite(site);
-                                setSiteMenuVisible(false);
-                            }}
-                            title={site.name}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {navigation.canGoBack() && (
+                        <IconButton
+                            icon="arrow-left"
+                            size={24}
+                            onPress={() => navigation.goBack()}
+                            iconColor={theme.colors.onBackground}
+                            style={{ marginLeft: -8, marginRight: 4 }}
                         />
-                    ))}
-                    <Divider />
-                    <Menu.Item
-                        onPress={() => {
-                            setSiteMenuVisible(false);
-                            navigation.navigate('SiteManagement');
-                        }}
-                        title="Manage Sites..."
-                        leadingIcon="plus"
-                    />
-                </Menu>
+                    )}
+                    <Text style={[styles.title, { color: theme.colors.onBackground }]}>
+                        Asset Register
+                    </Text>
+                </View>
+
+                {/* Site Selector - Always Visible */}
+                <SiteSelector
+                    selectedSite={selectedSite}
+                    onSiteSelected={setSelectedSite}
+                />
             </View>
 
             {!selectedSite ? (

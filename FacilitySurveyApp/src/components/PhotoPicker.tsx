@@ -66,16 +66,27 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
                 mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [16, 9],
-                quality: 0.8, // Compression as per tech spec
+                quality: 0.8,
             });
 
             if (!result.canceled && result.assets[0]) {
                 const savedPath = await compressAndSavePhoto(result.assets[0].uri);
                 onPhotosChange([...photos, savedPath]);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error taking photo:', error);
-            Alert.alert('Error', 'Failed to capture photo');
+            if (error.message && error.message.includes('simulator')) {
+                Alert.alert(
+                    'Simulator Detected',
+                    'Camera is not available on the simulator. Would you like to pick from the gallery instead?',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Pick from Gallery', onPress: pickFromGallery }
+                    ]
+                );
+            } else {
+                Alert.alert('Error', 'Failed to capture photo. Try choosing from gallery.');
+            }
         } finally {
             setLoading(false);
         }

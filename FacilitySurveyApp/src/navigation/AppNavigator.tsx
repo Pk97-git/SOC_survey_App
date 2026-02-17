@@ -44,7 +44,7 @@ const AssetStack = () => (
     <Stack.Navigator>
         <Stack.Screen name="AssetList" component={AssetsScreen} options={{ title: 'Asset Register', headerShown: false }} />
         <Stack.Screen name="AssetForm" component={AssetFormScreen} options={{ title: 'New Asset' }} />
-        <Stack.Screen name="SiteManagement" component={SiteManagementScreen} options={{ title: 'Manage Sites' }} />
+        <Stack.Screen name="SiteManagement" component={SiteManagementScreen} options={{ title: 'Manage Sites', headerShown: false }} />
     </Stack.Navigator>
 );
 

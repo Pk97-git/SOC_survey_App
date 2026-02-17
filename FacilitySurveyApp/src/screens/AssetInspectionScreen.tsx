@@ -41,27 +41,24 @@ export default function AssetInspectionScreen() {
         try {
             if (siteId) {
                 const siteAssets = await hybridStorage.getAssets(siteId);
-                // Filter by service line (trade)
-                // Backend assets use 'serviceLine', local might use 'service_line'
-                // We handle both just in case
                 const filtered = siteAssets.filter((a: any) =>
                     (a.serviceLine === trade || a.service_line === trade || a.serviceLine === undefined)
-                    // Note: if serviceLine undefined in asset, maybe checking if it matches? 
-                    // Usually assets have serviceLine.
                 );
-                // Also, backend might return all assets.
-                setAssets(filtered);
+
+                // Deduplicate assets by ID
+                const uniqueAssets = Array.from(new Map(filtered.map((item: any) => [item.id, item])).values());
+                setAssets(uniqueAssets);
             } else if (siteName) {
-                // Fallback to local storage query for legacy surveys
                 const assets = await storage.getAssetsBySiteAndServiceLine(siteName, trade);
-                setAssets(assets);
+                // Deduplicate assets
+                const uniqueAssets = Array.from(new Map(assets.map((item: any) => [item.id, item])).values());
+                setAssets(uniqueAssets);
             }
         } catch (error) {
             console.error('Error loading assets:', error);
             Alert.alert('Error', 'Failed to load assets for this survey');
         }
     };
-
     const captureGPS = async (): Promise<{ lat: number; lng: number } | null> => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
@@ -237,11 +234,13 @@ export default function AssetInspectionScreen() {
         }
     };
 
-    const progress = assets.length > 0
-        ? inspections.filter(i => i.condition_rating && i.overall_condition).length / assets.length
+    const rawCompletedCount = inspections.filter(i => i.condition_rating && i.overall_condition).length;
+    // Clamp progress to 0-1 range to prevent JSI errors if count > assets
+    const safeProgress = assets.length > 0
+        ? Math.min(1, Math.max(0, rawCompletedCount / assets.length))
         : 0;
 
-    const completedCount = inspections.filter(i => i.condition_rating && i.overall_condition).length;
+    const completedCount = Math.min(rawCompletedCount, assets.length);
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -264,9 +263,8 @@ export default function AssetInspectionScreen() {
 
                 <View style={styles.progressSection}>
                     <Text variant="bodySmall" style={{ marginBottom: 4 }}>
-                        Progress: {completedCount}/{assets.length} assets inspected ({Math.round(progress * 100)}%)
+                        Progress: {completedCount}/{assets.length} assets inspected ({Math.round(safeProgress * 100)}%)
                     </Text>
-                    <ProgressBar progress={progress} color={theme.colors.primary} />
                 </View>
 
                 <View style={styles.headerActions}>

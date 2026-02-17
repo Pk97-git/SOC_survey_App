@@ -4,6 +4,22 @@ import { getDb } from '../db';
 import { SurveyTemplate } from './configService';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
+// Helper functions to safely convert values for SQLite
+// iOS SQLite is VERY strict about type conversions - floats cannot go into INTEGER columns
+const safeInt = (value: any): number => {
+    if (value === null || value === undefined || value === '') return 0;
+    const num = Number(value);
+    if (isNaN(num) || !isFinite(num)) return 0;
+    return Math.floor(num); // Always round down to ensure it's an integer
+};
+
+const safeFloat = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    if (isNaN(num) || !isFinite(num)) return null;
+    return num;
+};
+
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export interface SurveyRecord {
@@ -49,7 +65,10 @@ export const storage = {
             const db = await getDb();
             await db.runAsync(
                 'INSERT INTO surveys (id, site_name, trade, location, surveyor_name, status, gps_lat, gps_lng, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                survey.id, survey.site_name, survey.trade || '', survey.location || '', survey.surveyor_name || '', survey.status, survey.gps_lat || null, survey.gps_lng || null, survey.created_at, survey.updated_at || survey.created_at
+                survey.id, survey.site_name, survey.trade || '', survey.location || '', survey.surveyor_name || '', survey.status,
+                survey.gps_lat ? Number(survey.gps_lat) : null,
+                survey.gps_lng ? Number(survey.gps_lng) : null,
+                survey.created_at, survey.updated_at || survey.created_at
             );
         }
     },
@@ -113,22 +132,86 @@ export const storage = {
             // For now, assume backend fields are passed but only core ones saved?
             // Actually, we should save as JSON or update schema
             try {
+                // Ensure GPS coordinates are proper numbers or null
+                const lat = asset.location_lat || asset.gps_lat;
+                const lng = asset.location_lng || asset.gps_lng;
+                const safeLatValue = lat ? Number(lat) : null;
+                const safeLngValue = lng ? Number(lng) : null;
+
+                // Validate that numbers are actually numbers
+                if (safeLatValue !== null && (isNaN(safeLatValue) || !isFinite(safeLatValue))) {
+                    console.warn(`Invalid latitude for asset ${asset.id}: ${lat}`);
+                }
+                if (safeLngValue !== null && (isNaN(safeLngValue) || !isFinite(safeLngValue))) {
+                    console.warn(`Invalid longitude for asset ${asset.id}: ${lng}`);
+                }
+
                 await db.runAsync(
                     `INSERT OR REPLACE INTO assets 
-                    (id, name, type, project_site, location_lat, location_lng, description, building, location) VALUES 
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, building, location) VALUES 
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     String(asset.id),
                     String(asset.name || ''),
                     String(asset.type || asset.service_line || ''),
-                    String(asset.project_site || asset.site_id || ''),
-                    asset.location_lat || asset.gps_lat ? String(asset.location_lat || asset.gps_lat) : null,
-                    asset.location_lng || asset.gps_lng ? String(asset.location_lng || asset.gps_lng) : null,
+                    String(asset.project_site || asset.site_id || asset.siteId || ''),
+                    String(asset.site_name || asset.siteName || ''),
+                    String(asset.service_line || asset.serviceLine || asset.type || ''),
+                    safeLatValue,
+                    safeLngValue,
                     String(asset.description || ''),
                     String(asset.building || ''),
                     String(asset.location || '')
                 );
-            } catch (e) {
-                console.warn('Failed to save asset natively:', e);
+            } catch (e: any) {
+                console.error('Failed to save asset natively:', e.message);
+                console.error('Asset ID:', asset.id, 'Name:', asset.name);
+                console.error('GPS values:', asset.location_lat, asset.gps_lat, asset.location_lng, asset.gps_lng);
+                throw e; // Re-throw so sync service can catch it
+            }
+        }
+    },
+
+    async saveAssetsBulk(assets: any[]) {
+        if (assets.length === 0) return;
+
+        if (Platform.OS === 'web' || isExpoGo) {
+            const existingStr = await AsyncStorage.getItem('assets_data');
+            const existing = existingStr ? JSON.parse(existingStr) : [];
+            const assetMap = new Map(existing.map((a: any) => [a.id, a]));
+            assets.forEach(a => assetMap.set(a.id, a));
+            await AsyncStorage.setItem('assets_data', JSON.stringify(Array.from(assetMap.values())));
+        } else {
+            const db = await getDb();
+            try {
+                await db.withTransactionAsync(async () => {
+                    for (const asset of assets) {
+                        const lat = asset.location_lat || asset.gps_lat;
+                        const lng = asset.location_lng || asset.gps_lng;
+                        const safeLatValue = lat ? Number(lat) : null;
+                        const safeLngValue = lng ? Number(lng) : null;
+
+                        await db.runAsync(
+                            `INSERT OR REPLACE INTO assets 
+                            (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, building, location) VALUES 
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            String(asset.id),
+                            String(asset.name || ''),
+                            String(asset.type || asset.service_line || ''),
+                            String(asset.project_site || asset.site_id || asset.siteId || ''),
+                            String(asset.site_name || asset.siteName || ''),
+                            String(asset.service_line || asset.serviceLine || asset.type || ''),
+                            safeLatValue,
+                            safeLngValue,
+                            String(asset.description || ''),
+                            String(asset.building || ''),
+                            String(asset.location || '')
+                        );
+                    }
+                });
+                console.log(`✅ Bulk saved ${assets.length} assets`);
+            } catch (e: any) {
+                console.error('Failed to bulk save assets:', e);
+                throw e;
             }
         }
     },
@@ -144,7 +227,12 @@ export const storage = {
         }
 
         if (siteId) {
-            return assets.filter((a: any) => a.site_id === siteId || a.siteId === siteId);
+            // Check both project_site (ID) and legacy site_id
+            return assets.filter((a: any) =>
+                a.project_site === siteId ||
+                a.site_id === siteId ||
+                a.siteId === siteId
+            );
         }
         return assets;
     },
@@ -215,14 +303,43 @@ export const storage = {
             await AsyncStorage.setItem('asset_inspections_data', JSON.stringify(existing));
         } else {
             const db = await getDb();
-            await db.runAsync(
-                `INSERT OR REPLACE INTO asset_inspections 
-                (id, survey_id, asset_id, condition_rating, overall_condition, quantity_installed, quantity_working, remarks, gps_lat, gps_lng, updated_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                inspection.id, inspection.survey_id, inspection.asset_id, inspection.condition_rating,
-                inspection.overall_condition, inspection.quantity_installed, inspection.quantity_working,
-                inspection.remarks, inspection.gps_lat, inspection.gps_lng, new Date().toISOString()
-            );
+            try {
+                // Strictly sanitize inputs before using them
+                const qtyInstalled = inspection.quantity_installed ? parseInt(String(inspection.quantity_installed), 10) : 0;
+                const qtyWorking = inspection.quantity_working ? parseInt(String(inspection.quantity_working), 10) : 0;
+                const gpsLat = inspection.gps_lat ? parseFloat(String(inspection.gps_lat)) : null;
+                const gpsLng = inspection.gps_lng ? parseFloat(String(inspection.gps_lng)) : null;
+
+                // Log distinct values to debug precision issues
+                console.log('[saveAssetInspection] Saving:', {
+                    id: inspection.id,
+                    raw_installed: inspection.quantity_installed,
+                    sanitized_installed: qtyInstalled,
+                    raw_lat: inspection.gps_lat,
+                    sanitized_lat: gpsLat
+                });
+
+                await db.runAsync(
+                    `INSERT OR REPLACE INTO asset_inspections 
+                    (id, survey_id, asset_id, condition_rating, overall_condition, quantity_installed, quantity_working, remarks, gps_lat, gps_lng, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    inspection.id,
+                    inspection.survey_id,
+                    inspection.asset_id,
+                    inspection.condition_rating,
+                    inspection.overall_condition,
+                    qtyInstalled, // Use sanitized int
+                    qtyWorking,   // Use sanitized int
+                    inspection.remarks,
+                    gpsLat,       // Use sanitized float
+                    gpsLng,       // Use sanitized float
+                    new Date().toISOString()
+                );
+            } catch (error: any) {
+                console.error('[saveAssetInspection] CRASH! Full inspection object:', JSON.stringify(inspection, null, 2));
+                console.error('[saveAssetInspection] Error:', error.message);
+                throw error;
+            }
         }
     },
 
@@ -563,22 +680,36 @@ export const storage = {
 
     async getSitesWithAssetCounts() {
         const allAssets = await this.getAssets();
-        const sitesMap: { [key: string]: { name: string; count: number; serviceLines: Set<string> } } = {};
+        const sitesMap: { [key: string]: { id: string; name: string; count: number; serviceLines: Set<string> } } = {};
 
         allAssets.forEach((asset: any) => {
-            const siteId = asset.site_id || asset.site_name;
-            if (!siteId) return;
+            // Priority: project_site (ID) -> site_name
+            // In our schema, project_site stores the site_id.
+            const siteId = asset.project_site || asset.site_id;
+            const siteName = asset.site_name; // Might be empty if not saved
 
-            if (!sitesMap[siteId]) {
-                sitesMap[siteId] = { name: siteId, count: 0, serviceLines: new Set() };
+            if (!siteId && !siteName) return;
+
+            const key = siteId || siteName; // Use ID as key if available
+
+            if (!sitesMap[key]) {
+                sitesMap[key] = {
+                    id: siteId,
+                    name: siteName || siteId, // Fallback name to ID if missing 
+                    count: 0,
+                    serviceLines: new Set()
+                };
             }
-            sitesMap[siteId].count++;
-            if (asset.service_line) {
-                sitesMap[siteId].serviceLines.add(asset.service_line);
+            sitesMap[key].count++;
+
+            const sl = asset.service_line || asset.type; // type is often used as service line
+            if (sl) {
+                sitesMap[key].serviceLines.add(sl);
             }
         });
 
         return Object.values(sitesMap).map(site => ({
+            id: site.id,
             name: site.name,
             count: site.count,
             serviceLines: Array.from(site.serviceLines)

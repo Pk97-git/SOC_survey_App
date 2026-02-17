@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Keyboard } from 'react-native';
-import { Text, Button, Surface, TextInput, useTheme, Avatar, Menu, IconButton } from 'react-native-paper';
+import { Text, Button, Surface, TextInput, useTheme, Avatar, Menu, IconButton, Portal, Dialog, List, TouchableRipple } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -59,7 +59,8 @@ export default function StartSurveyScreen() {
 
         // Merge data: Site name from local `sites` table + count from `assets`
         const mergedSites = sitesList.map((site: any) => {
-            const assetData = assetsSites.find(a => a.name === site.name);
+            // Try matching by ID first (more reliable), then Name
+            const assetData = assetsSites.find(a => a.id === site.id || a.name === site.name);
             return {
                 ...site,
                 count: assetData ? assetData.count : 0,
@@ -91,10 +92,20 @@ export default function StartSurveyScreen() {
         }
     };
 
-    // Simplified open handler
+    // Optimized Menu Openers (Fixes "immediately closes" bug)
     const openSiteMenu = () => {
-        // Keyboard.dismiss(); // Removing to prevent layout shift closing menu
-        setSiteMenuVisible(true);
+        Keyboard.dismiss();
+        setTimeout(() => setSiteMenuVisible(true), 150);
+    };
+
+    const openLocationMenu = () => {
+        Keyboard.dismiss();
+        setTimeout(() => setLocationMenuVisible(true), 150);
+    };
+
+    const openServiceLineMenu = () => {
+        Keyboard.dismiss();
+        setTimeout(() => setServiceLineMenuVisible(true), 150);
     };
 
     const handleSiteSelect = (site: any) => {
@@ -123,13 +134,69 @@ export default function StartSurveyScreen() {
         }, 0);
     };
 
-    // ...
+    const handleLocationSelect = async (loc: string) => {
+        setLocationFilter(loc);
+        setLocationMenuVisible(false);
+        setServiceLine(''); // Reset service line as it might not be valid for new location
+
+        if (siteId) {
+            const lines = await storage.getServiceLinesBySiteAndLocation(siteId, loc);
+            setServiceLines(lines);
+        }
+    };
+
+    // Generate ID helper
+    const generateId = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    };
+
+    const handleStartInspection = async () => {
+        if (!siteId || !serviceLine) {
+            Alert.alert('Error', 'Please select a site and service line');
+            return;
+        }
+
+        try {
+            const surveyId = generateId();
+            const newSurvey = {
+                id: surveyId,
+                site_id: siteId,
+                site_name: siteName,
+                trade: serviceLine,
+                status: 'in_progress',
+                surveyor_name: surveyorName || 'Surveyor',
+                location: locationFilter || '',
+                gps_lat: locationData?.latitude || null,
+                gps_lng: locationData?.longitude || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            // Save survey (Local + Sync)
+            await hybridStorage.saveSurvey(newSurvey);
+
+            // Navigate to inspection
+            navigation.navigate('AssetInspection', {
+                surveyId: surveyId,
+                siteId: siteId,
+                siteName: siteName,
+                trade: serviceLine,
+                location: locationFilter
+            });
+        } catch (error) {
+            console.error('Error starting survey:', error);
+            Alert.alert('Error', 'Failed to start survey');
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
             >
                 {/* Header */}
                 <Surface style={[styles.screenHeader, { backgroundColor: theme.colors.surface }]} elevation={1}>
@@ -149,70 +216,75 @@ export default function StartSurveyScreen() {
                     {/* Site Selection */}
                     <View style={styles.fieldContainer}>
                         <Text style={[styles.label, { color: theme.colors.onSurface }]}>Site / Location *</Text>
-                        <Menu
-                            visible={siteMenuVisible}
-                            onDismiss={() => setSiteMenuVisible(false)}
-                            anchor={
-                                <Button
-                                    mode="outlined"
-                                    onPress={openSiteMenu}
-                                    style={styles.dropdown}
-                                    contentStyle={{ justifyContent: 'flex-start' }}
-                                >
-                                    {siteName || 'Select Site'}
-                                </Button>
-                            }
+                        <Button
+                            mode="outlined"
+                            onPress={openSiteMenu}
+                            style={styles.dropdown}
+                            contentStyle={{ justifyContent: 'flex-start' }}
                         >
-                            {sites.map((site) => (
-                                <Menu.Item
-                                    key={site.id}
-                                    onPress={() => handleSiteSelect(site)}
-                                    title={`${site.name} ${site.count > 0 ? `(${site.count} assets)` : '(No assets)'}`}
-                                />
-                            ))}
-                            {sites.length === 0 && (
-                                <Menu.Item
-                                    onPress={() => {
-                                        setSiteMenuVisible(false);
-                                        Alert.alert('No Sites', 'Please add a site in Asset Register -> Manage Sites.');
-                                    }}
-                                    title="No sites available. Add one first."
-                                />
-                            )}
-                        </Menu>
+                            {siteName || 'Select Site'}
+                        </Button>
+
+                        <Portal>
+                            <Dialog visible={siteMenuVisible} onDismiss={() => setSiteMenuVisible(false)} style={{ maxHeight: '80%' }}>
+                                <Dialog.Title>Select Site</Dialog.Title>
+                                <Dialog.ScrollArea>
+                                    <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
+                                        {sites.map((site) => (
+                                            <TouchableRipple key={site.id} onPress={() => handleSiteSelect(site)}>
+                                                <List.Item
+                                                    title={site.name}
+                                                    description={site.count > 0 ? `${site.count} assets` : 'No assets'}
+                                                    left={props => <List.Icon {...props} icon="domain" />}
+                                                />
+                                            </TouchableRipple>
+                                        ))}
+                                        {sites.length === 0 && (
+                                            <List.Item title="No sites available" description="Add one in Site Management" />
+                                        )}
+                                    </ScrollView>
+                                </Dialog.ScrollArea>
+                                <Dialog.Actions>
+                                    <Button onPress={() => setSiteMenuVisible(false)}>Cancel</Button>
+                                </Dialog.Actions>
+                            </Dialog>
+                        </Portal>
                     </View>
 
                     {/* Location / Building Filter */}
                     {locations.length > 0 && (
                         <View style={styles.fieldContainer}>
                             <Text style={[styles.label, { color: theme.colors.onSurface }]}>Location / Building</Text>
-                            <Menu
-                                visible={locationMenuVisible}
-                                onDismiss={() => setLocationMenuVisible(false)}
-                                anchor={
-                                    <Button
-                                        mode="outlined"
-                                        onPress={() => setLocationMenuVisible(true)}
-                                        style={styles.dropdown}
-                                        contentStyle={{ justifyContent: 'flex-start' }}
-                                        disabled={!siteName}
-                                    >
-                                        {locationFilter || 'All Locations'}
-                                    </Button>
-                                }
+                            <Button
+                                mode="outlined"
+                                onPress={openLocationMenu}
+                                style={styles.dropdown}
+                                contentStyle={{ justifyContent: 'flex-start' }}
+                                disabled={!siteName}
                             >
-                                <Menu.Item
-                                    onPress={() => handleLocationSelect('')}
-                                    title="All Locations"
-                                />
-                                {locations.map((loc, index) => (
-                                    <Menu.Item
-                                        key={index}
-                                        onPress={() => handleLocationSelect(loc)}
-                                        title={loc}
-                                    />
-                                ))}
-                            </Menu>
+                                {locationFilter || 'All Locations'}
+                            </Button>
+
+                            <Portal>
+                                <Dialog visible={locationMenuVisible} onDismiss={() => setLocationMenuVisible(false)} style={{ maxHeight: '80%' }}>
+                                    <Dialog.Title>Select Location</Dialog.Title>
+                                    <Dialog.ScrollArea>
+                                        <ScrollView>
+                                            <TouchableRipple onPress={() => handleLocationSelect('')}>
+                                                <List.Item title="All Locations" left={props => <List.Icon {...props} icon="map-marker-multiple" />} />
+                                            </TouchableRipple>
+                                            {locations.map((loc, index) => (
+                                                <TouchableRipple key={index} onPress={() => handleLocationSelect(loc)}>
+                                                    <List.Item title={loc} left={props => <List.Icon {...props} icon="map-marker" />} />
+                                                </TouchableRipple>
+                                            ))}
+                                        </ScrollView>
+                                    </Dialog.ScrollArea>
+                                    <Dialog.Actions>
+                                        <Button onPress={() => setLocationMenuVisible(false)}>Cancel</Button>
+                                    </Dialog.Actions>
+                                </Dialog>
+                            </Portal>
                         </View>
                     )}
 
@@ -222,39 +294,44 @@ export default function StartSurveyScreen() {
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {/* If service lines exist in dropdown */}
                             {serviceLines.length > 0 ? (
-                                <Menu
-                                    visible={serviceLineMenuVisible}
-                                    onDismiss={() => setServiceLineMenuVisible(false)}
-                                    anchor={
-                                        <Button
-                                            mode="outlined"
-                                            onPress={() => setServiceLineMenuVisible(true)}
-                                            style={[styles.dropdown, { flex: 1 }]}
-                                            contentStyle={{ justifyContent: 'flex-start' }}
-                                            disabled={!siteName}
-                                        >
-                                            {serviceLine || 'Select Service Line'}
-                                        </Button>
-                                    }
-                                >
-                                    {serviceLines.map((line) => (
-                                        <Menu.Item
-                                            key={line}
-                                            onPress={() => {
-                                                setServiceLine(line);
-                                                setServiceLineMenuVisible(false);
-                                            }}
-                                            title={line}
-                                        />
-                                    ))}
-                                    <Menu.Item
-                                        onPress={() => {
-                                            setServiceLineMenuVisible(false);
-                                            setServiceLines([]); // Switch to manual
-                                        }}
-                                        title="Enter manually..."
-                                    />
-                                </Menu>
+                                <>
+                                    <Button
+                                        mode="outlined"
+                                        onPress={openServiceLineMenu}
+                                        style={[styles.dropdown, { flex: 1 }]}
+                                        contentStyle={{ justifyContent: 'flex-start' }}
+                                        disabled={!siteName}
+                                    >
+                                        {serviceLine || 'Select Service Line'}
+                                    </Button>
+
+                                    <Portal>
+                                        <Dialog visible={serviceLineMenuVisible} onDismiss={() => setServiceLineMenuVisible(false)} style={{ maxHeight: '80%' }}>
+                                            <Dialog.Title>Select Service Line</Dialog.Title>
+                                            <Dialog.ScrollArea>
+                                                <ScrollView>
+                                                    {serviceLines.map((line) => (
+                                                        <TouchableRipple key={line} onPress={() => {
+                                                            setServiceLine(line);
+                                                            setServiceLineMenuVisible(false);
+                                                        }}>
+                                                            <List.Item title={line} left={props => <List.Icon {...props} icon="tools" />} />
+                                                        </TouchableRipple>
+                                                    ))}
+                                                    <TouchableRipple onPress={() => {
+                                                        setServiceLineMenuVisible(false);
+                                                        setServiceLines([]); // Switch to manual
+                                                    }}>
+                                                        <List.Item title="Enter manually..." left={props => <List.Icon {...props} icon="keyboard" />} />
+                                                    </TouchableRipple>
+                                                </ScrollView>
+                                            </Dialog.ScrollArea>
+                                            <Dialog.Actions>
+                                                <Button onPress={() => setServiceLineMenuVisible(false)}>Cancel</Button>
+                                            </Dialog.Actions>
+                                        </Dialog>
+                                    </Portal>
+                                </>
                             ) : (
                                 <TextInput
                                     mode="outlined"

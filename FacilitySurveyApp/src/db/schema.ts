@@ -143,5 +143,15 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
     // Columns likely exist, ignore
   }
 
+  // Phase 10 Migration: Sanitize Corrupted Data (Precision Fix)
+  try {
+    // Force conversion of any float values to integers to prevent JSI crashes
+    await db.runAsync('UPDATE asset_inspections SET quantity_installed = CAST(quantity_installed AS INTEGER)');
+    await db.runAsync('UPDATE asset_inspections SET quantity_working = CAST(quantity_working AS INTEGER)');
+    console.log('Sanitized asset_inspections integer columns');
+  } catch (e) {
+    console.warn('Failed to sanitize inspection data:', e);
+  }
+
   console.log('Database migrated successfully');
 };

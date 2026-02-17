@@ -12,6 +12,9 @@ router.get('/', authenticate, surveyController.getAll);
 // Create survey (Admin or Surveyor)
 router.post('/', authenticate, authorize('admin', 'surveyor'), surveyController.create);
 
+// Delete ALL surveys for a site (Admin only)
+router.delete('/site/:siteId', authenticate, authorize('admin'), surveyController.deleteAllBySite);
+
 // Export survey to Excel
 router.get('/:id/export', authenticate, surveyController.exportToExcel);
 
@@ -33,7 +36,7 @@ router.get('/:surveyId/inspections', authenticate, async (req: AuthRequest, res:
         const { surveyId } = req.params;
 
         const result = await pool.query(
-            `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line, a.floor, a.area
+            `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line
        FROM asset_inspections ai
        LEFT JOIN assets a ON ai.asset_id = a.id
        WHERE ai.survey_id = $1
