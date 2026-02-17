@@ -45,20 +45,17 @@ export class SurveyController {
 
     create = async (req: AuthRequest, res: Response) => {
         try {
-            console.log('🔍 Survey Create Request:');
-            console.log('   User:', req.user?.email, `(${req.user?.role})`);
-            console.log('   Body:', req.body);
-
-            const { siteId, trade } = req.body;
+            const { siteId, trade, location, surveyorId } = req.body;
             if (!siteId) {
-                console.log('❌ Missing siteId');
                 return res.status(400).json({ error: 'Site ID is required' });
             }
 
             const survey = await this.service.create(req.user, {
                 siteId,
                 trade,
-                surveyorId: req.user!.userId
+                location,
+                // Service enforces: surveyors always self-assign, admins create unassigned
+                surveyorId: surveyorId || null
             });
 
             console.log('✅ Survey created:', survey.id);
@@ -75,9 +72,9 @@ export class SurveyController {
     update = async (req: AuthRequest, res: Response) => {
         try {
             const id = req.params.id as string;
-            const { trade, status } = req.body;
+            const { trade, status, surveyorId, location } = req.body;
 
-            const survey = await this.service.update(req.user, id, { trade, status });
+            const survey = await this.service.update(req.user, id, { trade, status, surveyorId, location });
 
             if (!survey) {
                 return res.status(404).json({ error: 'Survey not found' });

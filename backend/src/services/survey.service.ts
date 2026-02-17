@@ -13,9 +13,10 @@ export class SurveyService {
     }
 
     async getAll(user: any, filter: SurveyFilter): Promise<Survey[]> {
-        // Apply role-based filtering
+        // Surveyors see: their own surveys + unassigned admin-created surveys
         if (user.role === 'surveyor') {
             filter.surveyorId = user.userId;
+            filter.includeUnassigned = true;
         }
         // Admin sees all
 
@@ -26,19 +27,24 @@ export class SurveyService {
         const survey = await this.repo.findById(id);
         if (!survey) return null;
 
-        // Authorization check
-        if (user.role === 'surveyor' && survey.surveyor_id !== user.userId) {
-            return null; // Or throw specialized error
+        // Allow access if: admin, own survey, OR survey is unassigned (surveyor_id is null)
+        if (user.role === 'surveyor' &&
+            survey.surveyor_id !== user.userId &&
+            survey.surveyor_id !== null) {
+            return null;
         }
 
         return survey;
     }
 
     async create(user: any, data: CreateSurveyDTO): Promise<Survey> {
-        // Force surveyor ID to be current user for surveyors
-        // Admin could potentially create for others (not implemented yet, but flexible)
         if (user.role === 'surveyor') {
+            // Surveyors always create surveys assigned to themselves
             data.surveyorId = user.userId;
+        } else {
+            // Admins create unassigned surveys by default (any surveyor can pick them up)
+            // surveyorId stays null unless explicitly provided
+            data.surveyorId = data.surveyorId || null;
         }
         return this.repo.create(data);
     }
@@ -47,8 +53,12 @@ export class SurveyService {
         const survey = await this.repo.findById(id);
         if (!survey) return null;
 
-        if (user.role === 'surveyor' && survey.surveyor_id !== user.userId) {
-            throw new Error('Unauthorized'); // Using generic error for now, should use AppError
+        // Block update only if surveyor is trying to update a survey assigned to someone else
+        // Allow: own surveys, unassigned surveys (claim), admin
+        if (user.role === 'surveyor' &&
+            survey.surveyor_id !== null &&
+            survey.surveyor_id !== user.userId) {
+            throw new Error('Unauthorized');
         }
 
         return this.repo.update(id, data);
@@ -58,7 +68,10 @@ export class SurveyService {
         const survey = await this.repo.findById(id);
         if (!survey) return null;
 
-        if (user.role === 'surveyor' && survey.surveyor_id !== user.userId) {
+        // Allow: own surveys, unassigned surveys, admin
+        if (user.role === 'surveyor' &&
+            survey.surveyor_id !== null &&
+            survey.surveyor_id !== user.userId) {
             throw new Error('Unauthorized');
         }
 
@@ -69,19 +82,31 @@ export class SurveyService {
         const survey = await this.repo.findById(id);
         if (!survey) return false;
 
-        // Admin or Owner can delete
-        if (user.role !== 'admin' && survey.surveyor_id !== user.userId) {
+        // Admin or Owner can delete; unassigned surveys can also be deleted by any surveyor
+        if (user.role !== 'admin' &&
+            survey.surveyor_id !== null &&
+            survey.surveyor_id !== user.userId) {
             throw new Error('Unauthorized');
         }
 
         return this.repo.delete(id);
     }
 
+    async deleteAllBySite(user: any, siteId: string): Promise<boolean> {
+        if (user.role !== 'admin') {
+            throw new Error('Unauthorized');
+        }
+        return this.repo.deleteAllBySite(siteId);
+    }
+
     async exportExcel(user: any, id: string, locationFilter?: string): Promise<ExcelJS.Buffer | null> {
         const data = await this.repo.findWithDetails(id);
         if (!data) return null;
 
-        if (user.role === 'surveyor' && data.surveyor_id !== user.userId) {
+        // Allow access if admin, own survey, or unassigned survey
+        if (user.role === 'surveyor' &&
+            data.surveyor_id !== null &&
+            data.surveyor_id !== user.userId) {
             throw new Error('Unauthorized');
         }
 

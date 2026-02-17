@@ -153,5 +153,21 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
     console.warn('Failed to sanitize inspection data:', e);
   }
 
+  // Phase 11 Migration: Add site_id to surveys (required for proper backend sync)
+  try {
+    await db.runAsync('ALTER TABLE surveys ADD COLUMN site_id TEXT');
+    console.log('Added site_id column to surveys');
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Phase 12 Migration: Add surveyor_id to surveys (for claim tracking)
+  try {
+    await db.runAsync('ALTER TABLE surveys ADD COLUMN surveyor_id TEXT');
+    console.log('Added surveyor_id column to surveys');
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   console.log('Database migrated successfully');
 };

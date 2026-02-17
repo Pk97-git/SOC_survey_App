@@ -35,6 +35,7 @@ export const saveSite = async (site: any) => {
         const savedSite = await sitesApi.create({
             name: site.name,
             location: site.location,
+            client: site.client,
         });
         // Update cache
         const cached = await getCachedData('sites_cache') || [];

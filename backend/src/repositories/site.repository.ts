@@ -19,21 +19,22 @@ export class SiteRepository {
 
     async create(data: CreateSiteDTO): Promise<Site> {
         const result = await pool.query(
-            'INSERT INTO sites (name, location) VALUES ($1, $2) RETURNING *',
-            [data.name, data.location]
+            'INSERT INTO sites (name, location, client) VALUES ($1, $2, $3) RETURNING *',
+            [data.name, data.location || null, data.client || null]
         );
         return result.rows[0];
     }
 
     async update(id: string, data: UpdateSiteDTO): Promise<Site | null> {
         const result = await pool.query(
-            `UPDATE sites 
+            `UPDATE sites
              SET name = COALESCE($1, name),
                  location = COALESCE($2, location),
+                 client = COALESCE($3, client),
                  updated_at = NOW()
-             WHERE id = $3
+             WHERE id = $4
              RETURNING *`,
-            [data.name, data.location, id]
+            [data.name, data.location, data.client, id]
         );
         return result.rows[0] || null;
     }
@@ -46,7 +47,7 @@ export class SiteRepository {
             // 1. Delete Surveys (Cascades to asset_inspections, photos, etc.)
             await client.query('DELETE FROM surveys WHERE site_id = $1', [id]);
 
-            // 2. Delete Site (Cascades to assets, and now that inspections are gone, this should succeed)
+            // 2. Delete Site (Cascades to assets)
             const result = await client.query(
                 'DELETE FROM sites WHERE id = $1 RETURNING id',
                 [id]

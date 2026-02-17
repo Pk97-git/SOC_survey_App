@@ -154,9 +154,9 @@ class SyncService {
     }
 
     private async uploadPendingSurveys(): Promise<void> {
-        // Get surveys that haven't been synced
+        // Get surveys that haven't been synced (synced=0 means locally created, not yet uploaded)
         const surveys = await storage.getSurveys();
-        const pendingSurveys = surveys.filter(s => !(s as any).synced);
+        const pendingSurveys = surveys.filter(s => !(s as any).synced || (s as any).synced === 0);
 
         console.log(`📤 Uploading ${pendingSurveys.length} pending surveys...`);
 
@@ -309,13 +309,25 @@ class SyncService {
             // Extract unique site IDs from surveys
             const surveyedSiteIds = new Set<string>();
             for (const survey of surveys) {
-                // Save survey to local storage
+                // Explicitly map all fields — spread alone may miss fields if SurveyRecord type is narrower
                 await storage.saveSurvey({
-                    ...survey,
                     id: survey.id,
-                    synced: 1,
+                    site_id: survey.site_id,                    // CRITICAL: preserve for asset lookup
+                    site_name: survey.site_name || '',
+                    trade: survey.trade || '',
+                    location: survey.location || '',
+                    surveyor_id: survey.surveyor_id || undefined, // null = unassigned admin survey
+                    surveyor_name: survey.surveyor_name || '',
+                    status: survey.status || 'draft',
+                    created_at: survey.created_at
+                        ? new Date(survey.created_at).toISOString()
+                        : new Date().toISOString(),
+                    updated_at: survey.updated_at
+                        ? new Date(survey.updated_at).toISOString()
+                        : new Date().toISOString(),
+                    synced: 1,       // Mark as synced — came from server
                     server_id: survey.id
-                });
+                } as any);
 
                 // Track which sites have surveys
                 if (survey.site_id) {

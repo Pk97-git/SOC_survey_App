@@ -27,8 +27,10 @@ CREATE TABLE IF NOT EXISTS sites (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     location TEXT,
+    client VARCHAR(255),
     created_by UUID REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Assets table
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS surveys (
     site_id UUID REFERENCES sites(id),
     surveyor_id UUID REFERENCES users(id),
     trade VARCHAR(255),
+    location VARCHAR(255),
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'submitted', 'under_review', 'completed')),
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
@@ -142,14 +145,23 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_assets_site_id ON assets(site_id);
+CREATE INDEX IF NOT EXISTS idx_assets_service_line ON assets(service_line);
+CREATE INDEX IF NOT EXISTS idx_surveys_site_id ON surveys(site_id);
 CREATE INDEX IF NOT EXISTS idx_surveys_surveyor_id ON surveys(surveyor_id);
 CREATE INDEX IF NOT EXISTS idx_surveys_status ON surveys(status);
+CREATE INDEX IF NOT EXISTS idx_surveys_unassigned ON surveys(site_id, trade) WHERE surveyor_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_inspections_survey_id ON asset_inspections(survey_id);
 CREATE INDEX IF NOT EXISTS idx_photos_inspection_id ON photos(asset_inspection_id);
 CREATE INDEX IF NOT EXISTS idx_review_comments_inspection_id ON review_comments(asset_inspection_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+
+-- Live migration: apply to existing databases that were created before these columns were added
+-- These are safe to run multiple times due to IF NOT EXISTS / IF EXISTS guards
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS client VARCHAR(255);
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS location VARCHAR(255);
 
 -- Create default admin user (password: admin123 - CHANGE IN PRODUCTION!)
 
