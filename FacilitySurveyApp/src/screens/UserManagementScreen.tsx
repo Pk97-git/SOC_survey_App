@@ -3,11 +3,13 @@ import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Surface, useTheme, FAB, IconButton, Searchbar, Dialog, Portal, Button, TextInput, Menu, SegmentedButtons } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 import { usersApi, authApi } from '../services/api';
 
 export default function UserManagementScreen() {
     const theme = useTheme();
     const navigation = useNavigation<any>();
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<any[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -121,6 +123,11 @@ export default function UserManagementScreen() {
     };
 
     const handleDeleteUser = (userId: string) => {
+        // Prevent admin from deleting their own account
+        if (userId === currentUser?.id) {
+            Alert.alert('Cannot Delete', 'You cannot delete your own account. Contact another admin if needed.');
+            return;
+        }
         Alert.alert(
             'Delete User',
             'Are you sure you want to delete this user?\n\nWARNING: This will remove their login access and anonymize their contributions (Sites, Surveys, Logs). This action cannot be undone.',

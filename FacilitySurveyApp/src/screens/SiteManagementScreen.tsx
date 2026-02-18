@@ -153,22 +153,37 @@ export default function SiteManagementScreen() {
     };
 
     const handleDelete = (site: SiteRecord) => {
+        // Step 1: Warn about consequences
         Alert.alert(
             'Delete Site',
-            `Are you sure you want to delete ${site.name}?\n\nWARNING: This will permanently delete ALL associated Surveys, Inspections, and Assets. This action cannot be undone.`,
+            `Are you sure you want to delete "${site.name}"?\n\nWARNING: This will permanently delete ALL associated Surveys, Inspections, and Assets for this site. This action cannot be undone.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: 'Continue',
                     style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const { sitesApi } = require('../services/api');
-                            await sitesApi.delete(site.id);
-                            loadSites();
-                        } catch (error) {
-                            Alert.alert('Error', 'Failed to delete site');
-                        }
+                    onPress: () => {
+                        // Step 2: Final confirmation with site name
+                        Alert.alert(
+                            'Final Confirmation',
+                            `You are about to permanently delete:\n\n  "${site.name}"\n\nAll surveys and assets will be lost forever.`,
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Delete Permanently',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            const { sitesApi } = require('../services/api');
+                                            await sitesApi.delete(site.id);
+                                            loadSites();
+                                        } catch (error) {
+                                            Alert.alert('Error', 'Failed to delete site');
+                                        }
+                                    }
+                                }
+                            ]
+                        );
                     }
                 }
             ]

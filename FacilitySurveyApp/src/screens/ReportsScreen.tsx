@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, useTheme, Surface, Avatar, IconButton, Searchbar, Chip, Menu, Button, Divider, FAB, Portal, Modal, List } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { storage } from '../services/storage';
 import * as hybridStorage from '../services/hybridStorage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -24,10 +24,11 @@ const generateUUID = () => {
 export default function ReportsScreen() {
     const theme = useTheme();
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const [allSurveys, setAllSurveys] = useState<any[]>([]);
     const [filteredSurveys, setFilteredSurveys] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>(route.params?.statusFilter || 'all');
     const [menuVisible, setMenuVisible] = useState(false);
 
     // Site Filter
@@ -64,7 +65,8 @@ export default function ReportsScreen() {
     };
 
     const loadReports = async () => {
-        const surveys = await storage.getSurveys();
+        // Use hybridStorage so we get backend data when online, local fallback when offline
+        const surveys = await hybridStorage.getSurveys();
         // Sort by date descending
         surveys.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setAllSurveys(surveys);
@@ -208,21 +210,26 @@ export default function ReportsScreen() {
                                 mode="contained-tonal"
                                 compact
                                 onPress={async () => {
-                                    const assets = await storage.getAssets();
+                                    // Fetch assets for the specific site, then filter by trade
+                                    const siteId = item.site_id || (item as any).siteId;
+                                    const assets = siteId
+                                        ? await hybridStorage.getAssets(siteId)
+                                        : await hybridStorage.getAssets();
                                     const surveyAssets = assets.filter((a: any) =>
-                                        a.site_name === item.site_name &&
-                                        (!item.trade || a.service_line === item.trade) &&
-                                        (!item.location || a.floor === item.location || a.area === item.location)
+                                        !item.trade ||
+                                        a.service_line === item.trade ||
+                                        a.serviceLine === item.trade
                                     );
 
                                     navigation.navigate('AssetInspection', {
                                         surveyId: item.id,
+                                        siteId: siteId,
                                         siteName: item.site_name,
                                         trade: item.trade,
                                         location: item.location,
                                         preloadedAssets: surveyAssets,
                                         assetOption: 'resume'
-                                    })
+                                    });
                                 }}
                             >
                                 Resume
