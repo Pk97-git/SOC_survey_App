@@ -69,7 +69,7 @@ router.put('/:id', authenticate, authorize('reviewer'), async (req: AuthRequest,
 });
 
 // Get all reviews for a survey
-router.get('/:surveyId', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:surveyId', authenticate, authorize('reviewer', 'admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { surveyId } = req.params;
 

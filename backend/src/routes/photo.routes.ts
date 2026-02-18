@@ -141,8 +141,12 @@ router.delete('/:id', authenticate, authorize('surveyor', 'admin'), async (req: 
 
         const photo = photoCheck.rows[0];
 
-        // Authorization check: Admin OR Owner
-        if (user.role !== 'admin' && photo.surveyor_id !== user.userId) {
+        // Authorization check: Admin can always delete
+        // Unassigned survey photos (surveyor_id IS NULL) — admin only
+        // Assigned survey photos — admin or the owning surveyor
+        const isAdmin = user.role === 'admin';
+        const isOwner = photo.surveyor_id && photo.surveyor_id === user.userId;
+        if (!isAdmin && !isOwner) {
             return res.status(403).json({ error: 'You are not authorized to delete this photo' });
         }
 

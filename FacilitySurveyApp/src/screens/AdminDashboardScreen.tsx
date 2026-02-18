@@ -63,12 +63,12 @@ export default function AdminDashboardScreen() {
             const uniqueSurveyors = new Set(surveys.map((s: any) => s.surveyor_name).filter(Boolean));
             const activeSurveyors = uniqueSurveyors.size;
 
-            // Completed Today
+            // Completed Today — prefer submitted_at timestamp, fall back to updated_at
             const today = new Date().toISOString().split('T')[0];
             const completedToday = surveys.filter((s: any) =>
-                s.status === 'submitted' &&
-                s.updated_at &&
-                s.updated_at.startsWith(today)
+                (s.status === 'submitted' || s.status === 'completed') &&
+                ((s.submitted_at && s.submitted_at.startsWith(today)) ||
+                 (!s.submitted_at && s.updated_at && s.updated_at.startsWith(today)))
             ).length;
 
             setStats({
@@ -94,7 +94,9 @@ export default function AdminDashboardScreen() {
                 // Requirements say "Active Surveyors".
                 // Let's filter client side or just show the list with login info/counts.
                 // dashboardApi.getUsers returns { id, full_name, email, role, last_login, survey_count }
-                setSurveyorsList(users);
+                // Only show surveyors, not admins or reviewers
+                const surveyorsOnly = users.filter((u: any) => u.role === 'surveyor');
+                setSurveyorsList(surveyorsOnly);
             } else {
                 // Offline fallback (can't easily get full user list details without cache)
                 alert('Must be online to view surveyor details');
@@ -172,7 +174,7 @@ export default function AdminDashboardScreen() {
                         value={stats.pendingReviews}
                         icon="clock-alert"
                         color={theme.colors.error}
-                        onPress={() => navigation.navigate('ReportsTab', { screen: 'Reports', params: { filter: 'pending' } })}
+                        onPress={() => navigation.navigate('ReportsTab', { screen: 'Reports', params: { statusFilter: 'submitted' } })}
                     />
                     <StatCard
                         title="Active Surveyors"
@@ -186,7 +188,7 @@ export default function AdminDashboardScreen() {
                         value={stats.completedToday}
                         icon="check-circle"
                         color={theme.colors.tertiary}
-                        onPress={() => navigation.navigate('ReportsTab', { screen: 'Reports', params: { filter: 'today' } })}
+                        onPress={() => navigation.navigate('ReportsTab', { screen: 'SurveyManagement' })}
                     />
                 </View>
 
