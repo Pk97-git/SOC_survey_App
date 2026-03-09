@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: survey_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kprashanthkumar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-facility_survey}
+    ports:
+      - "5433:5432" # Mapped to 5433 to match your current local setup
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - survey_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: survey_backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - PORT=3000
+      - DB_HOST=db
+      - DB_PORT=5432 # Internal docker network port
+      - DB_USER=${POSTGRES_USER:-kprashanthkumar}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres_password}
+      - DB_NAME=${POSTGRES_DB:-facility_survey}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_in_production}
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    volumes:
+      - backend_uploads:/usr/src/app/uploads
+    networks:
+      - survey_network
+
+  frontend:
+    build:
+      context: ./FacilitySurveyApp
+      dockerfile: Dockerfile
+    container_name: survey_frontend
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-http://localhost:3000/api}
+    ports:
+      - "8080:80" # Exposed on 8080, can be mapped to 80 via IIS Reverse Proxy
+    networks:
+      - survey_network
+
+volumes:
+  pgdata:
+  backend_uploads:
+
+networks:
+  survey_network:
+    driver: bridge

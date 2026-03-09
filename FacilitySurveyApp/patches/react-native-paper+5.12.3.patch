@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native-paper/lib/commonjs/components/Menu/Menu.js b/node_modules/react-native-paper/lib/commonjs/components/Menu/Menu.js
+index 16cf1d7..dbac996 100644
+--- a/node_modules/react-native-paper/lib/commonjs/components/Menu/Menu.js
++++ b/node_modules/react-native-paper/lib/commonjs/components/Menu/Menu.js
+@@ -185,6 +185,7 @@ class Menu extends React.Component {
+       // For example, when menu is shown, focus the first item in the menu
+       // And when menu is dismissed, send focus back to the button to resume tabbing
+       const node = (0, _reactNative.findNodeHandle)(el);
++      if (!node) return;
+       const focusableNode = node.querySelector(
+       // This is a rough list of selectors that can be focused
+       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+diff --git a/node_modules/react-native-paper/lib/module/components/Menu/Menu.js b/node_modules/react-native-paper/lib/module/components/Menu/Menu.js
+index f2ae857..3a21cf0 100644
+--- a/node_modules/react-native-paper/lib/module/components/Menu/Menu.js
++++ b/node_modules/react-native-paper/lib/module/components/Menu/Menu.js
+@@ -175,6 +175,7 @@ class Menu extends React.Component {
+       // For example, when menu is shown, focus the first item in the menu
+       // And when menu is dismissed, send focus back to the button to resume tabbing
+       const node = findNodeHandle(el);
++      if (!node) return;
+       const focusableNode = node.querySelector(
+       // This is a rough list of selectors that can be focused
+       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');

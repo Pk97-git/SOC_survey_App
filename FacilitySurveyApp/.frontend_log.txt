@@ -1,0 +1,19 @@
+Starting project at /Users/kprashanthkumar/Documents/CIT/Operations Survey app/FacilitySurveyApp
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+The following packages should be updated for best compatibility with the installed expo version:
+  react-native-gesture-handler@2.16.2 - expected version: ~2.28.0
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web ./index.ts ▓▓░░░░░░░░░░░░░░ 13.8% (159/434)
+Web ./index.ts ▓▓▓▓▓▓▓▓▓▓░░░░░░ 66.4% (564/692)
+Web ./index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.8% (1078/1079)
+Web Bundled 12228ms index.ts (1079 modules)
+Web Bundled 52ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+ LOG  [web] Logs will appear in the browser console
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 47ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console

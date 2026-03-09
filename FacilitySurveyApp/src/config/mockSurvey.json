@@ -1,0 +1,64 @@
+{
+  "id": "mock_template_v1",
+  "title": "Facility Inspection Survey",
+  "sections": [
+    {
+      "id": "sec_general",
+      "title": "General Information",
+      "questions": [
+        {
+          "id": "q_inspector",
+          "label": "Inspector Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "id": "q_date",
+          "label": "Inspection Date",
+          "type": "date",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_safety",
+      "title": "Site Safety",
+      "questions": [
+        {
+          "id": "q_fence",
+          "label": "Is the perimeter fence intact?",
+          "type": "yes_no",
+          "required": true
+        },
+        {
+          "id": "q_fence_photo",
+          "label": "Fence Photo",
+          "type": "photo",
+          "dependsOn": "q_fence"
+        },
+        {
+          "id": "q_ppe",
+          "label": "Are all staff wearing PPE?",
+          "type": "yes_no",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_waste",
+      "title": "Waste Management",
+      "questions": [
+        {
+          "id": "q_waste_vol",
+          "label": "Estimated Waste Volume (m3)",
+          "type": "number"
+        },
+        {
+          "id": "q_waste_photo",
+          "label": "Waste Area Photo",
+          "type": "photo"
+        }
+      ]
+    }
+  ]
+}

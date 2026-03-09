@@ -1,0 +1,35 @@
+========================================
+GIT INSTALLATION COMMANDS
+========================================
+
+Step 1: Create Temp folder
+--------------------------
+mkdir C:\Temp
+
+
+Step 2: Download Git installer
+------------------------------
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe' -OutFile 'C:\Temp\Git-2.42.0.2-64-bit.exe'"
+
+
+Step 3: Install Git silently
+----------------------------
+C:\Temp\Git-2.42.0.2-64-bit.exe /VERYSILENT /NORESTART
+
+
+Step 4: Close and reopen PowerShell/Command Prompt
+--------------------------------------------------
+Then continue...
+
+
+Step 5: Verify Git is installed
+-------------------------------
+git --version
+
+
+Step 6: Pull latest code
+------------------------
+cd "C:\Users\PrashantK\Documents\CIT products testing\Condidtional survey"
+git pull
+
+========================================
