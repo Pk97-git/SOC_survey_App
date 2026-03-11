@@ -1,7 +1,7 @@
 import { MD3LightTheme } from 'react-native-paper';
 import { Colors, Radius } from './constants/design';
 
-// Gulaid Holdings · CIT Operations — App Theme
+// Gulaid Holding · CIT Operations — App Theme
 // Built on MD3 Light with the Gulaid brand palette.
 // All color values reference design tokens — do not hardcode here.
 
@@ -12,11 +12,11 @@ export const theme = {
     colors: {
         ...MD3LightTheme.colors,
 
-        // Primary: Maroon — Gulaid brand
-        primary: Colors.maroon[600],            // '#8B0000'
+        // Primary: CIT Green — brand primary
+        primary: Colors.green[500],             // '#56896E'
         onPrimary: Colors.neutral[0],           // '#FFFFFF'
-        primaryContainer: Colors.maroon[100],   // '#FFE8E8'
-        onPrimaryContainer: Colors.maroon[800], // '#4A0000'
+        primaryContainer: Colors.green[100],    // '#D9E6DF'
+        onPrimaryContainer: Colors.green[800],  // '#22372C'
 
         // Secondary: Deep Navy — brand depth
         secondary: Colors.navy[800],            // '#1A2332'
@@ -24,11 +24,11 @@ export const theme = {
         secondaryContainer: Colors.navy[100],   // '#E2E8F0'
         onSecondaryContainer: Colors.navy[900], // '#0F172A'
 
-        // Tertiary: Gulaid Gold — brand accent
-        tertiary: Colors.gold[400],             // '#C0963C'
+        // Tertiary: CIT Gold — brand accent
+        tertiary: Colors.gold[400],             // '#C6A050'
         onTertiary: Colors.neutral[0],
-        tertiaryContainer: Colors.gold[100],    // '#FEF3C7'
-        onTertiaryContainer: Colors.gold[600],  // '#7B5A20'
+        tertiaryContainer: Colors.gold[100],    // '#F2EEDA'
+        onTertiaryContainer: Colors.gold[600],  // '#7A602B'
 
         // Backgrounds
         background: Colors.neutral[50],         // '#FAF9F6' — warm off-white

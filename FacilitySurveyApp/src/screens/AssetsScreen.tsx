@@ -266,8 +266,8 @@ export default function AssetsScreen() {
             setImporting(true);
             setImportProgress({ current: 0, total: 0, message: 'Uploading file to server...' });
 
-            // Call backend to handle the import, passing the full asset object for web compatibility
-            const response = await hybridStorage.uploadAssetFile(selectedSite.id, selectedAsset, (progress) => {
+            // Upload Excel file
+            const response = await hybridStorage.uploadAssetFile(selectedSite.id, selectedAsset as any, (progress) => {
                 if (progress < 100) {
                     setImportProgress({ current: progress, total: 100, message: `Uploading file... ${progress}%` });
                 } else {

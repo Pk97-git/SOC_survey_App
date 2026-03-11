@@ -3,7 +3,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useTheme, Text as PaperText } from 'react-native-paper';
-import { View, Platform, Pressable, StyleSheet } from 'react-native';
+import { View, Platform, Pressable, StyleSheet, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Auth
@@ -97,15 +97,18 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
                 {/* Maroon accent stripe */}
                 <View style={[webStyles.brandStripe, { backgroundColor: theme.colors.primary }]} />
                 {/* Logo box */}
-                <View style={[webStyles.brandIcon, { backgroundColor: theme.colors.primaryContainer }]}>
-                    <MaterialCommunityIcons name="office-building" size={20} color={theme.colors.primary} />
+                <View style={[webStyles.brandIcon, { backgroundColor: 'transparent' }]}>
+                    <Image
+                        source={require('../../assets/cit-logo.png')}
+                        style={{ width: 28, height: 28, resizeMode: 'contain' }}
+                    />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
                     <PaperText style={{ fontSize: 14, fontWeight: '800', color: theme.colors.onSurface, letterSpacing: -0.3 }}>
                         CIT Operations
                     </PaperText>
                     <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary, marginTop: 1 }]}>
-                        GULAID HOLDINGS
+                        GULAID HOLDING
                     </PaperText>
                     <PaperText style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, marginTop: 1 }}>
                         {roleLabel}
@@ -170,7 +173,7 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
             {/* Footer */}
             <View style={[webStyles.sidebarFooter, { borderTopColor: theme.colors.outlineVariant }]}>
                 <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
-                    GULAID HOLDINGS
+                    GULAID HOLDING
                 </PaperText>
                 <PaperText style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, marginTop: 3 }}>
                     CIT Group Ltd © {new Date().getFullYear()}

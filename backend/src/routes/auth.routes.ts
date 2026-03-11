@@ -1,13 +1,30 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-rsa';
 import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
 import { validatePassword, hashPassword, comparePassword } from '../services/password.service';
 import { logAuth, logUserManagement, getClientIp, AuditAction } from '../services/audit.service';
+import { isAccountLocked, lockoutMinutesRemaining, computeFailureState, maskEmail } from '../utils/auth.lockout';
 import { EmailService } from '../services/email.service';
 import crypto from 'crypto';
 
 const router = Router();
+
+// Microsoft JWKS Client for validating Entra ID tokens
+const msJwksClient = jwksClient({
+    jwksUri: 'https://login.microsoftonline.com/common/discovery/v2.0/keys'
+});
+
+function getMsPublicKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
+    msJwksClient.getSigningKey(header.kid, (err, key) => {
+        if (err) {
+            return callback(err);
+        }
+        const signingKey = key?.getPublicKey();
+        callback(null, signingKey);
+    });
+}
 
 // Register (Admin only)
 router.post('/register', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
@@ -108,7 +125,7 @@ router.post('/login', async (req: Request, res: Response) => {
         if (result.rows.length === 0) {
             // Log failed login attempt
             await logAuth(AuditAction.USER_LOGIN, 'unknown', req, false, {
-                email,
+                email: maskEmail(email),
                 reason: 'User not found'
             });
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -124,19 +141,37 @@ router.post('/login', async (req: Request, res: Response) => {
             return res.status(403).json({ error: 'Account is deactivated. Please contact administrator.' });
         }
 
+        // Check Account Lockout
+        if (isAccountLocked(user.locked_until)) {
+            const timeRemaining = lockoutMinutesRemaining(user.locked_until);
+            await logAuth(AuditAction.USER_LOGIN, user.id, req, false, { reason: `Locked out, ${timeRemaining}m remaining` });
+            return res.status(429).json({ error: `Account locked due to too many failed attempts. Try again in ${timeRemaining} minutes.` });
+        }
+
         // Verify password
         const isValidPassword = await comparePassword(password, user.password_hash);
 
         if (!isValidPassword) {
+            const { newFailCount, shouldLock, lockedUntil } = computeFailureState(user.failed_login_attempts);
+
+            await pool.query(
+                'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+                [newFailCount, lockedUntil, user.id]
+            );
+
             await logAuth(AuditAction.USER_LOGIN, user.id, req, false, {
-                reason: 'Invalid password'
+                reason: shouldLock ? 'Account locked out' : `Invalid password (Attempt ${newFailCount}/5)`
             });
+
+            if (shouldLock) {
+                return res.status(429).json({ error: 'Account locked due to too many failed attempts. Try again in 15 minutes.' });
+            }
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Update last login
+        // Update last login and clear failed attempts
         await pool.query(
-            'UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = $1',
+            'UPDATE users SET last_login = NOW(), updated_at = NOW(), failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
             [user.id]
         );
 
@@ -177,6 +212,95 @@ router.post('/login', async (req: Request, res: Response) => {
     } catch (error: unknown) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Failed to login' });
+    }
+});
+
+// Microsoft SSO Login
+router.post('/microsoft/login', async (req: Request, res: Response) => {
+    try {
+        const { idToken } = req.body;
+
+        if (!idToken) {
+            return res.status(400).json({ error: 'Microsoft ID Token is required' });
+        }
+
+        // Verify the Microsoft token cryptographically
+        const verifyOptions: jwt.VerifyOptions = {};
+        if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_ID !== 'your_microsoft_client_id_here') {
+            verifyOptions.audience = process.env.MICROSOFT_CLIENT_ID;
+        }
+
+        jwt.verify(idToken, getMsPublicKey, verifyOptions, async (err, decoded) => {
+            if (err) {
+                console.error('Microsoft token verification failed:', err);
+                return res.status(401).json({ error: 'Invalid Microsoft token signature' });
+            }
+
+            const payload = decoded as jwt.JwtPayload;
+
+            // Microsoft Entra ID stores email in a few possible fields
+            const email = payload.preferred_username || payload.email || payload.upn;
+
+            if (!email) {
+                return res.status(400).json({ error: 'No email found in Microsoft token' });
+            }
+
+            // Find user in our DB using the email mapping
+            const result = await pool.query(
+                'SELECT * FROM users WHERE email = $1',
+                [email.toLowerCase()]
+            );
+
+            if (result.rows.length === 0) {
+                await logAuth(AuditAction.USER_LOGIN, 'unknown', req, false, {
+                    email: maskEmail(email),
+                    reason: 'User not found in system via Microsoft SSO'
+                });
+                return res.status(403).json({ error: 'User not registered in the system. Please ask an Administrator to invite you.' });
+            }
+
+            const user = result.rows[0];
+
+            if (user.is_active === false) {
+                await logAuth(AuditAction.USER_LOGIN, user.id, req, false, {
+                    reason: 'Account deactivated'
+                });
+                return res.status(403).json({ error: 'Account is deactivated. Please contact administrator.' });
+            }
+
+            // Generate App Session
+            await pool.query('UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = $1', [user.id]);
+
+            const token = jwt.sign(
+                { userId: user.id, email: user.email, role: user.role },
+                process.env.JWT_SECRET as string,
+                { expiresIn: process.env.JWT_EXPIRES_IN || '8h' } as jwt.SignOptions
+            );
+
+            await logAuth(AuditAction.USER_LOGIN, user.id, req, true, { provider: 'microsoft' });
+
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 8 * 60 * 60 * 1000,
+                path: '/'
+            });
+
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.full_name,
+                    role: user.role,
+                    isActive: user.is_active
+                }
+            });
+        });
+    } catch (error: unknown) {
+        console.error('Microsoft SSO Login error:', error);
+        res.status(500).json({ error: 'Failed to authenticate with Microsoft' });
     }
 });
 

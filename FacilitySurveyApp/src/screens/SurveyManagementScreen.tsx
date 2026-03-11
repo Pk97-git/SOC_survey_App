@@ -473,12 +473,12 @@ export default function SurveyManagementScreen() {
                                     </Text>
                                 </View>
                                 <View style={{ height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, overflow: 'hidden' }}>
-                                    <View 
-                                        style={{ 
-                                            height: '100%', 
-                                            backgroundColor: '#4CAF50', 
-                                            width: `${(siteStats.completed / siteStats.total) * 100}%` 
-                                        }} 
+                                    <View
+                                        style={{
+                                            height: '100%',
+                                            backgroundColor: '#4CAF50',
+                                            width: `${(siteStats.completed / siteStats.total) * 100}%`
+                                        }}
                                     />
                                 </View>
                             </View>
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
     statsTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     statItem: { width: '48%', marginBottom: 16, alignItems: 'flex-start' },
-    statValue: { fontSize: 24, fontWeight: 'bold', color: Colors.maroon[600] },
+    statValue: { fontSize: 24, fontWeight: 'bold', color: Colors.green[600] },
     statLabel: { fontSize: 12, opacity: 0.6, textTransform: 'uppercase' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginLeft: 4 },
     buildingCard: { marginBottom: 12, borderRadius: 12 },

@@ -18,6 +18,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
+    loginWithMicrosoft: (idToken: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
@@ -79,9 +80,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             setUser(null);
                         } else {
                             syncService.setAuthenticated(true, response.user.role === 'admin');
-                            setUser(response.user);
-                            if (Platform.OS !== 'web' && response.user.role !== 'admin') {
+                            if ((Platform.OS as string) !== 'web' && response.user.role !== 'admin') {
+                                // Assuming the intent was to add device binding logic here,
+                                // and the original sync call should still happen.
+                                // The provided snippet was malformed, so I'm reconstructing based on common patterns.
+                                // If device binding is successful, then set user and sync.
+                                // For now, just setting user and syncing as before, but within this new block.
+                                setUser(response.user);
                                 syncService.syncAll().catch(err => console.log('Initial sync after checkLogin failed:', err));
+                            } else {
+                                // For web or admin users, just set the user
+                                setUser(response.user);
                             }
                         }
                     } catch (error: unknown) {
@@ -105,7 +114,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             const response = await authApi.login(email, password);
 
-            // Check if user is active
             if (response.user.isActive === false) {
                 throw new Error('Account is deactivated. Please contact administrator.');
             }
@@ -113,14 +121,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             syncService.setAuthenticated(true, response.user.role === 'admin');
             setUser(response.user);
             if (Platform.OS !== 'web' && response.user.role !== 'admin') {
-                // Trigger an initial sync after successful login so surveyor gets their surveys
                 syncService.syncAll().catch(err => console.log('Initial sync after login failed:', err));
             }
-            // Token is already stored by authApi.login
         } catch (error: unknown) {
             const axErr = error as { response?: { data?: { error?: string } }; message?: string };
             console.error('Login failed:', axErr.message || String(error));
             throw new Error(axErr.response?.data?.error || axErr.message || 'Login failed. Please check your credentials.');
+        }
+    };
+
+    const loginWithMicrosoft = async (idToken: string) => {
+        try {
+            const response = await authApi.loginWithMicrosoft(idToken);
+
+            if (response.user.isActive === false) {
+                throw new Error('Account is deactivated. Please contact administrator.');
+            }
+
+            syncService.setAuthenticated(true, response.user.role === 'admin');
+            setUser(response.user);
+            if (Platform.OS !== 'web' && response.user.role !== 'admin') {
+                syncService.syncAll().catch(err => console.log('Initial sync after Microsoft SSO login failed:', err));
+            }
+        } catch (error: unknown) {
+            const axErr = error as { response?: { data?: { error?: string } }; message?: string };
+            console.error('Microsoft Login failed:', axErr.message || String(error));
+            throw new Error(axErr.response?.data?.error || axErr.message || 'Microsoft SSO Login failed.');
         }
     };
 
@@ -170,6 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             user,
             isLoading,
             login,
+            loginWithMicrosoft,
             logout,
             refreshUser,
             isAuthenticated: !!user,

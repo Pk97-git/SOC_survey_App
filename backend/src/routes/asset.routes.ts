@@ -18,6 +18,7 @@ interface ExcelAssetRow {
     description: string;
     status: string;
     asset_tag: string;
+    zone: string;
     building: string;
     location: string;
 }
@@ -65,9 +66,9 @@ router.post('/import-excel', authenticate, authorize('admin', 'surveyor'), excel
     console.log('[AssetRoutes] Content-Type:', req.headers['content-type']);
     console.log('[AssetRoutes] req.file:', req.file);
     console.log('[AssetRoutes] req.body keys:', Object.keys(req.body || {}));
-    
+
     let filePath: string | undefined;
-    
+
     try {
         if (!req.file) {
             console.error('[AssetRoutes] No file uploaded - multer did not parse a file');
@@ -126,6 +127,7 @@ router.post('/import-excel', authenticate, authorize('admin', 'surveyor'), excel
                     description: getValue(row, ['Asset Description']) || '',
                     status: getValue(row, ['Asset Status']) || 'Active',
                     asset_tag: getValue(row, ['Asset Tag']) || '',
+                    zone: getValue(row, ['Zone']) || '',
                     building: getValue(row, ['Building']) || '',
                     location: getValue(row, ['Location']) || ''
                 });
@@ -152,6 +154,7 @@ router.post('/import-excel', authenticate, authorize('admin', 'surveyor'), excel
             const descs = assetsToInsert.map(a => a.description);
             const statuses = assetsToInsert.map(a => a.status);
             const assetTags = assetsToInsert.map(a => a.asset_tag);
+            const zones = assetsToInsert.map(a => a.zone);
             const buildings = assetsToInsert.map(a => a.building);
             const locations = assetsToInsert.map(a => a.location);
 
@@ -201,11 +204,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         const siteId = typeof req.query.siteId === 'string' ? req.query.siteId : undefined;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : null;
         const offset = parseInt(req.query.offset as string) || 0;
+        const since = typeof req.query.since === 'string' ? req.query.since : undefined;
 
         let query = `
       SELECT a.*, s.name as site_name
       FROM assets a
       LEFT JOIN sites s ON a.site_id = s.id
+      WHERE 1=1
     `;
         const params: (string | number)[] = [];
         let paramIdx = 1;
@@ -214,15 +219,20 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
             if (!isValidUUID(siteId)) {
                 return res.status(400).json({ error: 'Invalid site ID format' });
             }
-            query += ` WHERE a.site_id = $${paramIdx++}`;
+            query += ` AND a.site_id = $${paramIdx++}`;
             params.push(siteId);
         }
 
+        if (since) {
+            query += ` AND a.updated_at > $${paramIdx++}`;
+            params.push(since);
+        }
+
         if (limit) {
-            query += ` ORDER BY a.created_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx}`;
+            query += ` ORDER BY a.updated_at DESC LIMIT $${paramIdx++} OFFSET $${paramIdx}`;
             params.push(limit, offset);
         } else {
-            query += ` ORDER BY a.created_at DESC`;
+            query += ` ORDER BY a.updated_at DESC`;
         }
 
         const result = await pool.query(query, params);
@@ -264,7 +274,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 // Create asset (Admin or Surveyor)
 router.post('/', authenticate, authorize('admin', 'surveyor'), async (req: AuthRequest, res: Response) => {
     try {
-        const { siteId, refCode, name, serviceLine, status, assetTag, building, location, floor, area, age, description } = req.body;
+        const { siteId, refCode, name, serviceLine, status, assetTag, zone, building, location, floor, area, age, description } = req.body;
 
         if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 255) {
             return res.status(400).json({ error: 'Asset name is required (max 255 chars)' });
@@ -352,7 +362,7 @@ router.put('/:id', authenticate, authorize('admin', 'surveyor'), async (req: Aut
         if (!isValidUUID(id)) {
             return res.status(400).json({ error: 'Invalid asset ID format' });
         }
-        const { refCode, name, serviceLine, status, assetTag, building, location, floor, area, age, description } = req.body;
+        const { refCode, name, serviceLine, status, assetTag, zone, building, location, floor, area, age, description } = req.body;
 
         const result = await pool.query(
             `UPDATE assets

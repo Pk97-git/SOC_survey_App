@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { sitesApi, assetsApi, surveysApi, inspectionsApi } from './api';
-import { storage as localStorage } from './storage';
+import { sitesApi, assetsApi, surveysApi, inspectionsApi, ApiAsset } from './api';
+import { storage as localStorage, SiteRecord, SurveyRecord } from './storage';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -16,7 +16,7 @@ export { syncService };
 
 // ==================== Sites ====================
 
-export const getSites = async () => {
+export const getSites = async (): Promise<SiteRecord[]> => {
     try {
         if (await syncService.getStatus().isOnline) {
             const sites = await sitesApi.getAll();
@@ -89,7 +89,7 @@ export const deleteSite = async (id: string) => {
 
 // ==================== Assets ====================
 
-export const getAssets = async (siteId?: string) => {
+export const getAssets = async (siteId?: string): Promise<ApiAsset[]> => {
     // 1. Web / Expo Go never caches. Always fresh from API.
     if (Platform.OS === 'web' || isExpoGo) {
         try {
@@ -116,10 +116,10 @@ export const getAssets = async (siteId?: string) => {
     }
 
     // 3. Fallback to Native SQLite
-    return await localStorage.getAssets(siteId);
+    return await localStorage.getAssets(siteId) as unknown as ApiAsset[];
 };
 
-export const saveAsset = async (asset: any) => {
+export const saveAsset = async (asset: any): Promise<ApiAsset> => {
     try {
         const savedAsset = await assetsApi.create({
             siteId: asset.site_id,
@@ -128,6 +128,7 @@ export const saveAsset = async (asset: any) => {
             serviceLine: asset.service_line,
             status: asset.status,
             assetTag: asset.asset_tag,
+            zone: asset.zone,
             building: asset.building,
             location: asset.location,
             description: asset.description,
@@ -213,14 +214,14 @@ export const deleteAsset = async (id: string) => {
 
 // ==================== Surveys ====================
 
-export const getSurveys = async (siteId?: string) => {
+export const getSurveys = async (siteId?: string): Promise<SurveyRecord[]> => {
     try {
         if (await syncService.getStatus().isOnline) {
             console.log('Fetching surveys from backend...');
             const surveys = await surveysApi.getAll(siteId);
             // Optional: Update local storage with fresh data
             // For now, we return backend data directly to ensure latest view
-            return surveys;
+            return surveys as SurveyRecord[];
         }
     } catch (error: any) {
         if (error.response?.status !== 401) {
@@ -234,7 +235,7 @@ export const getSurveys = async (siteId?: string) => {
     return await localStorage.getSurveys(siteId);
 };
 
-export const saveSurvey = async (survey: any) => {
+export const saveSurvey = async (survey: any): Promise<SurveyRecord> => {
     if (Platform.OS === 'web' || isExpoGo) {
         // Web: Directly push to API, bypass Sync
         try {
@@ -244,7 +245,7 @@ export const saveSurvey = async (survey: any) => {
                 location: survey.location,
                 surveyorId: survey.surveyor_id
             });
-            return result; // RETURN BACKEND UUID
+            return result as SurveyRecord; // RETURN BACKEND UUID
         } catch (error) {
             console.error('Web: Failed to save survey to backend', error);
             throw error;
@@ -254,7 +255,7 @@ export const saveSurvey = async (survey: any) => {
     // Native: Local DB first -> Background Sync
     await localStorage.saveSurvey(survey);
     syncService.syncAll().catch(console.error);
-    return survey;
+    return survey as SurveyRecord;
 };
 
 export const updateSurvey = async (id: string, data: any) => {
@@ -339,7 +340,10 @@ export const saveAssetInspection = async (inspection: any) => {
                 quantityWorking: inspection.quantity_working,
                 remarks: inspection.remarks,
                 gpsLat: inspection.gps_lat,
-                gpsLng: inspection.gps_lng
+                gpsLng: inspection.gps_lng,
+                magReview: inspection.mag_review || undefined,
+                citReview: inspection.cit_review || undefined,
+                dgdaReview: inspection.dgda_review || undefined,
             };
 
             if (found && found.id) {
@@ -363,7 +367,7 @@ export const saveAssetInspection = async (inspection: any) => {
     return inspection;
 };
 
-export const getInspectionsForSurvey = async (surveyId: string) => {
+export const getInspectionsForSurvey = async (surveyId: string): Promise<Record<string, any>[]> => {
     try {
         if (await syncService.getStatus().isOnline) {
             const inspections = await inspectionsApi.getBySurvey(surveyId);

@@ -1,4 +1,5 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -19,6 +20,7 @@ import reviewRoutes from './routes/review.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import syncRoutes from './routes/sync.routes';
 import { validateJwtSecretStrength } from './utils/security.utils';
+import pool from './config/database';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -47,9 +49,13 @@ app.use(cors({
     origin: (origin, callback) => {
         const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || [];
 
-        // Allow requests with no origin (e.g., from IIS reverse proxy, curl, mobile apps)
+        // Allow requests with no origin (e.g., mobile apps, curl) ONLY if explicitly opted in
+        // In production, unconditionally allowing no-origin bypasses CORS restrictions entirely
         if (!origin) {
-            return callback(null, true);
+            if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_MOBILE_CLIENTS === 'true') {
+                return callback(null, true);
+            }
+            return callback(new Error('Strict CORS: No origin provided'));
         }
 
         // Allow localhost only in development mode (security fix)
@@ -66,7 +72,9 @@ app.use(cors({
     },
     credentials: true
 }));
-app.use(morgan('dev')); // Logging
+
+// Use 'combined' format in production to avoid leaking request details, 'dev' for local
+app.use(process.env.NODE_ENV === 'production' ? morgan('combined') : morgan('dev'));
 // Limit JSON body size to prevent DoS attacks (10MB is sufficient for bulk sync)
 app.use(express.json({ limit: process.env.BODY_LIMIT || '10mb' }));
 
@@ -76,9 +84,15 @@ if (process.env.NODE_ENV === 'production') {
 }
 app.use(express.urlencoded({ limit: process.env.BODY_LIMIT || '10mb', extended: true }));
 
-// Health check
-app.get('/health', (req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check — probes the actual database connection
+app.get('/health', async (req: Request, res: Response) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
+    } catch (err) {
+        console.error('Health check DB probe failed:', err);
+        res.status(503).json({ status: 'degraded', db: 'disconnected', timestamp: new Date().toISOString() });
+    }
 });
 
 // API Routes
@@ -112,7 +126,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV}`);
 
@@ -128,5 +142,29 @@ app.listen(PORT, () => {
         console.log('✅ JWT_SECRET strength validated');
     }
 });
+
+// Graceful shutdown
+const shutdown = async (signal: string) => {
+    console.log(`\n⏳ ${signal} received. Shutting down gracefully...`);
+    server.close(async () => {
+        console.log('✅ HTTP server closed.');
+        try {
+            await pool.end();
+            console.log('✅ Database pool closed.');
+        } catch (err) {
+            console.error('❌ Error closing database pool:', err);
+        }
+        process.exit(0);
+    });
+
+    // Force exit after 10 seconds if graceful shutdown stalls
+    setTimeout(() => {
+        console.error('❌ Forced shutdown after timeout.');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

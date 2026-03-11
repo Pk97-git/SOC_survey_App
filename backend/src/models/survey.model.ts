@@ -31,6 +31,7 @@ export interface SurveyFilter {
     siteId?: string;
     surveyorId?: string;
     includeUnassigned?: boolean;  // When true: show surveyor's own + NULL surveyor_id surveys
+    since?: string;               // For incremental sync filtering
     limit?: number;
     offset?: number;
 }

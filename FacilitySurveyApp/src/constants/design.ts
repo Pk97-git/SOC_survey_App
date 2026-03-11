@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Gulaid Holdings · CIT Operations — Design Token System
+// Gulaid Holding · CIT Operations — Design Token System
 // Single source of truth for all visual constants.
 // Every screen and component imports from here — no hardcoded values elsewhere.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,33 +10,33 @@ import { Platform } from 'react-native';
 
 export const Colors = {
 
-    // Maroon — primary brand color (prestigious in Saudi corporate culture)
-    maroon: {
-        50:  '#FFF5F5',
-        100: '#FFE8E8',
-        200: '#FFC5C5',
-        300: '#FF9494',
-        400: '#FF5555',
-        500: '#CC0000',
-        600: '#8B0000',   // PRIMARY — Gulaid / CIT brand
-        700: '#6B0000',   // Pressed / active
-        800: '#4A0000',   // Deep
-        900: '#2A0000',
+    // Green — primary brand color (CIT Official)
+    green: {
+        50: '#F0F5F2',
+        100: '#D9E6DF',
+        200: '#B8CDBE',
+        300: '#94B39F',
+        400: '#739B82',
+        500: '#56896E',   // PRIMARY — CIT brand
+        600: '#456E58',   // Pressed / active
+        700: '#345242',   // Deep
+        800: '#22372C',
+        900: '#111B16',
     },
 
-    // Gold — corporate accent (Gulaid Holdings)
+    // Gold — corporate accent (Gulaid Holding / CIT)
     gold: {
-        50:  '#FFFDF5',
-        100: '#FEF3C7',
-        300: '#D4A843',
-        400: '#C0963C',   // SECONDARY — Gulaid gold accent
-        500: '#A07830',
-        600: '#7B5A20',
+        50: '#FAFAF5',
+        100: '#F2EEDA',
+        300: '#DEBB6F',
+        400: '#C6A050',   // SECONDARY — CIT gold accent
+        500: '#A3813B',
+        600: '#7A602B',
     },
 
     // Navy — depth and professionalism for text
     navy: {
-        50:  '#F0F4F8',
+        50: '#F0F4F8',
         100: '#E2E8F0',
         200: '#CBD5E1',
         600: '#334155',
@@ -47,8 +47,8 @@ export const Colors = {
 
     // Warm Neutrals — aligned with the off-white background
     neutral: {
-        0:   '#FFFFFF',
-        50:  '#FAF9F6',   // App background
+        0: '#FFFFFF',
+        50: '#FAF9F6',   // App background
         100: '#F5F4F1',
         200: '#E7E5E4',   // Borders, dividers
         300: '#D6D3D1',
@@ -64,29 +64,29 @@ export const Colors = {
     // Replace ALL hardcoded greens, blues, reds, ambers throughout the app
 
     status: {
-        successGreen:   '#15803D',   // Replaces #10B981, #22c55e, #4CAF50
-        successBg:      '#DCFCE7',
-        warningAmber:   '#B45309',   // Replaces #f59e0b
-        warningBg:      '#FEF3C7',
-        infoBlue:       '#1D4ED8',   // Replaces #3b82f6, #1E88E5
-        infoBg:         '#DBEAFE',
-        errorRed:       '#B91C1C',   // Replaces #ef4444, #FF5722, #DC2626
-        errorBg:        '#FEE2E2',
-        neutralGray:    '#57534E',   // Replaces #64748B, #94A3B8, 'gray'
-        neutralBg:      '#F5F4F1',
+        successGreen: '#15803D',   // Replaces #10B981, #22c55e, #4CAF50
+        successBg: '#DCFCE7',
+        warningAmber: '#B45309',   // Replaces #f59e0b
+        warningBg: '#FEF3C7',
+        infoBlue: '#1D4ED8',   // Replaces #3b82f6, #1E88E5
+        infoBg: '#DBEAFE',
+        errorRed: '#B91C1C',   // Replaces #ef4444, #FF5722, #DC2626
+        errorBg: '#FEE2E2',
+        neutralGray: '#57534E',   // Replaces #64748B, #94A3B8, 'gray'
+        neutralBg: '#F5F4F1',
     },
 
     // ─── Survey / Inspection Status Styles ──────────────────────────────────
     // Used by StatusBadge in Reviewer, Reports, SurveyManagement screens
 
     surveyStatus: {
-        submitted:    { bg: '#FEF3C7', text: '#B45309', border: '#D4A843' },  // Gold = pending review
+        submitted: { bg: '#FEF3C7', text: '#B45309', border: '#D4A843' },  // Gold = pending review
         under_review: { bg: '#DBEAFE', text: '#1D4ED8', border: '#93C5FD' },  // Blue = being reviewed
-        completed:    { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },  // Green = approved
-        in_progress:  { bg: '#FFF5F5', text: '#8B0000', border: '#FCA5A5' },  // Maroon = in progress
-        draft:        { bg: '#F5F4F1', text: '#57534E', border: '#D6D3D1' },  // Gray = draft
-        approved:     { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },  // Alias for completed
-        rejected:     { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' },  // Red = rejected
+        completed: { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },  // Green = approved
+        in_progress: { bg: '#F0F5F2', text: '#56896E', border: '#B8CDBE' },  // Green = in progress
+        draft: { bg: '#F5F4F1', text: '#57534E', border: '#D6D3D1' },  // Gray = draft
+        approved: { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' },  // Alias for completed
+        rejected: { bg: '#FEE2E2', text: '#B91C1C', border: '#FCA5A5' },  // Red = rejected
     } as Record<string, { bg: string; text: string; border: string }>,
 
     // ─── Condition Rating Colors (AssetInspectionCard A–G) ──────────────────
@@ -104,40 +104,40 @@ export const Colors = {
 // ─── Spacing Scale (8pt grid) ────────────────────────────────────────────────
 
 export const Spacing = {
-    1:    4,
-    2:    8,
-    3:   12,
-    4:   16,
-    5:   20,
-    6:   24,
-    8:   32,
-    10:  40,
-    12:  48,
-    16:  64,
-    20:  80,
-    24:  96,
+    1: 4,
+    2: 8,
+    3: 12,
+    4: 16,
+    5: 20,
+    6: 24,
+    8: 32,
+    10: 40,
+    12: 48,
+    16: 64,
+    20: 80,
+    24: 96,
 };
 
 // Named layout aliases used across screens
 export const Layout = {
     screenPaddingH: Spacing[5],    // 20 — horizontal screen edge padding
     screenPaddingV: Spacing[5],    // 20 — vertical screen edge padding
-    cardPadding:    Spacing[6],    // 24 — inside card padding
-    cardGap:        Spacing[4],    // 16 — gap between cards
-    sectionGap:     Spacing[8],    // 32 — gap between major sections
-    itemGap:        Spacing[3],    // 12 — gap between list items
-    headerHeight:   56,            // Standard header height
+    cardPadding: Spacing[6],    // 24 — inside card padding
+    cardGap: Spacing[4],    // 16 — gap between cards
+    sectionGap: Spacing[8],    // 32 — gap between major sections
+    itemGap: Spacing[3],    // 12 — gap between list items
+    headerHeight: 56,            // Standard header height
 };
 
 // ─── Border Radius Scale ─────────────────────────────────────────────────────
 
 export const Radius = {
-    xs:   4,     // Badges, chips, tight elements
-    sm:   8,     // Compact buttons, input corners
-    md:   12,    // Standard cards, dropdowns — theme roundness
-    lg:   16,    // Site cards, survey cards
-    xl:   20,    // Dashboard stat cards, form cards
-    xxl:  24,    // Modal sheets, large cards
+    xs: 4,     // Badges, chips, tight elements
+    sm: 8,     // Compact buttons, input corners
+    md: 12,    // Standard cards, dropdowns — theme roundness
+    lg: 16,    // Site cards, survey cards
+    xl: 20,    // Dashboard stat cards, form cards
+    xxl: 24,    // Modal sheets, large cards
     full: 9999,  // Pills, status dots
 };
 
@@ -167,7 +167,7 @@ export const Shadows = {
     },
     fab: {
         elevation: 6,
-        shadowColor: Colors.maroon[600],
+        shadowColor: Colors.green[600],
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 12,

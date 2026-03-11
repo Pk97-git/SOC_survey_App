@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Alert, FlatList, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, StyleSheet, Alert, FlatList, Platform, Modal } from 'react-native';
 import { Text, FAB, useTheme, ProgressBar, Button, Surface, IconButton, Searchbar } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import * as Location from 'expo-location';
+import { QRCodeScanner } from '../components/QRCodeScanner';
 import { storage } from '../services/storage';
 import * as hybridStorage from '../services/hybridStorage';
 import AssetInspectionCard from '../components/AssetInspectionCard';
 import { generateAndShareExcel } from '../services/excelService';
 import { Radius, Typography, Spacing } from '../constants/design';
+import { ApiAsset } from '../services/api';
 
 export default function AssetInspectionScreen() {
     const navigation = useNavigation<any>();
@@ -17,12 +20,16 @@ export default function AssetInspectionScreen() {
 
     const { surveyId, siteId, siteName, trade, preloadedAssets = [], assetOption } = route.params;
 
-    const [assets, setAssets] = useState<any[]>(preloadedAssets);
-    const [inspections, setInspections] = useState<any[]>([]);
-    const [saving, setSaving] = useState(false);
+    // Use strongly typed ApiAsset and inspection interfaces instead of 'any' to prevent runtime crashes
+    const [assets, setAssets] = useState<ApiAsset[]>(preloadedAssets);
+    const [inspections, setInspections] = useState<Record<string, any>[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [hasFetched, setHasFetched] = useState(preloadedAssets.length > 0);
+    const [isScannerVisible, setIsScannerVisible] = useState(false);
+
+
+    const assetRefs = useRef<{ [key: string]: View | null }>({});
+    const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
         loadInspections();
@@ -81,19 +88,51 @@ export default function AssetInspectionScreen() {
             Alert.alert('Error', 'Failed to load assets for this survey');
         } finally {
             setLoadingAssets(false);
-            setHasFetched(true);
         }
     };
 
-    useEffect(() => {
-        if (hasFetched && !loadingAssets && assets.length === 0 && (siteName || siteId)) {
+    const handleBarcodeScanned = (scannedData: string) => {
+        setIsScannerVisible(false); // Close scanner
+
+        // Find asset by exactly matching ID or Ref Code
+        const foundAsset = assets.find(a => a.id === scannedData || a.ref_code === scannedData);
+
+        if (foundAsset) {
+            // Scroll to it
+            setSearchQuery(foundAsset.name || foundAsset.ref_code || '');
+            const foundIndex = filteredAssets.findIndex(a => a.id === foundAsset.id);
+            if (foundIndex !== -1 && flatListRef.current) {
+                flatListRef.current.scrollToIndex({ index: foundIndex, animated: true, viewPosition: 0.5 });
+            }
+            Alert.alert('Asset Found', `Found asset: ${foundAsset.name || foundAsset.ref_code}`);
+        } else {
+            // Not found in this survey
             Alert.alert(
-                'No Assets Found',
-                `No assets found for ${trade} at this location. Please check with an admin.`,
-                [{ text: 'Go Back', onPress: () => navigation.goBack() }]
+                'Asset Not Found',
+                `Asset ID "${scannedData}" is not in this survey.\n\nWould you like to log a new issue using this ID?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Yes, Add New',
+                        onPress: () => {
+                            navigation.navigate('AssetForm', {
+                                surveyId,
+                                siteId,
+                                siteName,
+                                defaultTrade: trade,
+                                defaultBuilding: route.params.location,
+                                autoFillScanData: scannedData,
+                                onSave: (newAsset: any) => {
+                                    setAssets(prev => [newAsset, ...prev]);
+                                    setSearchQuery(newAsset.name || newAsset.ref_code || '');
+                                }
+                            });
+                        }
+                    }
+                ]
             );
         }
-    }, [hasFetched, loadingAssets, assets]);
+    };
 
     const captureGPS = async (): Promise<{ lat: number; lng: number } | null> => {
         try {
@@ -284,11 +323,20 @@ export default function AssetInspectionScreen() {
                             {trade}{route.params.location ? ` · ${route.params.location}` : ''} · {new Date().toLocaleDateString()}
                         </Text>
                     </View>
-                    <IconButton
-                        icon="close"
-                        iconColor="#FFFFFF"
-                        onPress={handleSaveAndExit}
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <IconButton
+                            icon="qrcode-scan"
+                            iconColor="#FFFFFF"
+                            size={24}
+                            onPress={() => setIsScannerVisible(true)}
+                            style={{ marginRight: 0 }}
+                        />
+                        <IconButton
+                            icon="close"
+                            iconColor="#FFFFFF"
+                            onPress={handleSaveAndExit}
+                        />
+                    </View>
                 </View>
 
                 {/* Progress */}
@@ -344,42 +392,53 @@ export default function AssetInspectionScreen() {
             </Surface>
 
             {/* ── Asset list ───────────────────────────────────────────── */}
-            <FlatList
-                data={filteredAssets}
-                keyExtractor={(item) => item.id}
-                initialNumToRender={5}
-                windowSize={5}
-                maxToRenderPerBatch={10}
-                removeClippedSubviews={true}
-                contentContainerStyle={styles.content}
-                ListEmptyComponent={
-                    <Surface style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
-                        <Text style={[Typography.h4, { textAlign: 'center', marginBottom: Spacing[2], color: theme.colors.onSurface }]}>
-                            No Assets Yet
-                        </Text>
-                        <Text style={[Typography.bodyMd, { textAlign: 'center', color: theme.colors.onSurfaceVariant }]}>
-                            Tap the "+ Add Asset" button below to start adding assets for inspection
-                        </Text>
-                    </Surface>
-                }
-                renderItem={({ item: asset }) => {
-                    const inspection = inspections.find(i => i.asset_id === asset.id) || {
-                        id: `inspection_${asset.id}_${Date.now()}`,
-                        survey_id: surveyId,
-                        asset_id: asset.id,
-                        photos: [],
-                    };
-                    return (
-                        <AssetInspectionCard
-                            asset={asset}
-                            inspection={inspection}
-                            onUpdate={handleInspectionUpdate}
-                            onCaptureGPS={captureGPS}
-                        />
-                    );
-                }}
-                ListFooterComponent={<View style={{ height: 100 }} />}
-            />
+            {assets.length === 0 && !loadingAssets ? (
+                <View style={styles.emptyContainer}>
+                    <IconButton icon="clipboard-text-outline" size={60} iconColor={theme.colors.onSurfaceVariant} style={{ opacity: 0.5 }} />
+                    <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No Items Yet</Text>
+                    <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                        {trade} has no pre-loaded assets here. Tap the '+' button to log an issue manually.
+                    </Text>
+                </View>
+            ) : (
+                <FlatList
+                    ref={flatListRef}
+                    data={filteredAssets}
+                    keyExtractor={(item) => item.id}
+                    initialNumToRender={5}
+                    windowSize={5}
+                    maxToRenderPerBatch={10}
+                    removeClippedSubviews={true}
+                    contentContainerStyle={styles.content}
+                    ListEmptyComponent={
+                        <Surface style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+                            <Text style={[Typography.h4, { textAlign: 'center', marginBottom: Spacing[2], color: theme.colors.onSurface }]}>
+                                No Assets Yet
+                            </Text>
+                            <Text style={[Typography.bodyMd, { textAlign: 'center', color: theme.colors.onSurfaceVariant }]}>
+                                Tap the "+ Add Asset" button below to start adding assets for inspection
+                            </Text>
+                        </Surface>
+                    }
+                    renderItem={({ item: asset }) => {
+                        const inspection = inspections.find(i => i.asset_id === asset.id) || {
+                            id: `inspection_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                            survey_id: surveyId,
+                            asset_id: asset.id,
+                            photos: [],
+                        };
+                        return (
+                            <AssetInspectionCard
+                                asset={asset}
+                                inspection={inspection}
+                                onUpdate={handleInspectionUpdate}
+                                onCaptureGPS={captureGPS}
+                            />
+                        );
+                    }}
+                    ListFooterComponent={<View style={{ height: 100 }} />}
+                />
+            )}
 
             {/* FAB */}
             <FAB
@@ -389,6 +448,17 @@ export default function AssetInspectionScreen() {
                 color="#FFFFFF"
                 onPress={handleAddAsset}
             />
+
+            <Modal
+                visible={isScannerVisible}
+                animationType="slide"
+                onRequestClose={() => setIsScannerVisible(false)}
+            >
+                <QRCodeScanner
+                    onScan={handleBarcodeScanned}
+                    onCancel={() => setIsScannerVisible(false)}
+                />
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -426,7 +496,27 @@ const styles = StyleSheet.create({
     },
     fab: {
         position: 'absolute',
-        right: Spacing[4],
-        bottom: Spacing[4],
+        margin: 16,
+        right: 0,
+        bottom: 80, // Moved up to clear Submit button
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        marginTop: 40,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        fontSize: 15,
+        textAlign: 'center',
+        opacity: 0.8,
+        lineHeight: 22,
     },
 });

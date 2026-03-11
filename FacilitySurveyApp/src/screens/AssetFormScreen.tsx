@@ -19,6 +19,7 @@ export default function AssetFormScreen() {
     const [assetTag, setAssetTag] = useState(asset?.asset_tag || '');
     const [name, setName] = useState(asset?.name || '');
     const [building, setBuilding] = useState(asset?.building || defaultBuilding || '');
+    const [zone, setZone] = useState(asset?.zone || '');
     const [locationText, setLocationText] = useState(asset?.location || '');
     const [floor, setFloor] = useState(asset?.floor || '');
     const [area, setArea] = useState(asset?.area?.toString() || '');
@@ -65,6 +66,7 @@ export default function AssetFormScreen() {
                 ref_code: assetCode,
                 asset_tag: assetTag,
                 name,
+                zone,
                 building,
                 location: locationText,
                 floor,
@@ -135,8 +137,9 @@ export default function AssetFormScreen() {
                     Location
                 </Text>
                 <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]} elevation={1}>
+                    <TextInput label="Zone" value={zone} onChangeText={setZone} mode="outlined" style={styles.input} />
                     <TextInput label="Building" value={building} onChangeText={setBuilding} mode="outlined" style={styles.input} />
-                    <TextInput label="Location / Room" value={locationText} onChangeText={setLocationText} mode="outlined" style={styles.input} />
+                    <TextInput label="Location / Room / Space" value={locationText} onChangeText={setLocationText} mode="outlined" style={styles.input} />
                     <TextInput label="Floor" value={floor} onChangeText={setFloor} mode="outlined" style={[styles.input, { marginBottom: 0 }]} />
                 </Surface>
 

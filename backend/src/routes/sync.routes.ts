@@ -44,26 +44,35 @@ router.post('/batch/surveys', authenticate, async (req: AuthRequest, res: Respon
 
         const results = [];
         for (const survey of surveys) {
-            const { localId, siteId, trade, status, submittedAt } = survey;
+            const { localId, siteId, trade, location, status, submittedAt } = survey;
 
             const existing = await client.query(
-                'SELECT id FROM surveys WHERE id = $1',
+                'SELECT id, status FROM surveys WHERE id = $1',
                 [localId]
             );
+
+            if (existing.rows.length > 0) {
+                const isSubmitted = existing.rows[0].status === 'submitted' || existing.rows[0].status === 'completed';
+                if (isSubmitted && req.user!.role !== 'admin') {
+                    // Locked. Return synced: true to clear client sync queue.
+                    results.push({ localId, serverId: existing.rows[0].id, synced: true });
+                    continue;
+                }
+            }
 
             const result = await (existing.rows.length > 0
                 ? client.query(
                     `UPDATE surveys
-                     SET site_id = $1, trade = $2, status = $3, submitted_at = $4, updated_at = NOW()
-                     WHERE id = $5
+                     SET site_id = $1, trade = $2, location = $3, status = $4, submitted_at = $5, updated_at = NOW()
+                     WHERE id = $6
                      RETURNING *`,
-                    [siteId, trade, status, submittedAt, localId]
+                    [siteId, trade, location, status, submittedAt, localId]
                 )
                 : client.query(
-                    `INSERT INTO surveys (id, site_id, surveyor_id, trade, status, submitted_at)
-                     VALUES ($1, $2, $3, $4, $5, $6)
+                    `INSERT INTO surveys (id, site_id, surveyor_id, trade, location, status, submitted_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)
                      RETURNING *`,
-                    [localId, siteId, req.user!.userId, trade, status, submittedAt]
+                    [localId, siteId, req.user!.userId, trade, location, status, submittedAt]
                 ));
 
             results.push({
@@ -128,6 +137,19 @@ router.post('/batch/inspections', authenticate, async (req: AuthRequest, res: Re
                 'SELECT id FROM asset_inspections WHERE id = $1',
                 [localId]
             );
+
+            const parentSurvey = await client.query(
+                'SELECT status FROM surveys WHERE id = $1',
+                [surveyId]
+            );
+            if (parentSurvey.rows.length > 0) {
+                const isSubmitted = parentSurvey.rows[0].status === 'submitted' || parentSurvey.rows[0].status === 'completed';
+                if (isSubmitted && req.user!.role !== 'admin') {
+                    // Locked. Return synced: true to clear client sync queue.
+                    results.push({ localId, serverId: existing.rows.length > 0 ? existing.rows[0].id : localId, synced: true });
+                    continue;
+                }
+            }
 
             const result = await (existing.rows.length > 0
                 ? client.query(

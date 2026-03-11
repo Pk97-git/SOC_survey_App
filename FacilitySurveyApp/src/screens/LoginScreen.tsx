@@ -1,19 +1,67 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { Text, TextInput, Button, Surface, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Radius, Typography, Spacing } from '../constants/design';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const discovery: AuthSession.DiscoveryDocument = {
+    authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+};
 
 export default function LoginScreen() {
-    const { login } = useAuth();
+    const { login, loginWithMicrosoft } = useAuth();
     const navigation = useNavigation<any>();
     const theme = useTheme();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Microsoft Auth Session Hook
+    // In production, EXPO_PUBLIC_MICROSOFT_CLIENT_ID should be set in .env
+    const clientId = process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID || 'your-client-id-here';
+
+    const [request, response, promptAsync] = AuthSession.useAuthRequest(
+        {
+            clientId,
+            scopes: ['openid', 'profile', 'email'],
+            redirectUri: AuthSession.makeRedirectUri({
+                scheme: 'facilitysurveyapp'
+            }),
+            responseType: 'id_token',
+            extraParams: { nonce: 'nonce', response_mode: 'fragment' }
+        },
+        discovery
+    );
+
+    React.useEffect(() => {
+        if (response?.type === 'success') {
+            const { id_token } = response.params;
+            if (id_token) {
+                handleMicrosoftLogin(id_token);
+            }
+        } else if (response?.type === 'error') {
+            Alert.alert('Microsoft Login Failed', response.error?.message || 'Authentication with Microsoft failed.');
+        }
+    }, [response]);
+
+    const handleMicrosoftLogin = async (idToken: string) => {
+        setLoading(true);
+        try {
+            await loginWithMicrosoft(idToken);
+        } catch (error: any) {
+            Alert.alert('Login Failed', error.message || 'Validation failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -39,13 +87,16 @@ export default function LoginScreen() {
                     <View style={styles.heroBand}>
                         {/* Company label */}
                         <Text style={[Typography.labelXs, { color: theme.colors.tertiary, marginBottom: Spacing[3] }]}>
-                            GULAID HOLDINGS
+                            GULAID HOLDING
                         </Text>
 
                         {/* Logo ring */}
                         <View style={[styles.logoRing, { borderColor: 'rgba(255,255,255,0.25)' }]}>
-                            <View style={[styles.logoInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-                                <MaterialCommunityIcons name="office-building-outline" size={40} color="#FFFFFF" />
+                            <View style={[styles.logoInner, { backgroundColor: 'transparent' }]}>
+                                <Image
+                                    source={require('../../assets/cit-logo.png')}
+                                    style={{ width: 64, height: 64, resizeMode: 'contain' }}
+                                />
                             </View>
                         </View>
 
@@ -111,6 +162,20 @@ export default function LoginScreen() {
                             </Button>
 
                             <Button
+                                mode="contained"
+                                icon="microsoft"
+                                onPress={() => promptAsync()}
+                                disabled={!request || loading}
+                                style={{ marginTop: Spacing[3], borderRadius: Radius.lg, borderWidth: 1, borderColor: '#2F2F2F' }}
+                                contentStyle={{ height: 52 }}
+                                buttonColor="#2F2F2F"
+                                textColor="#FFFFFF"
+                                labelStyle={{ fontSize: 16, fontWeight: 'bold', letterSpacing: 0.3 }}
+                            >
+                                Sign in with Microsoft
+                            </Button>
+
+                            <Button
                                 mode="text"
                                 onPress={() => navigation.navigate('ForgotPassword')}
                                 style={{ marginTop: Spacing[2] }}
@@ -131,7 +196,7 @@ export default function LoginScreen() {
 
                         {/* Version footer */}
                         <Text style={[Typography.bodyXs, styles.versionText, { color: theme.colors.onSurfaceVariant }]}>
-                            v1.0.0 · CIT Group Ltd · Gulaid Holdings
+                            v1.0.0 · CIT Group Ltd · Gulaid Holding
                         </Text>
                     </View>
 

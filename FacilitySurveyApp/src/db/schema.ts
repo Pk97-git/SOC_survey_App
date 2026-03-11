@@ -19,6 +19,7 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
       project_site TEXT,
       site_name TEXT,
       service_line TEXT,
+      zone TEXT,
       floor TEXT,
       area TEXT,
       age TEXT,
@@ -99,49 +100,37 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
     );
   `);
 
+  /**
+   * Helper to safely add a column only if it doesn't already exist.
+   * This replaces fragile try/catch blocks that masked real SQLite errors.
+   */
+  const addColumnIfNotExists = async (table: string, column: string, typeDef: string) => {
+    const columns: any[] = await db.getAllAsync(`PRAGMA table_info(${table})`);
+    if (!columns.some(col => col.name === column)) {
+      await db.runAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`);
+      console.log(`Added ${column} column to ${table}`);
+    }
+  };
+
   // Phase 7 Migration: Add location to surveys if missing
-  try {
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN location TEXT');
-    console.log('Added location column to surveys');
-  } catch (e) {
-    // Column likely exists, ignore
-  }
+  await addColumnIfNotExists('surveys', 'location', 'TEXT');
 
   // Phase 8 Migration: Add sync fields
-  try {
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN synced INTEGER DEFAULT 0');
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN server_id TEXT');
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN last_synced_at TEXT');
-    console.log('Added sync columns to surveys');
-  } catch (e) {
-    // Columns likely exist, ignore
-  }
+  await addColumnIfNotExists('surveys', 'synced', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('surveys', 'server_id', 'TEXT');
+  await addColumnIfNotExists('surveys', 'last_synced_at', 'TEXT');
 
-  try {
-    await db.runAsync('ALTER TABLE asset_inspections ADD COLUMN synced INTEGER DEFAULT 0');
-    await db.runAsync('ALTER TABLE asset_inspections ADD COLUMN server_id TEXT');
-    console.log('Added sync columns to asset_inspections');
-  } catch (e) {
-    // Columns likely exist, ignore
-  }
+  await addColumnIfNotExists('asset_inspections', 'synced', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('asset_inspections', 'server_id', 'TEXT');
 
-  try {
-    await db.runAsync('ALTER TABLE photos ADD COLUMN synced INTEGER DEFAULT 0');
-    await db.runAsync('ALTER TABLE photos ADD COLUMN server_id TEXT');
-    await db.runAsync('ALTER TABLE photos ADD COLUMN uploaded INTEGER DEFAULT 0');
-    console.log('Added sync columns to photos');
-  } catch (e) {
-    // Columns likely exist, ignore
-  }
+  await addColumnIfNotExists('photos', 'synced', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('photos', 'server_id', 'TEXT');
+  await addColumnIfNotExists('photos', 'uploaded', 'INTEGER DEFAULT 0');
 
-  // Phase 9 Migration: Add building/location to assets
-  try {
-    await db.runAsync('ALTER TABLE assets ADD COLUMN building TEXT');
-    await db.runAsync('ALTER TABLE assets ADD COLUMN location TEXT');
-    console.log('Added building/location columns to assets');
-  } catch (e) {
-    // Columns likely exist, ignore
-  }
+  // Phase 9 Migration: Add zone/building/location to assets
+  await addColumnIfNotExists('assets', 'zone', 'TEXT');
+  await addColumnIfNotExists('assets', 'building', 'TEXT');
+  await addColumnIfNotExists('assets', 'location', 'TEXT');
 
   // Phase 10 Migration: Sanitize Corrupted Data (Precision Fix)
   try {
@@ -154,30 +143,14 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
   }
 
   // Phase 11 Migration: Add site_id to surveys (required for proper backend sync)
-  try {
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN site_id TEXT');
-    console.log('Added site_id column to surveys');
-  } catch (e) {
-    // Column already exists, ignore
-  }
+  await addColumnIfNotExists('surveys', 'site_id', 'TEXT');
 
   // Phase 12 Migration: Add surveyor_id to surveys (for claim tracking)
-  try {
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN surveyor_id TEXT');
-    console.log('Added surveyor_id column to surveys');
-  } catch (e) {
-    // Column already exists, ignore
-  }
-
+  await addColumnIfNotExists('surveys', 'surveyor_id', 'TEXT');
 
   // Phase 13 Migration: Add sync_failed flag to surveys (dead-letter queue)
-  try {
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN sync_failed INTEGER DEFAULT 0');
-    await db.runAsync('ALTER TABLE surveys ADD COLUMN sync_error TEXT');
-    console.log('Added sync_failed/sync_error columns to surveys');
-  } catch (e) {
-    // Columns already exist, ignore
-  }
+  await addColumnIfNotExists('surveys', 'sync_failed', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('surveys', 'sync_error', 'TEXT');
 
   // Phase 14 Migration: Add performance indexes to SQLite
   try {
@@ -194,6 +167,12 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
   } catch (e) {
     console.warn('Index creation skipped:', e);
   }
+
+  // Phase 15 Migration: Add review JSON columns to asset_inspections
+  // Required to store MAG, CIT, DGDA review data filled in during the survey
+  await addColumnIfNotExists('asset_inspections', 'mag_review', 'TEXT');
+  await addColumnIfNotExists('asset_inspections', 'cit_review', 'TEXT');
+  await addColumnIfNotExists('asset_inspections', 'dgda_review', 'TEXT');
 
   console.log('Database migrated successfully');
 };

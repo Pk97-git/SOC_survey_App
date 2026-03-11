@@ -129,6 +129,31 @@ export const storage = {
         }
     },
 
+    /**
+     * Finds the most recent updated_at timestamp across all local data for a site.
+     * Used as the 'since' cursor for incremental sync.
+     */
+    async getSiteLastSyncTime(siteId: string): Promise<string | undefined> {
+        if (Platform.OS === 'web' || isExpoGo) return undefined;
+
+        try {
+            const db = await getDb();
+            // Get the max updated_at from both surveys and assets for this site
+            const result = await db.getFirstAsync(`
+                SELECT MAX(max_time) as last_sync FROM (
+                    SELECT MAX(updated_at) as max_time FROM surveys WHERE site_id = ?
+                    UNION ALL
+                    SELECT MAX(updated_at) as max_time FROM assets WHERE site_id = ?
+                )
+            `, [siteId, siteId]);
+
+            return (result as any)?.last_sync || undefined;
+        } catch (e) {
+            console.warn('Failed to get last sync time, defaulting to full sync', e);
+            return undefined;
+        }
+    },
+
     async getSurveyById(id: string): Promise<SurveyRecord | null> {
         if (Platform.OS === 'web' || isExpoGo) {
             try {
@@ -207,8 +232,8 @@ export const storage = {
 
                 await db.runAsync(
                     `INSERT OR REPLACE INTO assets 
-                    (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, building, location) VALUES 
-                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, zone, building, location) VALUES 
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     String(asset.id),
                     String(asset.name || ''),
                     String(asset.type || asset.service_line || ''),
@@ -218,6 +243,7 @@ export const storage = {
                     safeLatValue,
                     safeLngValue,
                     String(asset.description || ''),
+                    String(asset.zone || ''),
                     String(asset.building || ''),
                     String(asset.location || '')
                 );
@@ -259,8 +285,8 @@ export const storage = {
 
                         await db.runAsync(
                             `INSERT OR REPLACE INTO assets 
-                            (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, building, location) VALUES 
-                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            (id, name, type, project_site, site_name, service_line, location_lat, location_lng, description, zone, building, location) VALUES 
+                            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                             String(asset.id),
                             String(asset.name || ''),
                             String(asset.type || asset.service_line || ''),
@@ -270,6 +296,7 @@ export const storage = {
                             safeLatValue,
                             safeLngValue,
                             String(asset.description || ''),
+                            String(asset.zone || ''),
                             String(asset.building || ''),
                             String(asset.location || '')
                         );
@@ -408,16 +435,23 @@ export const storage = {
                     `INSERT OR REPLACE INTO asset_inspections
                     (id, asset_id, survey_id, surveyor_id, status,
                      quantity_installed, quantity_working, remarks,
+                     mag_review, cit_review, dgda_review,
+                     gps_lat, gps_lng,
                      created_at, updated_at, synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
                     String(inspection.id),
                     String(inspection.asset_id),
                     String(inspection.survey_id),
                     String(inspection.surveyor_id || 'system'),
                     String(status),
-                    safeInstalled, // Use sanitized integer
-                    safeWorking,   // Use sanitized integer
+                    safeInstalled,
+                    safeWorking,
                     String(inspection.remarks || ''),
+                    inspection.mag_review ? JSON.stringify(inspection.mag_review) : null,
+                    inspection.cit_review ? JSON.stringify(inspection.cit_review) : null,
+                    inspection.dgda_review ? JSON.stringify(inspection.dgda_review) : null,
+                    inspection.gps_lat ? Number(inspection.gps_lat) : null,
+                    inspection.gps_lng ? Number(inspection.gps_lng) : null,
                     new Date().toISOString(),
                     new Date().toISOString()
                 );

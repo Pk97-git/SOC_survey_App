@@ -20,7 +20,8 @@ router.get('/assigned', authenticate, authorize('reviewer'), async (req: AuthReq
 
         res.json({ surveys: result.rows });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Get assigned surveys error:', error);
+        res.status(500).json({ error: 'Failed to get assigned surveys' });
     }
 });
 
@@ -40,7 +41,8 @@ router.post('/:surveyId', authenticate, authorize('reviewer'), async (req: AuthR
 
         res.json({ review: result.rows[0] });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Post review error:', error);
+        res.status(500).json({ error: 'Failed to save review' });
     }
 });
 
@@ -110,7 +112,8 @@ router.put('/:id', authenticate, authorize('reviewer'), async (req: AuthRequest,
 
         res.json({ review: result.rows[0] });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Update review error:', error);
+        res.status(500).json({ error: 'Failed to update review' });
     }
 });
 
@@ -131,7 +134,8 @@ router.get('/:surveyId', authenticate, authorize('reviewer', 'admin'), async (re
 
         res.json({ reviews: result.rows });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Get survey reviews error:', error);
+        res.status(500).json({ error: 'Failed to get reviews' });
     }
 });
 

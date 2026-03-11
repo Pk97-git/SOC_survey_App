@@ -12,10 +12,11 @@ export class SurveyController {
 
     getAll = async (req: AuthRequest, res: Response) => {
         try {
-            const { status, siteId, limit, offset } = req.query;
+            const { status, siteId, limit, offset, since } = req.query;
             const filter = {
                 status: status as string,
                 siteId: siteId as string,
+                since: since as string,
                 limit: limit ? parseInt(limit as string) : undefined,
                 offset: offset ? parseInt(offset as string) : undefined
             };
@@ -180,7 +181,8 @@ export class SurveyController {
             res.send(zipBuffer);
         } catch (error: unknown) {
             console.error('Export all ZIP error:', error);
-            res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to export surveys as ZIP' });
+            console.error('ZIP export error:', error);
+            res.status(500).json({ error: 'Failed to generate ZIP export' });
         }
     };
 

@@ -29,7 +29,13 @@ export class SurveyRepository {
             paramIndex++;
         }
 
-        query += ' ORDER BY s.created_at DESC';
+        if (filter.since) {
+            query += ` AND s.updated_at > $${paramIndex}`;
+            params.push(filter.since);
+            paramIndex++;
+        }
+
+        query += ' ORDER BY s.updated_at DESC';
 
         if (filter.limit) {
             query += ` LIMIT $${paramIndex}`;

@@ -4,12 +4,25 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { storage } from './storage';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+function safeJsonParse(jsonString: string | null | undefined, fallback: any = undefined): any {
+    if (!jsonString) return fallback;
+    try {
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.warn('Failed to parse JSON safely, returning fallback:', jsonString);
+        return fallback;
+    }
+}
+
 import { surveyService } from './surveyService';
 import { assetService } from './assetService';
 import { photoService } from './photoService';
 import { sitesApi, assetsApi, surveysApi, inspectionsApi, syncApi } from './api';
 
-export interface SyncStatus {
+export type SyncStatus = {
     isOnline: boolean;
     lastSync: string | null;
     pendingUploads: number;
@@ -251,14 +264,16 @@ class SyncService {
 
     private async uploadPendingInspections(): Promise<number> {
         const inspections = await storage.getPendingInspections();
-        // Fetch surveys once outside the loop — avoids N+1 DB reads
-        const allSurveys = await storage.getSurveys();
 
         return this.syncItems(inspections, async (inspection) => {
-            const survey = allSurveys.find(s => s.id === inspection.survey_id);
+            // Look up the survey fresh per-inspection to avoid a TOCTOU race:
+            // a single getSurveys() snapshot taken before the loop would become
+            // stale if a survey is deleted or de-synced during iteration,
+            // silently producing orphaned inspections.
+            const survey = await storage.getSurveyById(inspection.survey_id);
 
             if (!(survey as any)?.server_id) {
-                console.log(`Skipping inspection ${inspection.id}: Survey not synced yet`);
+                console.log(`Skipping inspection ${inspection.id}: Survey not synced yet or no longer exists`);
                 return;
             }
 
@@ -275,6 +290,9 @@ class SyncService {
                         remarks: inspection.remarks,
                         gpsLat: inspection.gps_lat,
                         gpsLng: inspection.gps_lng,
+                        magReview: safeJsonParse(inspection.mag_review),
+                        citReview: safeJsonParse(inspection.cit_review),
+                        dgdaReview: safeJsonParse(inspection.dgda_review),
                     }
                 );
             } else {
@@ -290,6 +308,9 @@ class SyncService {
                         remarks: inspection.remarks,
                         gpsLat: inspection.gps_lat,
                         gpsLng: inspection.gps_lng,
+                        magReview: safeJsonParse(inspection.mag_review),
+                        citReview: safeJsonParse(inspection.cit_review),
+                        dgdaReview: safeJsonParse(inspection.dgda_review),
                     }
                 );
                 await storage.updateInspectionServerId(inspection.id, serverInspection.id);
@@ -351,11 +372,14 @@ class SyncService {
         }
 
         try {
-            console.log(`[SyncService] 🔄 Explicitly downloading data for Site ID: ${siteId}`);
-            DeviceEventEmitter.emit('syncStatus', { status: 'syncing', message: 'Downloading Site Data...' });
+            const since = await storage.getSiteLastSyncTime(siteId);
+            const syncType = since ? 'Incremental' : 'Full';
+
+            console.log(`[SyncService] 🔄 ${syncType} download for Site ID: ${siteId}${(since ? ` since ${since}` : '')}`);
+            DeviceEventEmitter.emit('syncStatus', { status: 'syncing', message: `${syncType} Sync...` });
 
             // 1. Download Surveys for this site
-            const surveys = await surveysApi.getAll(siteId);
+            const surveys = await surveysApi.getAll(siteId, since);
             console.log(`[SyncService] 📥 Downloaded ${surveys.length} surveys for Site ${siteId}`);
             for (const survey of surveys) {
                 await storage.saveSurvey({
@@ -368,13 +392,15 @@ class SyncService {
             }
 
             // 2. Download Assets for this site
-            const assets = await assetsApi.getAll(siteId);
+            const assets = await assetsApi.getAll(siteId, since);
             console.log(`[SyncService] 📥 Downloaded ${assets.length} assets for Site ${siteId}`);
             if (assets.length > 0) {
                 await storage.saveAssetsBulk(assets);
             }
 
-            // 3. Download Inspections for these surveys
+            // 3. Download Inspections ONLY for the newly fetched surveys
+            // (Inspections don't have their own updated_at top-level endpoint yet, so we sync them
+            // whenever their parent survey has been updated, which covers edits effectively)
             if (surveys.length > 0) {
                 try {
                     const surveyIds = surveys.map((s: any) => s.id);
@@ -393,7 +419,7 @@ class SyncService {
                 }
             }
 
-            console.log(`[SyncService] ✅ Download complete for Site ${siteId}`);
+            console.log(`[SyncService] ✅ ${syncType} download complete for Site ${siteId}`);
             DeviceEventEmitter.emit('syncStatus', { status: 'synced', message: 'Site Ready for Offline Use' });
 
         } catch (error) {

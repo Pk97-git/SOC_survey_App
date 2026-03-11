@@ -483,6 +483,8 @@ export default function StartSurveyScreen() {
 
                         {!loadingExistingSurveys && existingSurveys.map((survey: any) => {
                             const isSubmitted = survey.status === 'submitted' || survey.status === 'completed';
+                            const isAdmin = user?.role === 'admin';
+                            const isLocked = isSubmitted && !isAdmin;
                             const statusConfig = Colors.surveyStatus[survey.status] || Colors.surveyStatus.draft;
 
                             return (
@@ -508,11 +510,12 @@ export default function StartSurveyScreen() {
                                         compact
                                         onPress={() => handleStartExistingSurvey(survey)}
                                         loading={claimingId === survey.id}
-                                        disabled={!!claimingId}
+                                        disabled={!!claimingId || isLocked}
                                         style={{ marginLeft: 8 }}
                                     >
-                                        {isSubmitted ? 'Edit' :
-                                            survey.status === 'in_progress' ? 'Resume' : 'Start'}
+                                        {isLocked ? 'Locked' :
+                                            isSubmitted ? 'Edit' :
+                                                survey.status === 'in_progress' ? 'Resume' : 'Start'}
                                     </Button>
                                 </Surface>
                             );

@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
     reset_password_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
+    failed_login_attempts INTEGER DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE,
     last_login TIMESTAMP
 );
 

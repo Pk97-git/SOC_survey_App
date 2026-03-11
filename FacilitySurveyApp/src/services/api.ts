@@ -21,6 +21,7 @@ export interface ApiAsset {
     service_line: string;
     status: string;
     asset_tag: string;
+    zone: string;
     building: string;
     location: string;
     floor?: string;
@@ -82,6 +83,7 @@ export interface AssetUpdateData {
     serviceLine?: string;
     status?: string;
     assetTag?: string;
+    zone?: string;
     building?: string;
     location?: string;
     floor?: string;
@@ -98,6 +100,9 @@ export interface InspectionUpdateData {
     remarks?: string;
     gpsLat?: number;
     gpsLng?: number;
+    magReview?: { comments?: string; photos?: string[] };
+    citReview?: { comments?: string };
+    dgdaReview?: { comments?: string };
 }
 
 // API Configuration
@@ -112,7 +117,7 @@ const getApiBaseUrl = () => {
         // For production web, use relative URL (same origin) or env variable
         return process.env.REACT_APP_API_URL || '/api';
     }
-    
+
     return __DEV__
         ? Platform.select({
             ios: 'http://localhost:3000/api',
@@ -205,9 +210,9 @@ api.interceptors.response.use(
             // Don't emit logout for auth endpoints (login, register, forgot-password, reset-password)
             // 401 on these endpoints is expected for invalid credentials, not session expiry
             const isAuthEndpoint = url.includes('/auth/login') ||
-                                   url.includes('/auth/register') ||
-                                   url.includes('/auth/forgot-password') ||
-                                   url.includes('/auth/reset-password');
+                url.includes('/auth/register') ||
+                url.includes('/auth/forgot-password') ||
+                url.includes('/auth/reset-password');
 
             if (!isAuthEndpoint) {
                 if (Platform.OS === 'web') {
@@ -237,6 +242,14 @@ export const authApi = {
 
     login: async (email: string, password: string) => {
         const response = await api.post('/auth/login', { email, password });
+        if (response.data.token) {
+            await setAuthToken(response.data.token);
+        }
+        return response.data;
+    },
+
+    loginWithMicrosoft: async (idToken: string) => {
+        const response = await api.post('/auth/microsoft/login', { idToken });
         if (response.data.token) {
             await setAuthToken(response.data.token);
         }
@@ -296,11 +309,30 @@ export const sitesApi = {
 // ==================== Assets API ====================
 
 export const assetsApi = {
-    getAll: async (siteId?: string) => {
-        const params = siteId ? { siteId } : {};
-        // Large sites can have 50 k+ assets — give the response time to arrive
-        const response = await api.get('/assets', { params, timeout: 120_000 });
-        return response.data.assets;
+    getAll: async (siteId?: string, since?: string) => {
+        // Paginate in chunks of 5,000 to avoid memory blowouts on large sites (50k+ assets)
+        const PAGE_SIZE = 5000;
+        let offset = 0;
+        let allAssets: any[] = [];
+        let hasMore = true;
+
+        while (hasMore) {
+            const params: Record<string, any> = { limit: PAGE_SIZE, offset };
+            if (siteId) params.siteId = siteId;
+            if (since) params.since = since;
+
+            const response = await api.get('/assets', { params, timeout: 30_000 });
+            const chunk = response.data.assets || [];
+            allAssets = allAssets.concat(chunk);
+
+            if (chunk.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                offset += PAGE_SIZE;
+            }
+        }
+
+        return allAssets;
     },
 
     getById: async (id: string) => {
@@ -315,6 +347,7 @@ export const assetsApi = {
         serviceLine?: string;
         status?: string;
         assetTag?: string;
+        zone?: string;
         building?: string;
         location?: string;
         description?: string;
@@ -364,22 +397,23 @@ export const assetsApi = {
                         body: formData,
                         signal: controller.signal,
                     });
+
+                    if (!fetchResponse.ok) {
+                        const errJson = await fetchResponse.json().catch(() => ({ error: fetchResponse.statusText }));
+                        console.error('[API uploadExcel] Server error:', fetchResponse.status, errJson);
+                        throw new Error(errJson.error || `Upload failed (${fetchResponse.status})`);
+                    }
+
+                    // Simulate 100% progress for fetch
+                    if (onProgress) onProgress(100);
+
+                    const data = await fetchResponse.json();
+                    console.log('[API uploadExcel] Success:', data.count, 'assets inserted');
+                    return data;
                 } finally {
+                    // Ensure the timeout is cleared whether the request succeeds, fails, or aborts
                     clearTimeout(timeoutId);
                 }
-
-                if (!fetchResponse.ok) {
-                    const errJson = await fetchResponse.json().catch(() => ({ error: fetchResponse.statusText }));
-                    console.error('[API uploadExcel] Server error:', fetchResponse.status, errJson);
-                    throw new Error(errJson.error || `Upload failed (${fetchResponse.status})`);
-                }
-
-                // Simulate 100% progress for fetch
-                if (onProgress) onProgress(100);
-
-                const data = await fetchResponse.json();
-                console.log('[API uploadExcel] Success:', data.count, 'assets inserted');
-                return data;
             } catch (error: any) {
                 console.error('[API uploadExcel] Fetch Error:', error.message);
                 throw error;
@@ -424,8 +458,10 @@ export const assetsApi = {
 // ==================== Surveys API ====================
 
 export const surveysApi = {
-    getAll: async (siteId?: string) => {
-        const params = siteId ? { siteId } : {};
+    getAll: async (siteId?: string, since?: string) => {
+        const params: Record<string, any> = {};
+        if (siteId) params.siteId = siteId;
+        if (since) params.since = since;
         const response = await api.get('/surveys', { params });
         return response.data.surveys;
     },

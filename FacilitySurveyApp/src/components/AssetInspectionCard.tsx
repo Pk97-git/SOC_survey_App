@@ -14,19 +14,19 @@ interface AssetInspectionCardProps {
 
 // Condition rating colors use design tokens — no hardcoded values
 const CONDITION_RATINGS = [
-    { value: 'A >> NEW',        label: 'A - NEW',       color: Colors.conditionRating.A },
-    { value: 'B >> Excellent',  label: 'B - Excellent', color: Colors.conditionRating.B },
-    { value: 'C >> Good',       label: 'C - Good',      color: Colors.conditionRating.C },
-    { value: 'D >> Average',    label: 'D - Average',   color: Colors.conditionRating.D },
-    { value: 'E >> Poor',       label: 'E - Poor',      color: Colors.conditionRating.E },
-    { value: 'F >> Very Poor',  label: 'F - Very Poor', color: Colors.conditionRating.F },
-    { value: 'G >> T.B.D',      label: 'G - T.B.D',     color: Colors.conditionRating.G },
+    { value: 'A >> NEW', label: 'A - NEW', color: Colors.conditionRating.A },
+    { value: 'B >> Excellent', label: 'B - Excellent', color: Colors.conditionRating.B },
+    { value: 'C >> Good', label: 'C - Good', color: Colors.conditionRating.C },
+    { value: 'D >> Average', label: 'D - Average', color: Colors.conditionRating.D },
+    { value: 'E >> Poor', label: 'E - Poor', color: Colors.conditionRating.E },
+    { value: 'F >> Very Poor', label: 'F - Very Poor', color: Colors.conditionRating.F },
+    { value: 'G >> T.B.D', label: 'G - T.B.D', color: Colors.conditionRating.G },
 ];
 
 const OVERALL_CONDITIONS = [
-    { value: 'Satisfactory',                label: 'Satisfactory' },
-    { value: 'Unsatisfactory',              label: 'Unsatisfactory' },
-    { value: 'Satisfactory with Comment',   label: 'Satisfactory with Comment' },
+    { value: 'Satisfactory', label: 'Satisfactory' },
+    { value: 'Unsatisfactory', label: 'Unsatisfactory' },
+    { value: 'Satisfactory with Comment', label: 'Satisfactory with Comment' },
 ];
 
 const AssetInspectionCard = ({
@@ -212,6 +212,63 @@ const AssetInspectionCard = ({
                 </View>
 
                 <Divider style={{ marginTop: Spacing[4], marginBottom: Spacing[4] }} />
+
+                {/* ── MAG Comments & Photos ────────────────────────────── */}
+                <View style={styles.section}>
+                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
+                        MAG Comments
+                    </Text>
+                    <TextInput
+                        mode="outlined"
+                        multiline
+                        numberOfLines={3}
+                        value={inspection.mag_review?.comments || ''}
+                        onChangeText={(text) => onUpdate(asset.id, { ...inspection, mag_review: { ...(inspection.mag_review || {}), comments: text } })}
+                        placeholder="Enter MAG review comments..."
+                    />
+                    <Text style={[Typography.labelMd, { color: theme.colors.onSurface, marginTop: Spacing[3], marginBottom: Spacing[2] }]}>
+                        MAG Pictures
+                    </Text>
+                    <PhotoPicker
+                        photos={inspection.mag_review?.photos || []}
+                        onPhotosChange={(photos) => onUpdate(asset.id, { ...inspection, mag_review: { ...(inspection.mag_review || {}), photos } })}
+                        maxPhotos={5}
+                    />
+                </View>
+
+                <Divider style={{ marginTop: Spacing[4], marginBottom: Spacing[4] }} />
+
+                {/* ── CIT Verification ─────────────────────────────────── */}
+                <View style={styles.section}>
+                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
+                        CIT Verification / Comments
+                    </Text>
+                    <TextInput
+                        mode="outlined"
+                        multiline
+                        numberOfLines={3}
+                        value={inspection.cit_review?.comments || ''}
+                        onChangeText={(text) => onUpdate(asset.id, { ...inspection, cit_review: { ...(inspection.cit_review || {}), comments: text } })}
+                        placeholder="Enter CIT verification comments..."
+                    />
+                </View>
+
+                <Divider style={{ marginTop: Spacing[4], marginBottom: Spacing[4] }} />
+
+                {/* ── DGDA Comments ─────────────────────────────────────── */}
+                <View style={styles.section}>
+                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
+                        DGDA Comments
+                    </Text>
+                    <TextInput
+                        mode="outlined"
+                        multiline
+                        numberOfLines={3}
+                        value={inspection.dgda_review?.comments || ''}
+                        onChangeText={(text) => onUpdate(asset.id, { ...inspection, dgda_review: { ...(inspection.dgda_review || {}), comments: text } })}
+                        placeholder="Enter DGDA comments..."
+                    />
+                </View>
 
                 {/* ── GPS ──────────────────────────────────────────────── */}
                 <View style={styles.section}>

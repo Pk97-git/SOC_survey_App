@@ -7,10 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import { storage } from '../services/storage';
 import * as hybridStorage from '../services/hybridStorage';
 import { Colors, Radius, Typography, Spacing, Layout } from '../constants/design';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomeScreen() {
     const navigation = useNavigation<any>();
     const theme = useTheme();
+    const { user } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [sites, setSites] = useState<any[]>([]);
@@ -236,6 +238,8 @@ export default function HomeScreen() {
                                         <Divider />
                                         {item.surveys.map((survey: any, index: number) => {
                                             const isCompleted = survey.status === 'completed' || survey.status === 'submitted';
+                                            const isAdmin = user?.role === 'admin';
+                                            const isLocked = isCompleted && !isAdmin;
                                             return (
                                                 <View key={survey.id}>
                                                     <View style={styles.surveyRow}>
@@ -271,8 +275,9 @@ export default function HomeScreen() {
                                                             compact
                                                             style={{ borderRadius: Radius.sm }}
                                                             onPress={() => handleStartInspection(survey, item.name)}
+                                                            disabled={isLocked}
                                                         >
-                                                            {isCompleted ? 'Edit' : 'Inspect'}
+                                                            {isLocked ? 'Locked' : isCompleted ? 'Edit' : 'Inspect'}
                                                         </Button>
                                                     </View>
                                                     {index < item.surveys.length - 1 && <Divider style={{ marginLeft: Spacing[4] }} />}

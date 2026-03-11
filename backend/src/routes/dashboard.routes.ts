@@ -36,7 +36,8 @@ router.get('/stats', authenticate, authorize('admin'), async (req: AuthRequest, 
             completedToday: parseInt(completedToday.rows[0].count),
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Dashboard stats error:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
     }
 });
 
@@ -44,7 +45,7 @@ router.get('/stats', authenticate, authorize('admin'), async (req: AuthRequest, 
 router.get('/site-stats', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { siteId } = req.query;
-        
+
         if (!siteId) {
             return res.status(400).json({ error: 'Site ID is required' });
         }
@@ -78,7 +79,7 @@ router.get('/site-stats', authenticate, async (req: AuthRequest, res: Response) 
         res.json(statusCounts);
     } catch (error: any) {
         console.error('Site stats error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to fetch site statistics' });
     }
 });
 
@@ -132,7 +133,8 @@ router.get('/surveys', authenticate, authorize('admin'), async (req: AuthRequest
         const result = await pool.query(query, params);
         res.json({ surveys: result.rows });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Dashboard surveys error:', error);
+        res.status(500).json({ error: 'Failed to fetch surveys' });
     }
 });
 
@@ -150,7 +152,8 @@ router.get('/users', authenticate, authorize('admin'), async (req: AuthRequest, 
 
         res.json({ users: result.rows });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Dashboard users error:', error);
+        res.status(500).json({ error: 'Failed to fetch user activity' });
     }
 });
 

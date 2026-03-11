@@ -39,9 +39,15 @@ export class SurveyService {
         return this.repo.create(data);
     }
 
-    async update(_user: AuthUser, id: string, data: UpdateSurveyDTO): Promise<Survey | null> {
+    async update(user: AuthUser, id: string, data: UpdateSurveyDTO): Promise<Survey | null> {
         const survey = await this.repo.findById(id);
         if (!survey) return null;
+
+        if (survey.status === 'submitted' || survey.status === 'completed') {
+            if (user.role !== 'admin') {
+                throw new Error('Unauthorized: Only admins can edit submitted surveys');
+            }
+        }
 
         // Assignments removed. Surveyors and Admins can update any survey.
         return this.repo.update(id, data);
@@ -240,9 +246,12 @@ export class SurveyService {
         worksheet.getColumn('P').width = 25; // Sat with comment
         worksheet.getColumn('Q').width = 5;
         worksheet.getColumn('R').width = 5;
-        worksheet.getColumn('S').width = 15;
+        worksheet.getColumn('S').width = 22;  // Surveyor Photos — wide enough for 150px image
         worksheet.getColumn('T').width = 30; // Remarks
-        ['U', 'V', 'W', 'X'].forEach(c => worksheet.getColumn(c).width = 15);
+        worksheet.getColumn('U').width = 20; // MAG Comments
+        worksheet.getColumn('V').width = 22;  // MAG Pictures — wide enough for 150px image
+        worksheet.getColumn('W').width = 20; // CIT Comments
+        worksheet.getColumn('X').width = 20; // DGDA Comments
 
 
         // --- 4. Data Population ---
@@ -328,7 +337,7 @@ export class SurveyService {
                 }
                 return data;
             };
-            
+
             const magReview = safeParseJSON(item.mag_review);
             const citReview = safeParseJSON(item.cit_review);
             const dgdaReview = safeParseJSON(item.dgda_review);
@@ -349,6 +358,9 @@ export class SurveyService {
             });
 
             // --- Photos ---
+            // Photo columns (S, V) are 22 chars wide (~154px). Row height for photo rows is 115pt (~153px).
+            // Image size is set to 148x148px to fit inside the cell with a 3px margin on each side.
+            const PHOTO_SIZE = 148; // pixels
             let hasPhoto = false;
 
             // 1. Surveyor Photo (Col S)
@@ -364,8 +376,8 @@ export class SurveyService {
                         });
 
                         worksheet.addImage(imageId, {
-                            tl: { col: 18, row: currentRowIndex - 1 }, // Col S (19th col, index 18)
-                            ext: { width: 100, height: 100 },
+                            tl: { col: 18, row: currentRowIndex - 1 }, // Col S (index 18)
+                            ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
                             editAs: 'oneCell'
                         });
                     }
@@ -384,8 +396,6 @@ export class SurveyService {
                 hasPhoto = true;
                 const magPhotoPathRaw = parsedMagPhotos[0];
                 try {
-                    // Mag photos might be stored as full URLs or relative paths depending on frontend upload logic
-                    // The backend stores what the frontend sends. Assuming local filesystem paths for now.
                     const finalPath = magPhotoPathRaw.startsWith('uploads/') ? magPhotoPathRaw : `uploads/${magPhotoPathRaw.split('/').pop()}`;
                     const magPhotoPath = path.resolve(finalPath);
 
@@ -396,8 +406,8 @@ export class SurveyService {
                         });
 
                         worksheet.addImage(imageId, {
-                            tl: { col: 21, row: currentRowIndex - 1 }, // Col V (22nd col, index 21)
-                            ext: { width: 100, height: 100 },
+                            tl: { col: 21, row: currentRowIndex - 1 }, // Col V (index 21)
+                            ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
                             editAs: 'oneCell'
                         });
                     }
@@ -406,7 +416,8 @@ export class SurveyService {
                 }
             }
 
-            row.height = hasPhoto ? 80 : 30;
+            // Row height: 115pt ≈ 153px which matches PHOTO_SIZE (148px) + small padding
+            row.height = hasPhoto ? 115 : 30;
 
             currentRowIndex++;
         }
@@ -473,7 +484,9 @@ export class SurveyService {
                     ? surveyData.location.replace(/[^a-zA-Z0-9\-_ ]/g, '_')
                     : 'Unassigned';
 
-                const filename = `${safeTrade}.xlsx`;
+                const filename = folderName !== 'Unassigned'
+                    ? `${folderName}_${safeTrade}.xlsx`
+                    : `${safeTrade}.xlsx`;
                 const zipPath = `${folderName}/${filename}`;
 
                 console.log(`📂 Adding to ZIP: ${zipPath}`);
