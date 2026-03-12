@@ -67,6 +67,7 @@ export default function SurveyManagementScreen() {
     // Filter menu state (replaced Alert.alert dialogs — broken on web)
     const [locationFilterMenuVisible, setLocationFilterMenuVisible] = useState(false);
     const [serviceLineFilterMenuVisible, setServiceLineFilterMenuVisible] = useState(false);
+    const [statusFilterMenuVisible, setStatusFilterMenuVisible] = useState(false);
 
     // Batch-create dialog state (replaced 3-button Alert — broken on web)
     const [batchDialogVisible, setBatchDialogVisible] = useState(false);
@@ -94,6 +95,7 @@ export default function SurveyManagementScreen() {
             setExpandedBuildings({});
             setSelectedLocation('');
             setSelectedServiceLine('');
+            setSelectedStatus('');
 
             if (selectedSite) {
                 loadSiteData(selectedSite);
@@ -163,6 +165,9 @@ export default function SurveyManagementScreen() {
 
     const [selectedServiceLine, setSelectedServiceLine] = useState<string | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+    const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+
+    const STATUS_OPTIONS = ['Missing', 'draft', 'in_progress', 'submitted', 'under_review', 'completed'];
 
     // --- Filter Options ---
     const filterOptions = useMemo(() => {
@@ -214,19 +219,28 @@ export default function SurveyManagementScreen() {
                     (s.location || '').trim().toUpperCase() === buildingName.trim().toUpperCase()
                 );
 
+                const surveyStatus = survey?.status || 'Missing';
+                
+                // Status Filter Check
+                if (selectedStatus && surveyStatus !== selectedStatus) {
+                    return null;
+                }
+
                 return {
                     name: tradeName,
                     assetCount: tradesObj[tradeName],
                     surveyId: survey?.id,
                     surveyStatus: survey?.status
                 };
-            });
+            }).filter(Boolean);
+
+            if (trades.length === 0) return null;
 
             return { name: buildingName, trades };
-        });
+        }).filter(Boolean) as HierarchyNode[];
 
         return nodes;
-    }, [assets, surveys, selectedSite, selectedLocation, selectedServiceLine]);
+    }, [assets, surveys, selectedSite, selectedLocation, selectedServiceLine, selectedStatus]);
 
 
     // --- Actions ---
@@ -563,6 +577,35 @@ export default function SurveyManagementScreen() {
                             <Divider />
                             {filterOptions.serviceLines.map(s => (
                                 <Menu.Item key={s} title={s} onPress={() => { setSelectedServiceLine(s); setServiceLineFilterMenuVisible(false); }} />
+                            ))}
+                        </Menu>
+
+                        {/* Status filter */}
+                        <Menu
+                            visible={statusFilterMenuVisible}
+                            onDismiss={() => setStatusFilterMenuVisible(false)}
+                            anchor={
+                                <View>
+                                    <Button
+                                        mode={selectedStatus ? "contained-tonal" : "outlined"}
+                                        onPress={() => setStatusFilterMenuVisible(true)}
+                                        style={{ borderRadius: 20 }}
+                                        icon="filter-variant"
+                                        compact
+                                    >
+                                        {selectedStatus ? (selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1).replace('_', ' ')) : "All Statuses"}
+                                    </Button>
+                                </View>
+                            }
+                        >
+                            <Menu.Item title="All Statuses" onPress={() => { setSelectedStatus(null); setStatusFilterMenuVisible(false); }} />
+                            <Divider />
+                            {STATUS_OPTIONS.map(status => (
+                                <Menu.Item 
+                                    key={status} 
+                                    title={status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')} 
+                                    onPress={() => { setSelectedStatus(status); setStatusFilterMenuVisible(false); }} 
+                                />
                             ))}
                         </Menu>
                     </View>
