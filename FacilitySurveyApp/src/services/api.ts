@@ -120,11 +120,11 @@ const getApiBaseUrl = () => {
 
     return __DEV__
         ? Platform.select({
-            ios: 'http://localhost:3000/api',
-            android: 'http://10.0.2.2:3000/api', // Android emulator
+            ios: 'http://20.233.49.59:3000/api',
+            android: 'http://20.233.49.59:3000/api', // Android network routing
             web: 'http://localhost:3000/api'
         })
-        : (process.env.REACT_APP_API_URL || 'http://localhost:3000/api'); // Production: use env variable
+        : (process.env.EXPO_PUBLIC_API_URL || 'https://20.233.49.59/api'); // Production: hardcoded IP fallback
 };
 
 const API_BASE_URL = getApiBaseUrl();
