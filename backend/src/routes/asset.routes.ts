@@ -376,7 +376,8 @@ router.put('/:id', authenticate, authorize('admin', 'surveyor'), async (req: Aut
            floor = COALESCE($8, floor),
            area = COALESCE($9, area),
            age = COALESCE($10, age),
-           description = COALESCE($11, description)
+           description = COALESCE($11, description),
+           updated_at = NOW()
        WHERE id = $12
        RETURNING *`,
             [refCode, name, serviceLine, status, assetTag, building, location, floor, area, age, description, id]

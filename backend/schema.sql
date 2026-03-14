@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS assets (
     floor VARCHAR(100),
     area VARCHAR(255),
     age VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Surveys table
@@ -78,6 +79,9 @@ CREATE TABLE IF NOT EXISTS asset_inspections (
     remarks TEXT,
     gps_lat DECIMAL(10, 8),
     gps_lng DECIMAL(11, 8),
+    mag_review JSONB,
+    cit_review JSONB,
+    dgda_review JSONB,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
