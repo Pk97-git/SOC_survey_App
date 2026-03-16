@@ -1,0 +1,70 @@
+# SOC Survey Application - Deployment Instructions
+
+## What's Been Done
+- Frontend built successfully (React Native/Expo web)
+- NSSM downloaded and extracted
+- Deployment package created in `deploy/` folder
+
+## Manual Steps Required
+
+### Step 1: Copy Frontend to IIS
+```
+1. Copy the contents of `deploy/web/` folder to `C:\inetpub\wwwroot\SOCSurvey\`
+2. OR create a new website in IIS pointing to `deploy/web/`
+```
+
+### Step 2: Install Backend as Windows Service
+```
+1. Right-click `deploy/install-backend-service.bat` → Run as Administrator
+2. This will install the backend as a Windows Service named "SOCSurveyBackend"
+3. The service will start automatically on port 3000
+```
+
+### Step 3: Configure IIS (Already Done)
+- URL Rewrite module is installed
+- web.config has been created with proper rewrite rules
+
+### Step 4: Test the Application
+- Frontend: http://localhost/
+- Backend API: http://localhost:3000/api
+- If using a custom website in IIS, access via configured port
+
+## Important Notes
+
+### For Mobile Apps
+The mobile app (iOS/Android) requires separate builds using Expo EAS:
+```
+cd FacilitySurveyApp
+npx eas build -p ios
+npx eas build -p android
+```
+
+### For Production SSL
+1. In IIS, enable HTTPS on the website
+2. Bind an SSL certificate
+3. Update backend API URLs in the app if needed
+
+### Service Management
+```
+Start service:   net start SOCSurveyBackend
+Stop service:    net stop SOCSurveyBackend
+Check status:   sc query SOCSurveyBackend
+View logs:       Event Viewer → Windows Logs → Application
+```
+
+### Troubleshooting
+- If backend fails to start, check: `C:\ProgramData\SOCSurveyBackend\logs\`
+- Ensure PostgreSQL is running and accessible
+- Check Windows Firewall allows port 3000
+
+## File Structure
+```
+deploy/
+├── web/                    # Frontend files (copy to IIS)
+│   ├── index.html
+│   ├── _expo/
+│   ├── assets/
+│   └── web.config         # IIS URL rewrite config
+├── install-backend-service.bat  # Run as Admin
+└── DEPLOYMENT_INSTRUCTIONS.txt
+```

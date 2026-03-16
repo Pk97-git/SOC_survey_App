@@ -46,30 +46,7 @@ const authLimiter = rateLimit({
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-    origin: (origin, callback) => {
-        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean) || [];
-
-        // Allow requests with no origin (e.g., mobile apps, curl) ONLY if explicitly opted in
-        // In production, unconditionally allowing no-origin bypasses CORS restrictions entirely
-        if (!origin) {
-            if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_MOBILE_CLIENTS === 'true') {
-                return callback(null, true);
-            }
-            return callback(new Error('Strict CORS: No origin provided'));
-        }
-
-        // Allow localhost only in development mode (security fix)
-        if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-            return callback(null, true);
-        }
-
-        if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.warn(`Blocked by CORS: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: ['https://localhost', 'http://localhost:3000', 'http://localhost', 'https://20.233.49.59', 'https://10.44.1.6'],
     credentials: true
 }));
 

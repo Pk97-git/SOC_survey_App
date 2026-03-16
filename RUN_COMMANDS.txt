@@ -1,0 +1,34 @@
+# Manual Commands to Run the Deployment
+
+## Step 1: Start the Backend API (if not running)
+```cmd
+cd "c:\Users\Prashant\Documents\GH products\SOC products\Conditional survey\backend"
+npx ts-node src/server.ts
+```
+
+The backend will start on port 3001 (configured in backend/.env)
+
+## Step 2: Start the Combined Server (Frontend + API Proxy)
+```cmd
+cd "c:\Users\Prashant\Documents\GH products\SOC products\Conditional survey"
+node deploy/combined-server.js
+```
+
+This will start the HTTPS server on port 443 serving:
+- Frontend: https://localhost/
+- API: https://localhost/api -> proxies to http://localhost:3001
+
+## Step 3: Test
+- Frontend: https://localhost/
+- API Health: https://localhost/api/health
+
+## To make it run as a Windows Service (optional):
+```cmd
+# First, kill any existing processes on port 3000
+netstat -ano | findstr :3000
+taskkill /F /PID <PID>
+
+# Install the service (run as Administrator)
+cd "c:\Users\Prashant\Documents\GH products\SOC products\Conditional survey\deploy"
+install-backend-service.bat
+```

@@ -107,15 +107,10 @@ export interface InspectionUpdateData {
 
 // API Configuration
 const getApiBaseUrl = () => {
-    // For web platform, check if running on localhost
+    // For web platform, always use relative URL to go through nginx/proxy
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const hostname = window.location.hostname;
-        // If accessed via localhost/127.0.0.1, use localhost backend
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'http://localhost:3000/api';
-        }
-        // For production web, use relative URL (same origin) or env variable
-        return process.env.REACT_APP_API_URL || '/api';
+        // Use relative URL - goes through nginx on same origin
+        return '/api';
     }
 
     return __DEV__

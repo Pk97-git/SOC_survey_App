@@ -44,6 +44,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-vector-icons": "^10.3.0",
     "react-native-web": "^0.21.0",
+    "wa-sqlite": "^1.0.0",
     "xlsx": "0.18.5"
   },
   "overrides": {
