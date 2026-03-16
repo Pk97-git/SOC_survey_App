@@ -29,11 +29,11 @@ const upload = multer({
         fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760') // 10MB default
     },
     fileFilter: (_req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|webp/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
+        const allowedExts = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+        const allowedMimes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+        const ext = path.extname(file.originalname).toLowerCase();
 
-        if (extname && mimetype) {
+        if (allowedExts.has(ext) && allowedMimes.has(file.mimetype)) {
             return cb(null, true);
         } else {
             cb(new Error('Only image files are allowed'));
@@ -100,11 +100,19 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
         const photo = result.rows[0];
 
-        if (!fs.existsSync(photo.file_path)) {
+        const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
+        const resolvedPath = path.resolve(photo.file_path);
+
+        // Guard against path traversal: resolved path must be inside the upload directory
+        if (!resolvedPath.startsWith(uploadDir + path.sep) && resolvedPath !== uploadDir) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
             return res.status(404).json({ error: 'Photo file not found on server' });
         }
 
-        res.sendFile(path.resolve(photo.file_path));
+        res.sendFile(resolvedPath);
     } catch (error: unknown) {
         console.error('Get photo error:', error);
         res.status(500).json({ error: 'Failed to get photo' });

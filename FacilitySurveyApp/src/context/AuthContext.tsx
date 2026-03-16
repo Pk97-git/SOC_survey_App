@@ -9,6 +9,7 @@ interface User {
     email: string;
     fullName: string;
     role: string;
+    organization?: string;
     isActive?: boolean;
     createdAt?: string;
     lastLogin?: string;

@@ -14,7 +14,7 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
         const offset = parseInt(req.query.offset as string) || 0;
 
         const result = await pool.query(
-            `SELECT id, email, full_name, role, is_active, created_at, last_login,
+            `SELECT id, email, full_name, role, organization, is_active, created_at, last_login,
                     deactivated_at, deactivated_by
              FROM users
              ORDER BY created_at DESC
@@ -63,7 +63,7 @@ router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
         }
 
         const result = await pool.query(
-            `SELECT id, email, full_name, role, is_active, created_at, last_login,
+            `SELECT id, email, full_name, role, organization, is_active, created_at, last_login,
                     created_by, deactivated_at, deactivated_by
              FROM users
              WHERE id = $1`,
@@ -85,7 +85,7 @@ router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
 router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { fullName, role, email, password } = req.body;
+        const { fullName, role, organization, email, password } = req.body;
 
         if (!isValidUUID(id)) {
             return res.status(400).json({ error: 'Invalid user ID format' });
@@ -128,6 +128,16 @@ router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
             changes.role = { from: currentUser.rows[0].role, to: role };
         }
 
+        if (organization !== undefined && organization !== currentUser.rows[0].organization) {
+            if (organization && !['MAG', 'CIT', 'DGDA'].includes(organization)) {
+                return res.status(400).json({ error: 'Invalid organization. Must be MAG, CIT, or DGDA' });
+            }
+            paramCount++;
+            query += `, organization = $${paramCount}`;
+            values.push(organization || null);
+            changes.organization = { from: currentUser.rows[0].organization, to: organization || null };
+        }
+
         if (email && email !== currentUser.rows[0].email) {
             // Validate email format
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -168,7 +178,7 @@ router.put('/:id', authenticate, authorize('admin'), async (req: AuthRequest, re
             changes.password = 'changed';
         }
 
-        query += ` WHERE id = $1 RETURNING id, email, full_name, role, is_active, updated_at`;
+        query += ` WHERE id = $1 RETURNING id, email, full_name, role, organization, is_active, updated_at`;
 
         const result = await pool.query(query, values);
 

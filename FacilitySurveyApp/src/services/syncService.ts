@@ -122,8 +122,8 @@ class SyncService {
     }
 
     /**
-     * Generic helper: iterate `items`, call `syncOne` for each, count transient failures.
-     * 401 errors are treated as permanent (credentials expired) and not counted as retryable failures.
+     * Generic helper: iterate `items`, call `syncOne` for each with up to MAX_RETRIES attempts.
+     * 401 errors are treated as permanent (credentials expired) and not retried.
      */
     private async syncItems<T extends { id: string }>(
         items: T[],
@@ -131,15 +131,30 @@ class SyncService {
     ): Promise<number> {
         let failures = 0;
         for (const item of items) {
-            try {
-                await syncOne(item);
-            } catch (error: any) {
-                if (error?.response?.status === 401) {
-                    console.warn(`⚠️ Item ${item.id} sync skipped: credentials expired`);
-                } else {
-                    console.error(`Failed to sync item ${item.id}:`, error);
-                    failures++;
+            let lastError: any;
+            let succeeded = false;
+
+            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    await syncOne(item);
+                    succeeded = true;
+                    break;
+                } catch (error: any) {
+                    if (error?.response?.status === 401) {
+                        console.warn(`⚠️ Item ${item.id} sync skipped: credentials expired`);
+                        succeeded = true; // Don't count as retryable failure
+                        break;
+                    }
+                    lastError = error;
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                    }
                 }
+            }
+
+            if (!succeeded) {
+                console.error(`Failed to sync item ${item.id} after ${MAX_RETRIES} attempts:`, lastError);
+                failures++;
             }
         }
         return failures;

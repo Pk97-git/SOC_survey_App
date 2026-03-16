@@ -62,28 +62,20 @@ const excelUpload = multer({
 
 // Import Excel file (Admin or Surveyor) - Moved to top to ensure priority
 router.post('/import-excel', authenticate, authorize('admin', 'surveyor'), excelUpload.single('file'), async (req: AuthRequest, res: Response) => {
-    console.log('[AssetRoutes] POST /import-excel hit');
-    console.log('[AssetRoutes] Content-Type:', req.headers['content-type']);
-    console.log('[AssetRoutes] req.file:', req.file);
-    console.log('[AssetRoutes] req.body keys:', Object.keys(req.body || {}));
-
     let filePath: string | undefined;
 
     try {
         if (!req.file) {
-            console.error('[AssetRoutes] No file uploaded - multer did not parse a file');
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
         const { siteId } = req.body;
-        console.log(`[AssetRoutes] Import for siteId: ${siteId}`);
 
         if (!siteId) {
             return res.status(400).json({ error: 'Site ID is required' });
         }
 
         filePath = req.file.path;
-        console.log(`[AssetRoutes] File saved at: ${filePath}`);
 
         // Read Excel file
         const workbook = XLSX.readFile(filePath);

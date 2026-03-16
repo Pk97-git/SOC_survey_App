@@ -20,6 +20,7 @@ export default function UserManagementScreen() {
         email: '',
         fullName: '',
         role: 'surveyor',
+        organization: '',
         password: '',
     });
     const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
@@ -100,7 +101,7 @@ export default function UserManagementScreen() {
 
     const handleAddUser = () => {
         setEditingUser(null);
-        setFormData({ email: '', fullName: '', role: 'surveyor', password: '' });
+        setFormData({ email: '', fullName: '', role: 'surveyor', organization: '', password: '' });
         setPasswordErrors([]);
         setShowPassword(false);
         setDialogVisible(true);
@@ -112,6 +113,7 @@ export default function UserManagementScreen() {
             email: user.email,
             fullName: user.full_name,
             role: user.role,
+            organization: user.organization || '',
             password: '',
         });
         setDialogVisible(true);
@@ -139,6 +141,7 @@ export default function UserManagementScreen() {
                 await usersApi.update(editingUser.id, {
                     fullName: formData.fullName,
                     role: formData.role,
+                    organization: formData.role === 'reviewer' ? (formData.organization || undefined) : undefined,
                     email: formData.email,
                     ...(formData.password ? { password: formData.password } : {})
                 });
@@ -148,7 +151,8 @@ export default function UserManagementScreen() {
                     email: formData.email,
                     password: formData.password,
                     fullName: formData.fullName,
-                    role: formData.role
+                    role: formData.role,
+                    ...(formData.role === 'reviewer' && formData.organization ? { organization: formData.organization } : {})
                 });
                 Alert.alert('User Created', `Account created for ${formData.email}.\n\nPlease share the password securely with the user.`);
             }
@@ -303,6 +307,11 @@ export default function UserManagementScreen() {
                                 <Text style={[styles.lastLogin, { color: theme.colors.onSurfaceVariant }]}>
                                     Last login: {item.last_login ? new Date(item.last_login).toLocaleDateString() : 'Never'}
                                 </Text>
+                                {item.role === 'reviewer' && item.organization && (
+                                    <Text style={[styles.lastLogin, { color: theme.colors.secondary, fontWeight: '600' }]}>
+                                        Org: {item.organization}
+                                    </Text>
+                                )}
                             </View>
                             <RoleBadge role={item.role} />
                             <Menu
@@ -405,23 +414,29 @@ export default function UserManagementScreen() {
                         <Text style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold' }}>Role</Text>
                         <SegmentedButtons
                             value={formData.role}
-                            onValueChange={(value) => setFormData({ ...formData, role: value })}
+                            onValueChange={(value) => setFormData({ ...formData, role: value, organization: value !== 'reviewer' ? '' : formData.organization })}
                             buttons={[
-                                {
-                                    value: 'surveyor',
-                                    label: 'Surveyor',
-                                },
-                                {
-                                    value: 'admin',
-                                    label: 'Admin',
-                                },
-                                {
-                                    value: 'reviewer',
-                                    label: 'Reviewer',
-                                },
+                                { value: 'surveyor', label: 'Surveyor' },
+                                { value: 'admin', label: 'Admin' },
+                                { value: 'reviewer', label: 'Reviewer' },
                             ]}
                             style={{ marginBottom: 16 }}
                         />
+                        {formData.role === 'reviewer' && (
+                            <>
+                                <Text style={{ marginBottom: 8, fontWeight: 'bold' }}>Organisation</Text>
+                                <SegmentedButtons
+                                    value={formData.organization}
+                                    onValueChange={(value) => setFormData({ ...formData, organization: value })}
+                                    buttons={[
+                                        { value: 'MAG', label: 'MAG' },
+                                        { value: 'CIT', label: 'CIT' },
+                                        { value: 'DGDA', label: 'DGDA' },
+                                    ]}
+                                    style={{ marginBottom: 16 }}
+                                />
+                            </>
+                        )}
                     </Dialog.Content>
                     <Dialog.Actions>
                         <Button onPress={() => setDialogVisible(false)}>Cancel</Button>

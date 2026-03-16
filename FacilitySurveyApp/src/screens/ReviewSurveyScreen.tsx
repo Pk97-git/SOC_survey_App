@@ -20,10 +20,10 @@ export default function ReviewSurveyScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // Get reviewer type dynamically. Default to 'Reviewer' if role is generic.
-    // If you have specific organizations (MAG, CIT, DGDA), derive it here.
-    // For now, we simply capitalize the role or use a preset if available in user metadata.
-    const reviewerType = user?.role ? user.role.toUpperCase() : 'REVIEWER';
+    // Reviewer type is determined by the user's organization (MAG / CIT / DGDA),
+    // which is set by an Admin when the reviewer account is created.
+    // Falls back to 'MAG' if not set so the review_comments CHECK constraint is satisfied.
+    const reviewerType = (user?.organization?.toUpperCase() as 'MAG' | 'CIT' | 'DGDA') || 'MAG';
 
     useEffect(() => {
         loadSurveyData();
@@ -255,26 +255,24 @@ export default function ReviewSurveyScreen() {
                                 style={styles.input}
                             />
 
-                            {reviewerType === 'MAG' && (
-                                <View style={{ marginTop: 12 }}>
-                                    <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 8 }]}>
-                                        MAG Pictures:
-                                    </Text>
-                                    <PhotoPicker
-                                        photos={reviewComments[inspection.id]?.photos || []}
-                                        onPhotosChange={(photos) => {
-                                            setReviewComments({
-                                                ...reviewComments,
-                                                [inspection.id]: {
-                                                    ...reviewComments[inspection.id],
-                                                    photos,
-                                                },
-                                            });
-                                        }}
-                                        maxPhotos={5}
-                                    />
-                                </View>
-                            )}
+                            <View style={{ marginTop: 12 }}>
+                                <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 8 }]}>
+                                    {reviewerType} Pictures:
+                                </Text>
+                                <PhotoPicker
+                                    photos={reviewComments[inspection.id]?.photos || []}
+                                    onPhotosChange={(photos) => {
+                                        setReviewComments({
+                                            ...reviewComments,
+                                            [inspection.id]: {
+                                                ...reviewComments[inspection.id],
+                                                photos,
+                                            },
+                                        });
+                                    }}
+                                    maxPhotos={5}
+                                />
+                            </View>
                         </View>
                     </Surface>
                 )}

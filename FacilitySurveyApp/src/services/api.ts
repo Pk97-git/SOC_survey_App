@@ -235,7 +235,7 @@ api.interceptors.response.use(
 // ==================== Authentication API ====================
 
 export const authApi = {
-    register: async (data: { email: string; password: string; fullName: string; role: string }) => {
+    register: async (data: { email: string; password: string; fullName: string; role: string; organization?: string }) => {
         const response = await api.post('/auth/register', data);
         return response.data;
     },
@@ -577,7 +577,7 @@ export const usersApi = {
         return response.data.users;
     },
 
-    update: async (id: string, data: { fullName?: string; role?: string; email?: string, password?: string }) => {
+    update: async (id: string, data: { fullName?: string; role?: string; organization?: string; email?: string; password?: string }) => {
         const response = await api.put(`/users/${id}`, data);
         return response.data.user;
     },

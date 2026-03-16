@@ -29,7 +29,7 @@ function getMsPublicKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback)
 // Register (Admin only)
 router.post('/register', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { email, password, fullName, role } = req.body;
+        const { email, password, fullName, role, organization } = req.body;
 
         // Validation
         if (!email || !password || !fullName) {
@@ -73,10 +73,10 @@ router.post('/register', authenticate, authorize('admin'), async (req: AuthReque
 
         // Create user
         const result = await pool.query(
-            `INSERT INTO users (email, password_hash, full_name, role, created_by, is_active)
-             VALUES ($1, $2, $3, $4, $5, true)
-             RETURNING id, email, full_name, role, is_active, created_at`,
-            [email.toLowerCase(), hashedPassword, fullName, userRole, req.user!.userId]
+            `INSERT INTO users (email, password_hash, full_name, role, organization, created_by, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, true)
+             RETURNING id, email, full_name, role, organization, is_active, created_at`,
+            [email.toLowerCase(), hashedPassword, fullName, userRole, organization || null, req.user!.userId]
         );
 
         const newUser = result.rows[0];
@@ -97,6 +97,7 @@ router.post('/register', authenticate, authorize('admin'), async (req: AuthReque
                 email: newUser.email,
                 fullName: newUser.full_name,
                 role: newUser.role,
+                organization: newUser.organization,
                 isActive: newUser.is_active
             }
         });
@@ -206,6 +207,7 @@ router.post('/login', async (req: Request, res: Response) => {
                 email: user.email,
                 fullName: user.full_name,
                 role: user.role,
+                organization: user.organization,
                 isActive: user.is_active
             }
         });
@@ -294,6 +296,7 @@ router.post('/microsoft/login', async (req: Request, res: Response) => {
                     email: user.email,
                     fullName: user.full_name,
                     role: user.role,
+                    organization: user.organization,
                     isActive: user.is_active
                 }
             });
@@ -308,7 +311,7 @@ router.post('/microsoft/login', async (req: Request, res: Response) => {
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const result = await pool.query(
-            'SELECT id, email, full_name, role, is_active, created_at, last_login FROM users WHERE id = $1',
+            'SELECT id, email, full_name, role, organization, is_active, created_at, last_login FROM users WHERE id = $1',
             [req.user!.userId]
         );
 
@@ -323,6 +326,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
                 email: user.email,
                 fullName: user.full_name,
                 role: user.role,
+                organization: user.organization,
                 isActive: user.is_active,
                 createdAt: user.created_at,
                 lastLogin: user.last_login
