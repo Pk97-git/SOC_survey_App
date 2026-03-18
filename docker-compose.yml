@@ -37,7 +37,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - backend_uploads:/usr/src/app/uploads
+      - ./backend/uploads:/usr/src/app/uploads
     networks:
       - survey_network
 
@@ -58,7 +58,6 @@ services:
 
 volumes:
   pgdata:
-  backend_uploads:
 
 networks:
   survey_network:

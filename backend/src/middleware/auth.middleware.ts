@@ -58,6 +58,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         // Verify JWT
         const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
 
+        // Check if token is blacklisted
+        const blacklistResult = await pool.query('SELECT 1 FROM token_blacklist WHERE token = $1', [token]);
+        if (blacklistResult.rows.length > 0) {
+            return res.status(401).json({ error: 'Token has been revoked' });
+        }
+
         // Check if user still exists and is active
         const userResult = await pool.query(
             'SELECT id, email, full_name, role, is_active FROM users WHERE id = $1',
@@ -139,6 +145,13 @@ export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextF
 
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, jwtSecret) as JWTPayload;
+
+        // Check if token is blacklisted
+        const blacklistResult = await pool.query('SELECT 1 FROM token_blacklist WHERE token = $1', [token]);
+        if (blacklistResult.rows.length > 0) {
+            console.warn('[optionalAuth] Token is blacklisted — treating as unauthenticated');
+            return next();
+        }
 
         // Validate user still exists and is active in database
         const userResult = await pool.query(

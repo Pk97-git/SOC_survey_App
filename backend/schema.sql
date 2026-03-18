@@ -184,3 +184,9 @@ EXCEPTION WHEN others THEN NULL; END $$;
 
 -- Live migration: add organization field for reviewers (MAG / CIT / DGDA)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS organization VARCHAR(50);
+
+-- Token Blacklist for JWT Revocation
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    token VARCHAR(500) PRIMARY KEY,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);

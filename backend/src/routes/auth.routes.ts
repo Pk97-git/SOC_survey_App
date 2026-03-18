@@ -399,10 +399,41 @@ router.post('/change-password', authenticate, async (req: AuthRequest, res: Resp
 // Logout
 router.post('/logout', authenticate, async (req: AuthRequest, res: Response) => {
     try {
+        // Extract the token to blacklist it server-side
+        const authHeader = req.headers.authorization;
+        let token: string | undefined;
+
+        if (authHeader?.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        } else {
+            token = req.headers.cookie
+                ?.split(';')
+                .find(c => c.trim().startsWith('token='))
+                ?.split('=')
+                .slice(1)
+                .join('=')
+                .trim();
+        }
+
+        // Blacklist the token in the database
+        if (token) {
+            try {
+                const decoded = jwt.decode(token) as jwt.JwtPayload;
+                if (decoded && decoded.exp) {
+                    await pool.query(
+                        'INSERT INTO token_blacklist (token, expires_at) VALUES ($1, to_timestamp($2)) ON CONFLICT (token) DO NOTHING',
+                        [token, decoded.exp]
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to blacklist token on logout', err);
+            }
+        }
+
         // Log logout
         await logAuth(AuditAction.USER_LOGOUT, req.user!.userId, req, true);
 
-        // Clear httpOnly cookie for web clients - matching exactly how it was set
+        // Clear httpOnly cookie for web clients
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
