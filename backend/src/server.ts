@@ -46,7 +46,7 @@ const authLimiter = rateLimit({
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-    origin: ['https://localhost', 'http://localhost:3000', 'http://localhost', 'https://20.233.49.59', 'https://10.44.1.6'],
+    origin: ['https://localhost', 'http://localhost:3000', 'http://localhost', 'https://20.233.49.59', 'https://10.44.1.6', 'http://20.233.49.59', 'http://10.44.1.6'],
     credentials: true
 }));
 
