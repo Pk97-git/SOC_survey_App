@@ -119,7 +119,7 @@ const getApiBaseUrl = () => {
             android: 'http://20.233.49.59:3000/api', // Android network routing
             web: 'http://localhost:3000/api'
         })
-        : (process.env.EXPO_PUBLIC_API_URL || 'https://20.233.49.59/api'); // Production: hardcoded IP fallback
+        : (process.env.EXPO_PUBLIC_API_URL || 'https://20.233.49.59/api'); // Production: using standard https port 443
 };
 
 const API_BASE_URL = getApiBaseUrl();

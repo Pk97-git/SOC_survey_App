@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.consultancy.cit.operationsurvey",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
