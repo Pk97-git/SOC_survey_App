@@ -56,33 +56,36 @@ router.post('/:surveyId/bulk', authenticate, authorize('reviewer'), async (req: 
             return res.status(400).json({ error: 'reviews array is required' });
         }
 
-        // We will process them sequentially to avoid complex UPSERT syntax without strict constraints
+        // We will process them sequentially to update the asset_inspections table directly.
+        // This ensures the Excel report (which reads from asset_inspections) picks up official reviews.
         for (const review of reviews) {
             const { inspectionId, notes, reviewerRole, photos } = review;
+            const role = String(reviewerRole).toLowerCase();
+            const column = role === 'mag' ? 'mag_review' : (role === 'cit' ? 'cit_review' : 'dgda_review');
 
-            // 1. Check if a review already exists for this inspection + reviewer
-            const existing = await pool.query(
-                `SELECT id FROM review_comments 
-                 WHERE asset_inspection_id = $1 AND reviewer_id = $2`,
-                [inspectionId, reviewerId]
+            const reviewData = {
+                comments: notes,
+                photos: photos || [],
+                reviewer_id: reviewerId,
+                updated_at: new Date().toISOString()
+            };
+
+            await pool.query(
+                `UPDATE asset_inspections 
+                 SET ${column} = $1, updated_at = NOW() 
+                 WHERE id = $2`,
+                [JSON.stringify(reviewData), inspectionId]
             );
 
-            if (existing.rows.length > 0) {
-                // Update
-                await pool.query(
-                    `UPDATE review_comments 
-                     SET comments = $1, reviewer_type = $2, photos = $3, updated_at = NOW() 
-                     WHERE id = $4`,
-                    [notes, reviewerRole, JSON.stringify(photos || []), existing.rows[0].id]
-                );
-            } else {
-                // Insert
-                await pool.query(
-                    `INSERT INTO review_comments (asset_inspection_id, reviewer_id, reviewer_type, comments, photos)
-                     VALUES ($1, $2, $3, $4, $5)`,
-                    [inspectionId, reviewerId, reviewerRole, notes, JSON.stringify(photos || [])]
-                );
-            }
+            // Optional: still save to review_comments for history/audit trail if desired,
+            // but the asset_inspections update is the critical one for the report.
+            await pool.query(
+                `INSERT INTO review_comments (asset_inspection_id, reviewer_id, reviewer_type, comments, photos)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (asset_inspection_id, reviewer_id) 
+                 DO UPDATE SET comments = $4, photos = $5, updated_at = NOW()`,
+                [inspectionId, reviewerId, reviewerRole, notes, JSON.stringify(photos || [])]
+            );
         }
 
         res.json({ message: 'Bulk reviews saved successfully' });

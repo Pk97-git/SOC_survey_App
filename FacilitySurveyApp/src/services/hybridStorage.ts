@@ -328,7 +328,7 @@ const isRealUUID = (id: string) =>
 
 export const saveAssetInspection = async (inspection: any) => {
     if (Platform.OS === 'web' || isExpoGo) {
-        // Build the common payload (no photos — those are uploaded at submit time)
+        // Build the common payload (photos included to persist server paths after upload)
         const payload = {
             assetId: inspection.asset_id,
             conditionRating: inspection.condition_rating,
@@ -341,6 +341,7 @@ export const saveAssetInspection = async (inspection: any) => {
             magReview: inspection.mag_review || undefined,
             citReview: inspection.cit_review || undefined,
             dgdaReview: inspection.dgda_review || undefined,
+            photos: inspection.photos || undefined,
         };
 
         try {

@@ -27,6 +27,8 @@ export default function AssetInspectionScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isScannerVisible, setIsScannerVisible] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState({ total: 0, completed: 0, failed: 0, currentAsset: '' });
+    const [showUploadModal, setShowUploadModal] = useState(false);
 
 
     const assetRefs = useRef<{ [key: string]: View | null }>({});
@@ -276,78 +278,124 @@ export default function AssetInspectionScreen() {
 
     const performSubmit = async () => {
         setSubmitting(true);
+        setShowUploadModal(true);
+        setUploadStatus({ total: 0, completed: 0, failed: 0, currentAsset: 'Preparing...' });
+        
         try {
-            // --- Upload any locally-held photos (blob: URIs) before submitting ---
-            if (Platform.OS === 'web') {
-                // isRealUUID: only upload if the inspection was successfully saved to the server
-                const isRealUUID = (id: string) =>
-                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            // --- 1. Count Total Pending Uploads ---
+            const hasLocal = (photos: string[]) => (photos || []).some(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:'));
+            
+            let totalToUpload = 0;
+            const pendingInspections = inspections.filter(i => 
+                hasLocal(i.photos) || 
+                hasLocal(i.mag_review?.photos) || 
+                hasLocal(i.cit_review?.photos) || 
+                hasLocal(i.dgda_review?.photos)
+            );
 
-                for (const inspection of inspections) {
-                    if (!isRealUUID(inspection.id)) continue; // skip unsaved inspections
+            pendingInspections.forEach(i => {
+                const countLocal = (photos: string[]) => (photos || []).filter(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:')).length;
+                totalToUpload += countLocal(i.photos);
+                totalToUpload += countLocal(i.mag_review?.photos);
+                totalToUpload += countLocal(i.cit_review?.photos);
+                totalToUpload += countLocal(i.dgda_review?.photos);
+            });
 
-                    let updatedInspection = { ...inspection };
-                    let needsUpdate = false;
+            setUploadStatus(prev => ({ ...prev, total: totalToUpload, completed: 0 }));
 
-                    const hasLocal = (photos: string[]) => (photos || []).some(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:'));
+            // --- 2. Multi-Pass Upload Loop (with Retry) ---
+            const isRealUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            let currentCompleted = 0;
 
-                    try {
-                        // 1. Check top-level photos
-                        if (hasLocal(inspection.photos)) {
-                            updatedInspection.photos = await photoService.processPhotos(inspection.id, surveyId, inspection.photos);
-                            needsUpdate = true;
+            for (const inspection of inspections) {
+                if (!isRealUUID(inspection.id)) continue;
+                
+                const asset = assets.find(a => a.id === inspection.asset_id);
+                setUploadStatus(prev => ({ ...prev, currentAsset: asset?.name || 'Asset' }));
+
+                let updatedInspection = { ...inspection };
+                let needsUpdate = false;
+
+                const uploadAndStep = async (photos: string[], label: string) => {
+                    if (!hasLocal(photos)) return photos;
+                    const result: string[] = [];
+                    for (const uri of photos) {
+                        if (uri.startsWith('blob:') || uri.startsWith('file:') || uri.startsWith('data:')) {
+                            try {
+                                const uploaded = await photoService.uploadPhoto(inspection.id, surveyId, uri);
+                                result.push(uploaded.file_path);
+                                currentCompleted++;
+                                setUploadStatus(prev => ({ ...prev, completed: currentCompleted }));
+                            } catch (err) {
+                                console.error(`Upload failed for ${label}:`, err);
+                                setUploadStatus(prev => ({ ...prev, failed: prev.failed + 1 }));
+                                result.push(uri); // Keep local for retry
+                            }
+                        } else {
+                            result.push(uri);
                         }
-
-                        // 2. Check MAG review photos
-                        if (inspection.mag_review?.photos && hasLocal(inspection.mag_review.photos)) {
-                            const uploadedMag = await photoService.processPhotos(inspection.id, surveyId, inspection.mag_review.photos);
-                            updatedInspection.mag_review = { ...updatedInspection.mag_review, photos: uploadedMag };
-                            needsUpdate = true;
-                        }
-
-                        // 3. Check CIT review photos
-                        if (inspection.cit_review?.photos && hasLocal(inspection.cit_review.photos)) {
-                            const uploadedCit = await photoService.processPhotos(inspection.id, surveyId, inspection.cit_review.photos);
-                            updatedInspection.cit_review = { ...updatedInspection.cit_review, photos: uploadedCit };
-                            needsUpdate = true;
-                        }
-
-                        // 4. Check DGDA review photos
-                        if (inspection.dgda_review?.photos && hasLocal(inspection.dgda_review.photos)) {
-                            const uploadedDgda = await photoService.processPhotos(inspection.id, surveyId, inspection.dgda_review.photos);
-                            updatedInspection.dgda_review = { ...updatedInspection.dgda_review, photos: uploadedDgda };
-                            needsUpdate = true;
-                        }
-
-                        if (needsUpdate) {
-                            await hybridStorage.saveAssetInspection(updatedInspection);
-                        }
-                    } catch (uploadErr) {
-                        console.error(`Photo upload failed for inspection ${inspection.id}:`, uploadErr);
                     }
+                    return result;
+                };
+
+                // Sequential uploads within inspection to avoid server overload
+                if (hasLocal(inspection.photos)) {
+                    updatedInspection.photos = await uploadAndStep(inspection.photos, 'Surveyor');
+                    needsUpdate = true;
+                }
+                if (inspection.mag_review?.photos && hasLocal(inspection.mag_review.photos)) {
+                    const uploaded = await uploadAndStep(inspection.mag_review.photos, 'MAG');
+                    updatedInspection.mag_review = { ...updatedInspection.mag_review, photos: uploaded };
+                    needsUpdate = true;
+                }
+                if (inspection.cit_review?.photos && hasLocal(inspection.cit_review.photos)) {
+                    const uploaded = await uploadAndStep(inspection.cit_review.photos, 'CIT');
+                    updatedInspection.cit_review = { ...updatedInspection.cit_review, photos: uploaded };
+                    needsUpdate = true;
+                }
+                if (inspection.dgda_review?.photos && hasLocal(inspection.dgda_review.photos)) {
+                    const uploaded = await uploadAndStep(inspection.dgda_review.photos, 'DGDA');
+                    updatedInspection.dgda_review = { ...updatedInspection.dgda_review, photos: uploaded };
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    await hybridStorage.saveAssetInspection(updatedInspection);
                 }
             }
 
+            // --- 3. Final Check & Submit ---
+            if (currentCompleted < totalToUpload) {
+                const failed = totalToUpload - currentCompleted;
+                setShowUploadModal(false);
+                setSubmitting(false);
+                Alert.alert(
+                    'Upload Incomplete',
+                    `${failed} photo(s) failed to upload. Please check your internet connection and try again.`,
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            setUploadStatus(prev => ({ ...prev, currentAsset: 'Finalizing...' }));
             await hybridStorage.updateSurvey(surveyId, { status: 'submitted' });
+            
             const survey = { id: surveyId, site_name: siteName, trade, created_at: new Date().toISOString() };
             await generateAndShareExcel(survey, [], [], undefined, route.params.location);
+            
+            setShowUploadModal(false);
             if (Platform.OS === 'web') {
-                window.alert('Excel report has been generated and shared successfully!');
+                window.alert('Survey submitted and Excel report generated!');
                 navigation.goBack();
             } else {
-                Alert.alert('Survey Submitted', 'Excel report has been generated and shared successfully!',
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
+                Alert.alert('Success', 'Survey submitted and Excel report generated!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
             }
+
         } catch (error) {
             console.error('Error submitting survey:', error);
-            if (Platform.OS === 'web') {
-                window.alert('Failed to submit survey');
-            } else {
-                Alert.alert('Error', 'Failed to submit survey');
-            }
-        } finally {
+            setShowUploadModal(false);
             setSubmitting(false);
+            Alert.alert('Error', 'Failed to submit survey. Please try again.');
         }
     };
 
@@ -368,9 +416,14 @@ export default function AssetInspectionScreen() {
             <Surface style={[styles.header, { backgroundColor: theme.colors.primary }]} elevation={3}>
                 <View style={styles.headerTop}>
                     <View style={{ flex: 1 }}>
-                        <Text style={[Typography.h3, { color: '#FFFFFF', fontWeight: 'bold' }]}>
-                            {siteName}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Surface style={{ backgroundColor: '#FF9800', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 8 }} elevation={1}>
+                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 10 }}>V6.0-SYNC</Text>
+                            </Surface>
+                            <Text style={[Typography.h3, { color: '#FFFFFF', fontWeight: 'bold' }]}>
+                                {siteName}
+                            </Text>
+                        </View>
                         <Text style={[Typography.bodySm, { color: 'rgba(255,255,255,0.8)', marginTop: 2 }]}>
                             {trade}{route.params.location ? ` · ${route.params.location}` : ''} · {new Date().toLocaleDateString()}
                         </Text>
@@ -510,6 +563,33 @@ export default function AssetInspectionScreen() {
                     onScan={handleBarcodeScanned}
                     onCancel={() => setIsScannerVisible(false)}
                 />
+            </Modal>
+
+            {/* Upload Progress Modal */}
+            <Modal
+                visible={showUploadModal}
+                transparent={true}
+                animationType="fade"
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <Surface style={{ width: '100%', padding: 24, borderRadius: 12, alignItems: 'center' }} elevation={4}>
+                        <Text style={[Typography.h4, { marginBottom: 16 }]}>Syncing Photos...</Text>
+                        <Text style={[Typography.bodyMd, { marginBottom: 12, textAlign: 'center' }]}>
+                            {uploadStatus.completed} of {uploadStatus.total} uploaded
+                        </Text>
+                        <ProgressBar 
+                            progress={uploadStatus.total > 0 ? uploadStatus.completed / uploadStatus.total : 0} 
+                            color={theme.colors.primary} 
+                            style={{ width: '100%', height: 10, borderRadius: 5, marginBottom: 20 }} 
+                        />
+                        <Text style={[Typography.bodySm, { color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }]}>
+                            Current: {uploadStatus.currentAsset}
+                        </Text>
+                        <Text style={[Typography.bodyXs, { marginTop: 20, color: '#FF5722', fontWeight: 'bold' }]}>
+                            Please do not close the app
+                        </Text>
+                    </Surface>
+                </View>
             </Modal>
         </SafeAreaView>
     );

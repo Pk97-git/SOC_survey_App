@@ -147,28 +147,14 @@ export class SurveyRepository {
                 ai.gps_lat,
                 ai.gps_lng,
                 (
-                    SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption))
+                    SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption) ORDER BY p.id)
                     FROM photos p
                     WHERE p.asset_inspection_id = ai.id
+                    AND p.file_path NOT LIKE 'blob:%'
                 ) as photos,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type = 'MAG'
-                    LIMIT 1
-                ) as mag_review,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type IN ('CIT', 'REVIEWER')
-                    LIMIT 1
-                ) as cit_review,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type = 'DGDA'
-                    LIMIT 1
-                ) as dgda_review
+                ai.mag_review,
+                ai.cit_review,
+                ai.dgda_review
              FROM assets a
              LEFT JOIN asset_inspections ai ON a.id = ai.asset_id AND ai.survey_id = $1
              WHERE a.site_id = $2 AND a.service_line = $3
@@ -228,28 +214,14 @@ export class SurveyRepository {
                 ai.gps_lat,
                 ai.gps_lng,
                 (
-                    SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption))
+                    SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption) ORDER BY p.id)
                     FROM photos p
                     WHERE p.asset_inspection_id = ai.id
+                    AND p.file_path NOT LIKE 'blob:%'
                 ) as photos,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type = 'MAG'
-                    LIMIT 1
-                ) as mag_review,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type IN ('CIT', 'REVIEWER')
-                    LIMIT 1
-                ) as cit_review,
-                (
-                    SELECT json_build_object('comments', rc.comments, 'photos', rc.photos)
-                    FROM review_comments rc
-                    WHERE rc.asset_inspection_id = ai.id AND rc.reviewer_type = 'DGDA'
-                    LIMIT 1
-                ) as dgda_review
+                ai.mag_review,
+                ai.cit_review,
+                ai.dgda_review
              FROM surveys s
              JOIN assets a ON a.site_id = s.site_id AND a.service_line = s.trade
              LEFT JOIN asset_inspections ai ON a.id = ai.asset_id AND ai.survey_id = s.id

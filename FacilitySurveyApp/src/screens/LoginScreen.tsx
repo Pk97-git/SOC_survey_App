@@ -9,6 +9,8 @@ import { Radius, Typography, Spacing } from '../constants/design';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 
+import Constants from 'expo-constants';
+
 WebBrowser.maybeCompleteAuthSession();
 
 const discovery: AuthSession.DiscoveryDocument = {
@@ -25,8 +27,8 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
 
     // Microsoft Auth Session Hook
-    // In production, EXPO_PUBLIC_MICROSOFT_CLIENT_ID should be set in .env
-    const clientId = process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID || 'your-client-id-here';
+    // In production, values are loaded from app.config.js via expo-constants
+    const clientId = Constants.expoConfig?.extra?.microsoftClientId || 'your-client-id-here';
 
     const [request, response, promptAsync] = AuthSession.useAuthRequest(
         {

@@ -107,7 +107,8 @@ CREATE TABLE IF NOT EXISTS review_comments (
     comments TEXT,
     photos JSONB,
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT unique_inspection_reviewer UNIQUE (asset_inspection_id, reviewer_id)
 );
 
 -- Survey Assignments table (Phase 2)

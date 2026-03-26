@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Platform, StyleSheet, LogBox } from 'react-native';
+import { View, Platform, StyleSheet, LogBox, ActivityIndicator } from 'react-native';
+import * as Font from 'expo-font';
 
 if (Platform.OS !== 'web') {
   require('react-native-gesture-handler');
@@ -10,15 +11,30 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { theme } from './src/theme';
 
-// Fix Icons for Web
-// This is a common workaround for RN Paper icons on Expo Web if not using the font plugin
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from './src/context/AuthContext';
 import { seedDefaultTemplate } from './src/services/seedTemplate';
 import { SyncToast } from './src/components/SyncToast';
 import { syncService } from './src/services/syncService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+
+// --- Web Font Fix ---
+if (Platform.OS === 'web') {
+  const iconFontStyles = `
+    @font-face {
+      src: url(${require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf')});
+      font-family: MaterialCommunityIcons;
+    }
+    @font-face {
+      src: url(${require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf')});
+      font-family: 'Material Design Icons';
+    }
+  `;
+  const style = document.createElement('style');
+  style.type = 'text/css';
+  style.appendChild(document.createTextNode(iconFontStyles));
+  document.head.appendChild(style);
+}
 
 export default function App() {
   // Seed default template on first launch

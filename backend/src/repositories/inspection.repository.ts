@@ -190,7 +190,13 @@ export class InspectionRepository {
 
             if (allPhotos.size > 0) {
                 const surveyId = parentCheck.rows[0].id;
-                for (const filePath of allPhotos) {
+                const validPhotos = Array.from(allPhotos).filter(p => 
+                    !p.startsWith('blob:') && 
+                    !p.startsWith('file:') && 
+                    !p.startsWith('data:')
+                );
+
+                for (const filePath of validPhotos) {
                     // Check if already exists to avoid duplicates
                     const existingPhoto = await client.query(
                         `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,

@@ -203,10 +203,8 @@ export class SurveyService {
         setMainHeader('T4', 'Remarks', 'T5');
         setMainHeader('U4', 'MAG Comments', 'U5');
         setMainHeader('V4', 'MAG Pictures', 'V5');
-        setMainHeader('W4', 'CIT Comments', 'W5');
-        setMainHeader('X4', 'CIT Pictures', 'X5');
-        setMainHeader('Y4', 'DGDA Comments', 'Y5');
-        setMainHeader('Z4', 'DGDA Pictures', 'Z5');
+        setMainHeader('W4', 'CIT Verification/ Comments', 'W5');
+        setMainHeader('X4', 'DGDA Comments', 'X5');
 
 
         // --- 3. Colored Sub-Headers (Row 5) ---
@@ -248,14 +246,12 @@ export class SurveyService {
         worksheet.getColumn('P').width = 25; // Sat with comment
         worksheet.getColumn('Q').width = 5;
         worksheet.getColumn('R').width = 5;
-        worksheet.getColumn('S').width = 22;  // Surveyor Photos
-        worksheet.getColumn('T').width = 30; // Remarks
-        worksheet.getColumn('U').width = 25; // MAG Comments
-        worksheet.getColumn('V').width = 22; // MAG Pictures
-        worksheet.getColumn('W').width = 25; // CIT Comments
-        worksheet.getColumn('X').width = 22; // CIT Pictures
-        worksheet.getColumn('Y').width = 25; // DGDA Comments
-        worksheet.getColumn('Z').width = 22; // DGDA Pictures
+        worksheet.getColumn(19).width = 30; // Photos (S)
+        worksheet.getColumn('T').width = 30;  // Remarks
+        worksheet.getColumn('U').width = 25;  // MAG Comments
+        worksheet.getColumn(22).width = 30; // MAG Pictures (V)
+        worksheet.getColumn('W').width = 40;  // CIT Verification/ Comments
+        worksheet.getColumn('X').width = 40;  // DGDA Comments
 
 
         // --- 4. Data Population ---
@@ -349,11 +345,11 @@ export class SurveyService {
             row.getCell('U').value = magReview?.comments || '';
             row.getCell('U').alignment = { wrapText: true, vertical: 'top' };
 
-            row.getCell('W').value = citReview?.comments || '';
+            row.getCell('W').value = citReview?.comments || ''; // CIT Verification/ Comments
             row.getCell('W').alignment = { wrapText: true, vertical: 'top' };
 
-            row.getCell('Y').value = dgdaReview?.comments || '';
-            row.getCell('Y').alignment = { wrapText: true, vertical: 'top' };
+            row.getCell('X').value = dgdaReview?.comments || ''; // DGDA Comments
+            row.getCell('X').alignment = { wrapText: true, vertical: 'top' };
 
             // --- Common Styling ---
             row.eachCell((cell) => {
@@ -362,74 +358,146 @@ export class SurveyService {
             });
 
             // --- Photos ---
-            // Photo columns (S, V) are 22 chars wide (~154px). Row height for photo rows is 115pt (~153px).
-            // Image size is set to 148x148px to fit inside the cell with a 3px margin on each side.
-            const PHOTO_SIZE = 148; // pixels
-            let hasPhoto = false;
+            // Photo columns (S, V, X, Z) width is set to 100 (~700px).
+            // Row height is calculated dynamically based on photo count (max 409pt).
+            const PHOTO_SIZE = 100; 
+            const SPACING = 10;
+            const POINTS_PER_PIXEL = 0.75;
+            const MAX_ROW_HEIGHT = 409;
+            // Note: We want a single vertical column. 
+            // So we will ignore photos_per_col and just stack by index.
 
-            // 1. Surveyor Photo (Col S)
+            const getPhotoCount = (photosData: any): number => {
+                if (!photosData) return 0;
+                if (Array.isArray(photosData)) return photosData.length;
+                if (typeof photosData === 'string') {
+                    try {
+                        const parsed = JSON.parse(photosData);
+                        return Array.isArray(parsed) ? parsed.length : 0;
+                    } catch { return 0; }
+                }
+                return 0;
+            };
+
+            const surveyorPhotoCount = item.photos?.length || 0;
+            const magPhotoCount = getPhotoCount(magReview?.photos);
+            const citPhotoCount = getPhotoCount(citReview?.photos);
+            const dgdaPhotoCount = getPhotoCount(dgdaReview?.photos);
+
+            const maxPhotosInRow = Math.max(surveyorPhotoCount, magPhotoCount, citPhotoCount, dgdaPhotoCount);
+            // verticalCount is the number of photo-rows in the cell. 
+            // Since we stack all photos vertically in one column, verticalCount = maxPhotosInRow.
+            const verticalCount = maxPhotosInRow; 
+            
+            // Set dynamic row height
+            row.height = verticalCount > 0 
+                ? Math.min(MAX_ROW_HEIGHT, verticalCount * (PHOTO_SIZE + SPACING) * POINTS_PER_PIXEL + 10)
+                : 30;
+
+            // Helper to get extension for exceljs
+            const getExtension = (filePath: string): any => {
+                const ext = path.extname(filePath).toLowerCase().replace('.', '');
+                if (['png', 'jpeg', 'jpg', 'gif'].includes(ext)) {
+                    return ext === 'jpg' ? 'jpeg' : ext;
+                }
+                return 'jpeg'; // default
+            };
+
+            // 1. Surveyor Photos (Col S - Index 18)
+            // Filter: ONLY show photos that were NOT part of a review section.
+            const auditPhotoPaths = new Set([
+                ...(magReview?.photos || []),
+                ...(citReview?.photos || []),
+                ...(dgdaReview?.photos || [])
+            ].map(p => typeof p === 'string' ? p : p.file_path));
+
             if (item.photos && item.photos.length > 0) {
-                hasPhoto = true;
-                const photo = item.photos[0];
                 try {
-                    const photoPath = path.resolve(photo.file_path);
-                    if (fs.existsSync(photoPath)) {
-                        const imageId = workbook.addImage({
-                            filename: photoPath,
-                            extension: 'jpeg',
-                        });
+                    let photoIdx = 0;
+                    for (const p of item.photos) {
+                        // Skip if this photo was uploaded as part of a MAG/CIT/DGDA review
+                        if (auditPhotoPaths.has(p.file_path)) continue;
 
-                        worksheet.addImage(imageId, {
-                            tl: { col: 18, row: currentRowIndex - 1 }, // Col S (index 18)
-                            ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
-                            editAs: 'oneCell'
-                        });
+                        const pPath = path.resolve(p.file_path);
+                        if (fs.existsSync(pPath)) {
+                            const imageId = workbook.addImage({
+                                filename: pPath,
+                                extension: getExtension(pPath),
+                            });
+
+                            // Deep fix: ExcelJS 'oneCell' editAs ignores rowOff in some versions/contexts.
+                            // The most robust way to stack vertically within a single cell is 
+                            // to use fractional row coordinates.
+                            // For example: row + 0.0 is top, row + 0.5 is halfway down.
+                            const rowFraction = verticalCount > 1 ? (photoIdx / verticalCount) : 0;
+
+                            worksheet.addImage(imageId, {
+                                tl: { 
+                                    col: 18, // Col S
+                                    row: (currentRowIndex - 1) + rowFraction
+                                } as any,
+                                ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
+                                editAs: 'oneCell'
+                            });
+                            photoIdx++;
+                        }
                     }
                 } catch (e) {
-                    console.error('Error embedding surveyor photo:', e);
+                    console.error('Error embedding surveyor photos:', e);
                 }
             }
 
-            // 2. MAG Photo (Col V)
-            const embedReviewPhoto = async (photos: any, colIndex: number, label: string) => {
+            // 2. Review Photos (MAG, CIT, DGDA)
+            const embedReviewPhotos = async (photos: any, colIndex: number, label: string) => {
                 let parsedPhotos: string[] = [];
                 if (photos) {
                     parsedPhotos = typeof photos === 'string' ? JSON.parse(photos) : photos;
                 }
 
-                if (parsedPhotos && parsedPhotos.length > 0) {
-                    hasPhoto = true;
-                    const photoPathRaw = parsedPhotos[0];
+                if (parsedPhotos && Array.isArray(parsedPhotos) && parsedPhotos.length > 0) {
                     try {
-                        // Ensure we look in uploads/
-                        const filename = photoPathRaw.split(/[/\\]/).pop();
-                        const finalPath = photoPathRaw.startsWith('uploads/') ? photoPathRaw : `uploads/${filename}`;
-                        const absolutePath = path.resolve(finalPath);
+                        let photoIdx = 0;
+                        for (const photoPathRaw of parsedPhotos) {
+                            const filename = photoPathRaw.split(/[/\\]/).pop() || '';
+                            const finalPath = photoPathRaw.startsWith('uploads/') ? photoPathRaw : `uploads/${filename}`;
+                            if (photoPathRaw.startsWith('blob:') || !filename) continue;
 
-                        if (fs.existsSync(absolutePath)) {
-                            const imageId = workbook.addImage({
-                                filename: absolutePath,
-                                extension: 'jpeg',
-                            });
+                            const absolutePath = path.resolve(finalPath);
+                            if (fs.existsSync(absolutePath)) {
+                                const imageId = workbook.addImage({
+                                    filename: absolutePath,
+                                    extension: getExtension(absolutePath),
+                                });
 
-                            worksheet.addImage(imageId, {
-                                tl: { col: colIndex, row: currentRowIndex - 1 },
-                                ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
-                                editAs: 'oneCell'
-                            });
+                                // Stack vertically using fractional coordinates
+                                const rowFraction = verticalCount > 1 ? (photoIdx / verticalCount) : 0;
+
+                                worksheet.addImage(imageId, {
+                                    tl: { 
+                                        col: colIndex, 
+                                        row: (currentRowIndex - 1) + rowFraction
+                                    } as any,
+                                    ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
+                                    editAs: 'oneCell'
+                                });
+                                photoIdx++;
+                            }
                         }
                     } catch (e) {
-                        console.error(`Error embedding ${label} photo:`, e);
+                        console.error(`Error embedding ${label} photos:`, e);
                     }
                 }
             };
 
-            await embedReviewPhoto(magReview?.photos, 21, 'MAG'); // Col V
-            await embedReviewPhoto(citReview?.photos, 23, 'CIT'); // Col X
-            await embedReviewPhoto(dgdaReview?.photos, 25, 'DGDA'); // Col Z
-
-            // Row height: 115pt ≈ 153px which matches PHOTO_SIZE (148px) + small padding
-            row.height = hasPhoto ? 115 : 30;
+            // Consolidated Audit Photos: 
+            // Pull photos from all audit stages (MAG, CIT, DGDA) into the "MAG Pictures" column (Col V).
+            // This prevents overlapping with text columns W and X while ensuring all data is reported.
+            const consolidatedAuditPhotos = [
+                ...(magReview?.photos || []),
+                ...(citReview?.photos || []),
+                ...(dgdaReview?.photos || [])
+            ];
+            await embedReviewPhotos(consolidatedAuditPhotos, 21, 'Audit'); // Col V
 
             currentRowIndex++;
         }

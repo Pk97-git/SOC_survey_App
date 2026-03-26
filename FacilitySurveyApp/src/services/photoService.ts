@@ -26,7 +26,12 @@ export const photoService = {
             try {
                 const response = await fetch(photoUri);
                 const blob = await response.blob();
-                const filename = photoUri.split('/').pop() || 'photo.jpg';
+                
+                // On web, blob URIs don't have extensions. Derive from MIME type.
+                const type = blob.type || 'image/jpeg';
+                const extension = type.split('/')[1] || 'jpg';
+                const filename = `photo_${Date.now()}.${extension}`;
+                
                 formData.append('photo', blob, filename);
                 formData.append('assetInspectionId', assetInspectionId);
                 formData.append('surveyId', surveyId);

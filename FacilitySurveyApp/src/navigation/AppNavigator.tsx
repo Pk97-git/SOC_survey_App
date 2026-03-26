@@ -172,6 +172,9 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
 
             {/* Footer */}
             <View style={[webStyles.sidebarFooter, { borderTopColor: theme.colors.outlineVariant }]}>
+                <View style={{ backgroundColor: '#FF9800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 10 }}>
+                    <PaperText style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>V6.0-SYNC</PaperText>
+                </View>
                 <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
                     GULAID HOLDING
                 </PaperText>

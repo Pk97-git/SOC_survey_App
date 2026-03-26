@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert, Platform } from 'react-native';
-import { Text, Surface, useTheme, TextInput, Button, Divider } from 'react-native-paper';
+import { View, StyleSheet, FlatList, Alert, Platform, Modal } from 'react-native';
+import { Text, Surface, useTheme, TextInput, Button, Divider, ProgressBar } from 'react-native-paper';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { surveyService } from '../services/surveyService';
 import PhotoPicker from '../components/PhotoPicker';
@@ -13,13 +13,15 @@ export default function ReviewSurveyScreen() {
     const route = useRoute<any>();
     const navigation = useNavigation<any>();
     const { surveyId } = route.params;
-    const { user } = useAuth(); // Get real user context
+    const { user } = useAuth();
 
     const [survey, setSurvey] = useState<any>(null);
     const [inspections, setInspections] = useState<any[]>([]);
     const [reviewComments, setReviewComments] = useState<any>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState({ total: 0, completed: 0, failed: 0 });
+    const [showUploadModal, setShowUploadModal] = useState(false);
 
     // Reviewer type is determined by the user's organization (MAG / CIT / DGDA),
     // which is set by an Admin when the reviewer account is created.
@@ -45,7 +47,7 @@ export default function ReviewSurveyScreen() {
             inspectionsData.forEach((inspection: any) => {
                 const review = existingReviews.find((r: any) => r.asset_inspection_id === inspection.id && r.reviewer_type?.toUpperCase() === reviewerType);
 
-                let parsedPhotos = [];
+                let parsedPhotos: string[] = [];
                 if (review?.photos) {
                     try {
                         parsedPhotos = typeof review.photos === 'string' ? JSON.parse(review.photos) : review.photos;
@@ -68,29 +70,71 @@ export default function ReviewSurveyScreen() {
         }
     };
 
+    // ── Upload-sync-aware save ──────────────────────────────────────────
     const handleSaveReview = async (isSubmittingAndChecking: boolean = false) => {
         try {
             setSaving(true);
 
-            // First, upload all photos that are still local URIs (blobs or file paths)
+            // --- 1. Count pending local photos ---
+            const isLocalUri = (p: string) =>
+                p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:');
+
+            let totalToUpload = 0;
+            Object.values(reviewComments).forEach((r: any) => {
+                if (r.photos) {
+                    totalToUpload += r.photos.filter((p: string) => isLocalUri(p)).length;
+                }
+            });
+
+            // Show progress modal only when there are pending uploads
+            if (totalToUpload > 0) {
+                setShowUploadModal(true);
+                setUploadStatus({ total: totalToUpload, completed: 0, failed: 0 });
+            }
+
+            // --- 2. Sequential upload loop with per-photo progress ---
             const updatedReviewComments = { ...reviewComments };
+            let currentCompleted = 0;
+
             for (const inspectionId of Object.keys(updatedReviewComments)) {
-                if (updatedReviewComments[inspectionId].photos && updatedReviewComments[inspectionId].photos.length > 0) {
-                    try {
-                        const serverPhotos = await photoService.processPhotos(
-                            inspectionId,
-                            surveyId,
-                            updatedReviewComments[inspectionId].photos
-                        );
-                        updatedReviewComments[inspectionId].photos = serverPhotos;
-                    } catch (uploadError) {
-                        console.error(`Failed to process photos for inspection ${inspectionId}:`, uploadError);
-                        // Continue anyway, it will just save local URIs which might fail on other devices but prevents total blockage
+                const photos: string[] = updatedReviewComments[inspectionId].photos || [];
+                const hasLocalPhotos = photos.some(isLocalUri);
+                if (!hasLocalPhotos) continue;
+
+                const result: string[] = [];
+                for (const uri of photos) {
+                    if (isLocalUri(uri)) {
+                        try {
+                            const uploaded = await photoService.uploadPhoto(inspectionId, surveyId, uri);
+                            result.push(uploaded.file_path);
+                            currentCompleted++;
+                            setUploadStatus(prev => ({ ...prev, completed: currentCompleted }));
+                        } catch (err) {
+                            console.error(`Review photo upload failed for ${inspectionId}:`, err);
+                            setUploadStatus(prev => ({ ...prev, failed: prev.failed + 1 }));
+                            result.push(uri); // keep local URI for retry
+                        }
+                    } else {
+                        result.push(uri);
                     }
                 }
+                updatedReviewComments[inspectionId].photos = result;
             }
-            setReviewComments(updatedReviewComments);
 
+            setReviewComments(updatedReviewComments);
+            setShowUploadModal(false);
+
+            // --- 3. Strict check – block if any uploads failed ---
+            if (currentCompleted < totalToUpload) {
+                const failed = totalToUpload - currentCompleted;
+                Alert.alert(
+                    "Upload Incomplete",
+                    `${failed} photo(s) failed to upload. Please check your internet connection and try again.`
+                );
+                return false;
+            }
+
+            // --- 4. Persist reviews to server ---
             const reviewsToSave = Object.keys(updatedReviewComments).map(inspectionId => ({
                 inspectionId,
                 notes: updatedReviewComments[inspectionId].comments,
@@ -111,12 +155,9 @@ export default function ReviewSurveyScreen() {
             return true;
         } catch (error) {
             console.error('Failed to save review:', error);
+            setShowUploadModal(false);
             if (!isSubmittingAndChecking) {
-                if (Platform.OS === 'web') {
-                    window.alert("Failed to save draft. Please try again.");
-                } else {
-                    Alert.alert("Error", "Failed to save draft. Please try again.");
-                }
+                Alert.alert("Error", "Failed to save draft. Please try again.");
             }
             return false;
         } finally {
@@ -133,7 +174,7 @@ export default function ReviewSurveyScreen() {
         const executeAction = async () => {
             setSaving(true);
             try {
-                // First save the reviews
+                // First save the reviews (with upload sync)
                 const saved = await handleSaveReview(true);
                 if (!saved) {
                     setSaving(false);
@@ -174,7 +215,6 @@ export default function ReviewSurveyScreen() {
             ]);
         }
     };
-
 
     const updateComment = (inspectionId: string, text: string) => {
         setReviewComments({
@@ -334,6 +374,30 @@ export default function ReviewSurveyScreen() {
                     </Button>
                 </View>
             </View>
+
+            {/* Upload Sync Progress Modal */}
+            <Modal
+                visible={showUploadModal}
+                transparent={true}
+                animationType="fade"
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                    <Surface style={{ width: '100%', padding: 24, borderRadius: 12, alignItems: 'center' }} elevation={4}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>Syncing Review Photos...</Text>
+                        <Text style={{ marginBottom: 12 }}>
+                            {uploadStatus.completed} of {uploadStatus.total} photos uploaded
+                        </Text>
+                        <ProgressBar
+                            progress={uploadStatus.total > 0 ? uploadStatus.completed / uploadStatus.total : 0}
+                            color={theme.colors.primary}
+                            style={{ width: '100%', height: 10, borderRadius: 5, marginBottom: 20 }}
+                        />
+                        <Text style={{ marginTop: 8, color: '#FF5722', fontWeight: 'bold', fontSize: 12 }}>
+                            Please do not close the app
+                        </Text>
+                    </Surface>
+                </View>
+            </Modal>
         </View>
     );
 }

@@ -101,8 +101,9 @@ export interface InspectionUpdateData {
     gpsLat?: number;
     gpsLng?: number;
     magReview?: { comments?: string; photos?: string[] };
-    citReview?: { comments?: string };
-    dgdaReview?: { comments?: string };
+    citReview?: { comments?: string; photos?: string[] };
+    dgdaReview?: { comments?: string; photos?: string[] };
+    photos?: string[];
 }
 
 // API Configuration
@@ -110,17 +111,17 @@ const getApiBaseUrl = () => {
     // For web platform, always use relative URL to go through nginx/proxy
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
         // Use relative URL - goes through nginx on same origin
-        return '/api';
+        return '/socsurvey/api';
     }
 
     // Use ngrok URL for Android/development
-    const NGROK_URL = 'https://17a0-20-233-49-59.ngrok-free.app/api';
+    const NGROK_URL = 'https://17a0-20-233-49-59.ngrok-free.app/socsurvey/api';
     
     return __DEV__
         ? Platform.select({
             ios: NGROK_URL,
             android: NGROK_URL, // Android network routing
-            web: '/api'
+            web: '/socsurvey/api'
         })
         : (process.env.EXPO_PUBLIC_API_URL || NGROK_URL); // Production: use ngrok URL
 };
