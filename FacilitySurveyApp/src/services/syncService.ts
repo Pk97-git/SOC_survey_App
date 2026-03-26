@@ -332,6 +332,34 @@ class SyncService {
             }
 
             await storage.markInspectionSynced(inspection.id);
+
+            // --- Upload photos stored inside the inspection record ---
+            // On mobile, PhotoPicker saves local file:// URIs inside the inspection
+            // (inspection.photos is a JSON string of local URIs). We must upload them
+            // to the backend photos table NOW so the server Excel export can embed them.
+            const serverInspectionId = serverInspection?.id || (inspection as any).server_id;
+            const surveyServerId = (survey as any).server_id;
+            if (serverInspectionId && surveyServerId) {
+                let photoUris: string[] = [];
+                try {
+                    const rawPhotos = inspection.photos;
+                    if (typeof rawPhotos === 'string') {
+                        photoUris = JSON.parse(rawPhotos);
+                    } else if (Array.isArray(rawPhotos)) {
+                        photoUris = rawPhotos;
+                    }
+                } catch { /* ignore parse errors */ }
+
+                for (const uri of photoUris) {
+                    // Only upload local URIs — skip already-uploaded server paths
+                    if (!uri || (!uri.startsWith('file:') && !uri.startsWith('content://'))) continue;
+                    try {
+                        await photoService.uploadPhoto(serverInspectionId, surveyServerId, uri);
+                    } catch (photoErr) {
+                        console.error(`Failed to upload photo for inspection ${serverInspectionId}:`, photoErr);
+                    }
+                }
+            }
         });
     }
 
