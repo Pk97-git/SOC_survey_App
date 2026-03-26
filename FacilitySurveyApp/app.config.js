@@ -33,7 +33,15 @@ module.exports = {
       "baseUrl": "/socsurvey/"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "networkSecurityConfig": "./assets/network-security-config.xml"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

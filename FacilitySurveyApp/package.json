@@ -23,6 +23,7 @@
     "exceljs": "^4.4.0",
     "expo": "~54.0.33",
     "expo-auth-session": "~7.0.10",
+    "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-constants": "^55.0.9",
     "expo-crypto": "~15.0.8",

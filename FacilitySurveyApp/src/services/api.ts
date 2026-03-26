@@ -110,20 +110,25 @@ export interface InspectionUpdateData {
 const getApiBaseUrl = () => {
     // For web platform, always use relative URL to go through nginx/proxy
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // Use relative URL - goes through nginx on same origin
+        // In development on web, we might need an absolute URL if the dev server doesn't proxy
+        if (__DEV__ && window.location.port === '8081') {
+            return 'http://localhost:3000/socsurvey/api';
+        }
         return '/socsurvey/api';
     }
 
-    // Use ngrok URL for Android/development
-    const NGROK_URL = 'https://17a0-20-233-49-59.ngrok-free.app/socsurvey/api';
+    // Production / Fallback URL (e.g., when building APK)
+    const PRODUCTION_URL = 'https://17a0-20-233-49-59.ngrok-free.app/socsurvey/api';
     
-    return __DEV__
-        ? Platform.select({
-            ios: NGROK_URL,
-            android: NGROK_URL, // Android network routing
-            web: '/socsurvey/api'
-        })
-        : (process.env.EXPO_PUBLIC_API_URL || NGROK_URL); // Production: use ngrok URL
+    if (__DEV__) {
+        return Platform.select({
+            ios: PRODUCTION_URL,
+            android: PRODUCTION_URL,
+            default: PRODUCTION_URL
+        });
+    }
+
+    return process.env.EXPO_PUBLIC_API_URL || PRODUCTION_URL;
 };
 
 const API_BASE_URL = getApiBaseUrl();
