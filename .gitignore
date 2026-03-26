@@ -45,3 +45,11 @@ FacilitySurveyApp/dist/
 # Temporary files
 *.tmp
 .cache/
+
+# Production Build & Tools
+deploy/web/
+deploy/nssm-2.24/
+nssm/
+tools/
+*.zip
+*.msi

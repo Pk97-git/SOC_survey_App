@@ -10,6 +10,7 @@ import { storage } from '../services/storage';
 import * as hybridStorage from '../services/hybridStorage';
 import AssetInspectionCard from '../components/AssetInspectionCard';
 import { generateAndShareExcel } from '../services/excelService';
+import { photoService } from '../services/photoService';
 import { Radius, Typography, Spacing } from '../constants/design';
 import { ApiAsset } from '../services/api';
 
@@ -276,6 +277,57 @@ export default function AssetInspectionScreen() {
     const performSubmit = async () => {
         setSubmitting(true);
         try {
+            // --- Upload any locally-held photos (blob: URIs) before submitting ---
+            if (Platform.OS === 'web') {
+                // isRealUUID: only upload if the inspection was successfully saved to the server
+                const isRealUUID = (id: string) =>
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+                for (const inspection of inspections) {
+                    if (!isRealUUID(inspection.id)) continue; // skip unsaved inspections
+
+                    let updatedInspection = { ...inspection };
+                    let needsUpdate = false;
+
+                    const hasLocal = (photos: string[]) => (photos || []).some(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:'));
+
+                    try {
+                        // 1. Check top-level photos
+                        if (hasLocal(inspection.photos)) {
+                            updatedInspection.photos = await photoService.processPhotos(inspection.id, surveyId, inspection.photos);
+                            needsUpdate = true;
+                        }
+
+                        // 2. Check MAG review photos
+                        if (inspection.mag_review?.photos && hasLocal(inspection.mag_review.photos)) {
+                            const uploadedMag = await photoService.processPhotos(inspection.id, surveyId, inspection.mag_review.photos);
+                            updatedInspection.mag_review = { ...updatedInspection.mag_review, photos: uploadedMag };
+                            needsUpdate = true;
+                        }
+
+                        // 3. Check CIT review photos
+                        if (inspection.cit_review?.photos && hasLocal(inspection.cit_review.photos)) {
+                            const uploadedCit = await photoService.processPhotos(inspection.id, surveyId, inspection.cit_review.photos);
+                            updatedInspection.cit_review = { ...updatedInspection.cit_review, photos: uploadedCit };
+                            needsUpdate = true;
+                        }
+
+                        // 4. Check DGDA review photos
+                        if (inspection.dgda_review?.photos && hasLocal(inspection.dgda_review.photos)) {
+                            const uploadedDgda = await photoService.processPhotos(inspection.id, surveyId, inspection.dgda_review.photos);
+                            updatedInspection.dgda_review = { ...updatedInspection.dgda_review, photos: uploadedDgda };
+                            needsUpdate = true;
+                        }
+
+                        if (needsUpdate) {
+                            await hybridStorage.saveAssetInspection(updatedInspection);
+                        }
+                    } catch (uploadErr) {
+                        console.error(`Photo upload failed for inspection ${inspection.id}:`, uploadErr);
+                    }
+                }
+            }
+
             await hybridStorage.updateSurvey(surveyId, { status: 'submitted' });
             const survey = { id: surveyId, site_name: siteName, trade, created_at: new Date().toISOString() };
             await generateAndShareExcel(survey, [], [], undefined, route.params.location);

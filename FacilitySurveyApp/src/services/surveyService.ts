@@ -80,7 +80,7 @@ export const surveyService = {
     },
 
     // Create inspection
-    async createInspection(surveyId: string, inspection: Partial<Inspection>): Promise<Inspection> {
+    async createInspection(surveyId: string, inspection: Partial<Inspection> & { photos?: string[] }): Promise<Inspection> {
         const response = await api.post(`/surveys/${surveyId}/inspections`, {
             assetId: inspection.asset_id,
             conditionRating: inspection.condition_rating,
@@ -90,12 +90,13 @@ export const surveyService = {
             remarks: inspection.remarks,
             gpsLat: inspection.gps_lat,
             gpsLng: inspection.gps_lng,
+            photos: inspection.photos,
         });
         return response.data.inspection;
     },
 
     // Update inspection
-    async updateInspection(id: string, inspection: Partial<Inspection>): Promise<Inspection> {
+    async updateInspection(id: string, inspection: Partial<Inspection> & { photos?: string[] }): Promise<Inspection> {
         const response = await api.put(`/surveys/inspections/${id}`, {
             conditionRating: inspection.condition_rating,
             overallCondition: inspection.overall_condition,
@@ -104,6 +105,7 @@ export const surveyService = {
             remarks: inspection.remarks,
             gpsLat: inspection.gps_lat,
             gpsLng: inspection.gps_lng,
+            photos: inspection.photos,
         });
         return response.data.inspection;
     },
@@ -115,7 +117,7 @@ export const surveyService = {
     },
 
     // Submit reviews for inspections
-    async submitReviews(surveyId: string, reviews: { inspectionId: string; notes: string; reviewerRole: string }[]): Promise<void> {
+    async submitReviews(surveyId: string, reviews: { inspectionId: string; notes: string; reviewerRole: string; photos?: string[] }[]): Promise<void> {
         await api.post(`/reviews/${surveyId}/bulk`, { reviews });
     },
 };

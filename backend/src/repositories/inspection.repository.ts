@@ -14,6 +14,7 @@ export interface InspectionData {
     mag_review?: any;
     cit_review?: any;
     dgda_review?: any;
+    photos?: string[];
 }
 
 export class InspectionRepository {
@@ -49,23 +50,48 @@ export class InspectionRepository {
     }
 
     async create(data: InspectionData) {
-        const result = await this.pool.query(
-            `INSERT INTO asset_inspections (
-                survey_id, asset_id, condition_rating, overall_condition, 
-                quantity_installed, quantity_working, remarks, gps_lat, gps_lng,
-                mag_review, cit_review, dgda_review
-            ) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb) 
-            RETURNING *`,
-            [
-                data.survey_id, data.asset_id, data.condition_rating, data.overall_condition,
-                data.quantity_installed, data.quantity_working, data.remarks, data.gps_lat, data.gps_lng,
-                data.mag_review ? JSON.stringify(data.mag_review) : null,
-                data.cit_review ? JSON.stringify(data.cit_review) : null,
-                data.dgda_review ? JSON.stringify(data.dgda_review) : null
-            ]
-        );
-        return result.rows[0];
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            const result = await client.query(
+                `INSERT INTO asset_inspections (
+                    survey_id, asset_id, condition_rating, overall_condition, 
+                    quantity_installed, quantity_working, remarks, gps_lat, gps_lng,
+                    mag_review, cit_review, dgda_review
+                ) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb) 
+                RETURNING *`,
+                [
+                    data.survey_id, data.asset_id, data.condition_rating, data.overall_condition,
+                    data.quantity_installed, data.quantity_working, data.remarks, data.gps_lat, data.gps_lng,
+                    data.mag_review ? JSON.stringify(data.mag_review) : null,
+                    data.cit_review ? JSON.stringify(data.cit_review) : null,
+                    data.dgda_review ? JSON.stringify(data.dgda_review) : null
+                ]
+            );
+            
+            const inspection = result.rows[0];
+
+            // Handle photos if provided
+            if (data.photos && data.photos.length > 0) {
+                for (const filePath of data.photos) {
+                    await client.query(
+                        `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
+                         VALUES ($1, $2, $3)`,
+                        [inspection.id, data.survey_id, filePath]
+                    );
+                }
+            }
+
+            await client.query('COMMIT');
+            return inspection;
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     }
 
     async update(id: string, data: Partial<InspectionData>) {
@@ -78,12 +104,19 @@ export class InspectionRepository {
                  remarks = COALESCE($5, remarks),
                  gps_lat = COALESCE($6, gps_lat),
                  gps_lng = COALESCE($7, gps_lng),
+                 mag_review = COALESCE($8::jsonb, mag_review),
+                 cit_review = COALESCE($9::jsonb, cit_review),
+                 dgda_review = COALESCE($10::jsonb, dgda_review),
                  updated_at = NOW()
-             WHERE id = $8
+             WHERE id = $11
              RETURNING *`,
             [
                 data.condition_rating, data.overall_condition, data.quantity_installed, data.quantity_working,
-                data.remarks, data.gps_lat, data.gps_lng, id
+                data.remarks, data.gps_lat, data.gps_lng,
+                data.mag_review ? JSON.stringify(data.mag_review) : null,
+                data.cit_review ? JSON.stringify(data.cit_review) : null,
+                data.dgda_review ? JSON.stringify(data.dgda_review) : null,
+                id
             ]
         );
         return result.rows[0];
@@ -132,16 +165,50 @@ export class InspectionRepository {
                      remarks = COALESCE($5, remarks),
                      gps_lat = COALESCE($6, gps_lat),
                      gps_lng = COALESCE($7, gps_lng),
+                     mag_review = COALESCE($8::jsonb, mag_review),
+                     cit_review = COALESCE($9::jsonb, cit_review),
+                     dgda_review = COALESCE($10::jsonb, dgda_review),
                      updated_at = NOW()
-                 WHERE id = $8
+                 WHERE id = $11
                  RETURNING *`,
                 [
                     data.condition_rating, data.overall_condition, data.quantity_installed, data.quantity_working,
-                    data.remarks, data.gps_lat, data.gps_lng, id
+                    data.remarks, data.gps_lat, data.gps_lng,
+                    data.mag_review ? JSON.stringify(data.mag_review) : null,
+                    data.cit_review ? JSON.stringify(data.cit_review) : null,
+                    data.dgda_review ? JSON.stringify(data.dgda_review) : null,
+                    id
                 ]
             );
 
+            // Collect all unique photos from all arrays (top-level and reviews)
+            const allPhotos = new Set<string>();
+            if (data.photos) data.photos.forEach(p => allPhotos.add(p));
+            if (data.mag_review?.photos) data.mag_review.photos.forEach(p => allPhotos.add(p));
+            if (data.cit_review?.photos) data.cit_review.photos.forEach(p => allPhotos.add(p));
+            if (data.dgda_review?.photos) data.dgda_review.photos.forEach(p => allPhotos.add(p));
+
+            if (allPhotos.size > 0) {
+                const surveyId = parentCheck.rows[0].id;
+                for (const filePath of allPhotos) {
+                    // Check if already exists to avoid duplicates
+                    const existingPhoto = await client.query(
+                        `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,
+                        [id, filePath]
+                    );
+                    
+                    if (existingPhoto.rows.length === 0) {
+                        await client.query(
+                             `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
+                              VALUES ($1, $2, $3)`,
+                             [id, surveyId, filePath]
+                        );
+                    }
+                }
+            }
+            
             await client.query('COMMIT');
+
             return result.rows[0];
         } catch (e) {
             await client.query('ROLLBACK');

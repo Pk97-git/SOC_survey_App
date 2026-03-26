@@ -203,8 +203,10 @@ export class SurveyService {
         setMainHeader('T4', 'Remarks', 'T5');
         setMainHeader('U4', 'MAG Comments', 'U5');
         setMainHeader('V4', 'MAG Pictures', 'V5');
-        setMainHeader('W4', 'CIT Verification/\nComments', 'W5');
-        setMainHeader('X4', 'DGDA Comments', 'X5');
+        setMainHeader('W4', 'CIT Comments', 'W5');
+        setMainHeader('X4', 'CIT Pictures', 'X5');
+        setMainHeader('Y4', 'DGDA Comments', 'Y5');
+        setMainHeader('Z4', 'DGDA Pictures', 'Z5');
 
 
         // --- 3. Colored Sub-Headers (Row 5) ---
@@ -246,12 +248,14 @@ export class SurveyService {
         worksheet.getColumn('P').width = 25; // Sat with comment
         worksheet.getColumn('Q').width = 5;
         worksheet.getColumn('R').width = 5;
-        worksheet.getColumn('S').width = 22;  // Surveyor Photos — wide enough for 150px image
+        worksheet.getColumn('S').width = 22;  // Surveyor Photos
         worksheet.getColumn('T').width = 30; // Remarks
-        worksheet.getColumn('U').width = 20; // MAG Comments
-        worksheet.getColumn('V').width = 22;  // MAG Pictures — wide enough for 150px image
-        worksheet.getColumn('W').width = 20; // CIT Comments
-        worksheet.getColumn('X').width = 20; // DGDA Comments
+        worksheet.getColumn('U').width = 25; // MAG Comments
+        worksheet.getColumn('V').width = 22; // MAG Pictures
+        worksheet.getColumn('W').width = 25; // CIT Comments
+        worksheet.getColumn('X').width = 22; // CIT Pictures
+        worksheet.getColumn('Y').width = 25; // DGDA Comments
+        worksheet.getColumn('Z').width = 22; // DGDA Pictures
 
 
         // --- 4. Data Population ---
@@ -348,8 +352,8 @@ export class SurveyService {
             row.getCell('W').value = citReview?.comments || '';
             row.getCell('W').alignment = { wrapText: true, vertical: 'top' };
 
-            row.getCell('X').value = dgdaReview?.comments || '';
-            row.getCell('X').alignment = { wrapText: true, vertical: 'top' };
+            row.getCell('Y').value = dgdaReview?.comments || '';
+            row.getCell('Y').alignment = { wrapText: true, vertical: 'top' };
 
             // --- Common Styling ---
             row.eachCell((cell) => {
@@ -387,34 +391,42 @@ export class SurveyService {
             }
 
             // 2. MAG Photo (Col V)
-            let parsedMagPhotos: string[] = [];
-            if (magReview?.photos) {
-                parsedMagPhotos = typeof magReview.photos === 'string' ? JSON.parse(magReview.photos) : magReview.photos;
-            }
-
-            if (parsedMagPhotos && parsedMagPhotos.length > 0) {
-                hasPhoto = true;
-                const magPhotoPathRaw = parsedMagPhotos[0];
-                try {
-                    const finalPath = magPhotoPathRaw.startsWith('uploads/') ? magPhotoPathRaw : `uploads/${magPhotoPathRaw.split('/').pop()}`;
-                    const magPhotoPath = path.resolve(finalPath);
-
-                    if (fs.existsSync(magPhotoPath)) {
-                        const imageId = workbook.addImage({
-                            filename: magPhotoPath,
-                            extension: 'jpeg',
-                        });
-
-                        worksheet.addImage(imageId, {
-                            tl: { col: 21, row: currentRowIndex - 1 }, // Col V (index 21)
-                            ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
-                            editAs: 'oneCell'
-                        });
-                    }
-                } catch (e) {
-                    console.error('Error embedding MAG photo:', e);
+            const embedReviewPhoto = async (photos: any, colIndex: number, label: string) => {
+                let parsedPhotos: string[] = [];
+                if (photos) {
+                    parsedPhotos = typeof photos === 'string' ? JSON.parse(photos) : photos;
                 }
-            }
+
+                if (parsedPhotos && parsedPhotos.length > 0) {
+                    hasPhoto = true;
+                    const photoPathRaw = parsedPhotos[0];
+                    try {
+                        // Ensure we look in uploads/
+                        const filename = photoPathRaw.split(/[/\\]/).pop();
+                        const finalPath = photoPathRaw.startsWith('uploads/') ? photoPathRaw : `uploads/${filename}`;
+                        const absolutePath = path.resolve(finalPath);
+
+                        if (fs.existsSync(absolutePath)) {
+                            const imageId = workbook.addImage({
+                                filename: absolutePath,
+                                extension: 'jpeg',
+                            });
+
+                            worksheet.addImage(imageId, {
+                                tl: { col: colIndex, row: currentRowIndex - 1 },
+                                ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },
+                                editAs: 'oneCell'
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`Error embedding ${label} photo:`, e);
+                    }
+                }
+            };
+
+            await embedReviewPhoto(magReview?.photos, 21, 'MAG'); // Col V
+            await embedReviewPhoto(citReview?.photos, 23, 'CIT'); // Col X
+            await embedReviewPhoto(dgdaReview?.photos, 25, 'DGDA'); // Col Z
 
             // Row height: 115pt ≈ 153px which matches PHOTO_SIZE (148px) + small padding
             row.height = hasPhoto ? 115 : 30;

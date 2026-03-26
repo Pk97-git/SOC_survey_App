@@ -6,6 +6,7 @@ import { surveyService } from '../services/surveyService';
 import PhotoPicker from '../components/PhotoPicker';
 import { useAuth } from '../context/AuthContext';
 import * as hybridStorage from '../services/hybridStorage';
+import { photoService } from '../services/photoService';
 
 export default function ReviewSurveyScreen() {
     const theme = useTheme();
@@ -70,11 +71,31 @@ export default function ReviewSurveyScreen() {
     const handleSaveReview = async (isSubmittingAndChecking: boolean = false) => {
         try {
             setSaving(true);
-            const reviewsToSave = Object.keys(reviewComments).map(inspectionId => ({
+
+            // First, upload all photos that are still local URIs (blobs or file paths)
+            const updatedReviewComments = { ...reviewComments };
+            for (const inspectionId of Object.keys(updatedReviewComments)) {
+                if (updatedReviewComments[inspectionId].photos && updatedReviewComments[inspectionId].photos.length > 0) {
+                    try {
+                        const serverPhotos = await photoService.processPhotos(
+                            inspectionId,
+                            surveyId,
+                            updatedReviewComments[inspectionId].photos
+                        );
+                        updatedReviewComments[inspectionId].photos = serverPhotos;
+                    } catch (uploadError) {
+                        console.error(`Failed to process photos for inspection ${inspectionId}:`, uploadError);
+                        // Continue anyway, it will just save local URIs which might fail on other devices but prevents total blockage
+                    }
+                }
+            }
+            setReviewComments(updatedReviewComments);
+
+            const reviewsToSave = Object.keys(updatedReviewComments).map(inspectionId => ({
                 inspectionId,
-                notes: reviewComments[inspectionId].comments,
+                notes: updatedReviewComments[inspectionId].comments,
                 reviewerRole: reviewerType,
-                photos: reviewComments[inspectionId].photos
+                photos: updatedReviewComments[inspectionId].photos
             }));
 
             await surveyService.submitReviews(surveyId, reviewsToSave);

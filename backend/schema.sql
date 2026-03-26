@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'surveyor', 'reviewer')),
+    organization VARCHAR(50),  -- Added for reviewers (MAG / CIT / DGDA)
     is_active BOOLEAN DEFAULT true,
     created_by UUID REFERENCES users(id),
     deactivated_by UUID REFERENCES users(id),
@@ -146,6 +147,12 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Token Blacklist for JWT Revocation
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    token VARCHAR(500) PRIMARY KEY,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
@@ -165,28 +172,3 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_inspections_asset_id ON asset_inspections(asset_id);
 CREATE INDEX IF NOT EXISTS idx_photos_survey_id ON photos(survey_id);
 CREATE INDEX IF NOT EXISTS idx_assets_building ON assets(building);
-
--- Live migration: apply to existing databases that were created before these columns were added
--- These are safe to run multiple times due to IF NOT EXISTS / IF EXISTS guards
-ALTER TABLE sites ADD COLUMN IF NOT EXISTS client VARCHAR(255);
-ALTER TABLE sites ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
-ALTER TABLE surveys ADD COLUMN IF NOT EXISTS location VARCHAR(255);
-
--- Create default admin user (password: admin123 - CHANGE IN PRODUCTION!)
-
-
--- Live migration: allow reviewer role (existing databases only had admin + surveyor)
--- DROP CONSTRAINT first, then re-add with reviewer included
-DO $$ BEGIN
-  ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-  ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'surveyor', 'reviewer'));
-EXCEPTION WHEN others THEN NULL; END $$;
-
--- Live migration: add organization field for reviewers (MAG / CIT / DGDA)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS organization VARCHAR(50);
-
--- Token Blacklist for JWT Revocation
-CREATE TABLE IF NOT EXISTS token_blacklist (
-    token VARCHAR(500) PRIMARY KEY,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
-);

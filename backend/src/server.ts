@@ -23,6 +23,10 @@ import { validateJwtSecretStrength } from './utils/security.utils';
 import pool from './config/database';
 
 const app: Application = express();
+
+// Enable trust proxy for express-rate-limit to work behind ngrok/proxies
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000;
 
 // Rate limiting — general API traffic
@@ -44,11 +48,18 @@ const authLimiter = rateLimit({
 });
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+})); 
 app.use(cors({
-    origin: ['https://localhost', 'http://localhost:3000', 'http://localhost', 'https://20.233.49.59', 'https://10.44.1.6', 'http://20.233.49.59', 'http://10.44.1.6'],
+    origin: (origin, callback) => {
+        // Allow all origins in development or for now to debug
+        callback(null, true);
+    },
     credentials: true
 }));
+
+
 
 // Use 'combined' format in production to avoid leaking request details, 'dev' for local
 app.use(process.env.NODE_ENV === 'production' ? morgan('combined') : morgan('dev'));
@@ -60,6 +71,21 @@ if (process.env.NODE_ENV === 'production') {
     app.use('/api', limiter);
 }
 app.use(express.urlencoded({ limit: process.env.BODY_LIMIT || '10mb', extended: true }));
+
+// Debug logging for ALL requests (must be after body-parsing middleware)
+app.use((req: Request, _res: Response, next: NextFunction) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (req.method === 'POST' || req.method === 'PUT') {
+        const isMultipart = req.headers['content-type']?.includes('multipart/form-data');
+        if (isMultipart) {
+            console.log(' - Body: [multipart/form-data]');
+        } else if (req.body) {
+            // Log only keys to see structure, avoid leaking sensitive data like passwords
+            console.log(' - Body keys:', Object.keys(req.body));
+        }
+    }
+    next();
+});
 
 // Health check — probes the actual database connection
 app.get('/health', async (req: Request, res: Response) => {

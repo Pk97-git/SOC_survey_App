@@ -42,7 +42,7 @@ const upload = multer({
 });
 
 // Upload photo
-router.post('/upload', authenticate, authorize('surveyor'), upload.single('photo'), async (req: AuthRequest, res: Response) => {
+router.post('/upload', authenticate, authorize('surveyor', 'admin'), upload.single('photo'), async (req: AuthRequest, res: Response) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });

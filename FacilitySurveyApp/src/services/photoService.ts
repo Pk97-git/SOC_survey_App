@@ -20,30 +20,93 @@ export const photoService = {
     ): Promise<Photo> {
         const formData = new FormData();
 
-        // Create file object from URI
-        const filename = photoUri.split('/').pop() || 'photo.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        if (Platform.OS === 'web') {
+            // On web, we need to convert the blob URI to a real Blob object
+            try {
+                const response = await fetch(photoUri);
+                const blob = await response.blob();
+                const filename = photoUri.split('/').pop() || 'photo.jpg';
+                formData.append('photo', blob, filename);
+                formData.append('assetInspectionId', assetInspectionId);
+                formData.append('surveyId', surveyId);
+                if (caption) formData.append('caption', caption);
 
-        formData.append('photo', {
-            uri: photoUri,
-            name: filename,
-            type,
-        } as any);
+                // Use fetch directly on web to avoid Axios boundary issues with FormData
+                const uploadResponse = await fetch(`${api.defaults.baseURL}/photos/upload`, {
+                    method: 'POST',
+                    body: formData,
+                    // Note: Credentials 'include' is crucial for cookie-based auth on web
+                    credentials: 'include',
+                });
 
-        formData.append('assetInspectionId', assetInspectionId);
-        formData.append('surveyId', surveyId);
-        if (caption) {
-            formData.append('caption', caption);
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Upload failed with status ${uploadResponse.status}`);
+                }
+
+                const result = await uploadResponse.json();
+                return result.photo;
+            } catch (error) {
+                console.error('Error in web photo upload:', error);
+                throw error;
+            }
+        } else {
+            // Native (React Native)...
+            const filename = photoUri.split('/').pop() || 'photo.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+            formData.append('photo', {
+                uri: photoUri,
+                name: filename,
+                type,
+            } as any);
+
+            formData.append('assetInspectionId', assetInspectionId);
+            formData.append('surveyId', surveyId);
+            if (caption) {
+                formData.append('caption', caption);
+            }
+
+            const response = await api.post('/photos/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            return response.data.photo;
         }
+    },
 
-        const response = await api.post('/photos/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
+    // Upload multiple photos and return server filenames/paths
+    async processPhotos(
+        assetInspectionId: string,
+        surveyId: string,
+        photos: string[],
+        caption?: string
+    ): Promise<string[]> {
+        if (!photos || photos.length === 0) return [];
 
-        return response.data.photo;
+        const processedPhotos: string[] = [];
+        for (const uri of photos) {
+            // If it's already a server path (starts with uploads/ or is a UUID)
+            if (!uri.startsWith('blob:') && !uri.startsWith('file:') && !uri.startsWith('content:')) {
+                processedPhotos.push(uri);
+                continue;
+            }
+
+            try {
+                console.log(`Uploading photo: ${uri}`);
+                const uploaded = await this.uploadPhoto(assetInspectionId, surveyId, uri, caption);
+                // Use the file_path returned by server
+                processedPhotos.push(uploaded.file_path);
+            } catch (error) {
+                console.error(`Failed to upload photo ${uri}:`, error);
+                // Keep the local URI for now, though it won't work on other devices
+                processedPhotos.push(uri);
+            }
+        }
+        return processedPhotos;
     },
 
     // Get photos for an inspection

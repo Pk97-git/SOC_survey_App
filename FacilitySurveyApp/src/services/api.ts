@@ -113,13 +113,16 @@ const getApiBaseUrl = () => {
         return '/api';
     }
 
+    // Use ngrok URL for Android/development
+    const NGROK_URL = 'https://17a0-20-233-49-59.ngrok-free.app/api';
+    
     return __DEV__
         ? Platform.select({
-            ios: 'http://20.233.49.59:3000/api',
-            android: 'http://20.233.49.59:3000/api', // Android network routing
-            web: 'http://localhost:3000/api'
+            ios: NGROK_URL,
+            android: NGROK_URL, // Android network routing
+            web: '/api'
         })
-        : (process.env.EXPO_PUBLIC_API_URL || 'https://20.233.49.59/api'); // Production: hardcoded IP fallback
+        : (process.env.EXPO_PUBLIC_API_URL || NGROK_URL); // Production: use ngrok URL
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -132,6 +135,7 @@ const api = axios.create({
     withCredentials: Platform.OS === 'web',
     headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
     },
 });
 

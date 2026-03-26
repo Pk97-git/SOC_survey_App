@@ -8,6 +8,7 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 
 // syncService handles background sync
 import { syncService } from './syncService';
+import { photoService } from './photoService';
 export { syncService };
 
 // Feature flag removed: Always offline-first for core field operations
@@ -321,50 +322,47 @@ export const deleteSurvey = async (id: string) => {
 };
 
 // ==================== Inspections ====================
+// Helper: a "real" server UUID looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+const isRealUUID = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 export const saveAssetInspection = async (inspection: any) => {
     if (Platform.OS === 'web' || isExpoGo) {
-        // Web: Directly push to API. 
-        // Problem: The frontend sets a mock UUID `id`. The backend creates a real one.
-        // Solution: Fetch current inspections from backend, see if this asset already has one.
-        // If it does, PUT (update). If no, POST (create).
+        // Build the common payload (no photos — those are uploaded at submit time)
+        const payload = {
+            assetId: inspection.asset_id,
+            conditionRating: inspection.condition_rating,
+            overallCondition: inspection.overall_condition,
+            quantityInstalled: inspection.quantity_installed,
+            quantityWorking: inspection.quantity_working,
+            remarks: inspection.remarks,
+            gpsLat: inspection.gps_lat,
+            gpsLng: inspection.gps_lng,
+            magReview: inspection.mag_review || undefined,
+            citReview: inspection.cit_review || undefined,
+            dgdaReview: inspection.dgda_review || undefined,
+        };
+
         try {
-            const existing = await inspectionsApi.getBySurvey(inspection.survey_id);
-            const found = existing.find((i: any) => i.asset_id === inspection.asset_id);
-
-            const payload = {
-                assetId: inspection.asset_id,
-                conditionRating: inspection.condition_rating,
-                overallCondition: inspection.overall_condition,
-                quantityInstalled: inspection.quantity_installed,
-                quantityWorking: inspection.quantity_working,
-                remarks: inspection.remarks,
-                gpsLat: inspection.gps_lat,
-                gpsLng: inspection.gps_lng,
-                magReview: inspection.mag_review || undefined,
-                citReview: inspection.cit_review || undefined,
-                dgdaReview: inspection.dgda_review || undefined,
-            };
-
-            if (found && found.id) {
-                // Update
-                const result = await inspectionsApi.update(found.id, payload);
-                return result; // return real record
+            if (inspection.id && isRealUUID(inspection.id)) {
+                // Already exists on server — just update fields
+                const updated = await inspectionsApi.update(inspection.id, payload);
+                return updated;
             } else {
-                // Create
-                const result = await inspectionsApi.create(inspection.survey_id, payload);
-                return result; // return real record
+                // First save — create a new record and return with real UUID
+                const created = await inspectionsApi.create(inspection.survey_id, payload);
+                return created;
             }
         } catch (error) {
             console.error('Web: Failed to save inspection to backend', error);
             throw error;
         }
+    } else {
+        // Native flow unchanged
+        await localStorage.saveAssetInspection(inspection);
+        syncService.syncAll().catch(console.error);
+        return inspection;
     }
-
-    // Native: Local DB First -> Background Sync
-    await localStorage.saveAssetInspection(inspection);
-    syncService.syncAll().catch(console.error);
-    return inspection;
 };
 
 export const getInspectionsForSurvey = async (surveyId: string): Promise<Record<string, any>[]> => {

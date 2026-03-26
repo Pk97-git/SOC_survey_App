@@ -71,16 +71,16 @@ router.post('/:surveyId/bulk', authenticate, authorize('reviewer'), async (req: 
                 // Update
                 await pool.query(
                     `UPDATE review_comments 
-                     SET comments = $1, reviewer_type = $2, updated_at = NOW() 
-                     WHERE id = $3`,
-                    [notes, reviewerRole, existing.rows[0].id]
+                     SET comments = $1, reviewer_type = $2, photos = $3, updated_at = NOW() 
+                     WHERE id = $4`,
+                    [notes, reviewerRole, JSON.stringify(photos || []), existing.rows[0].id]
                 );
             } else {
                 // Insert
                 await pool.query(
-                    `INSERT INTO review_comments (asset_inspection_id, reviewer_id, reviewer_type, comments)
-                     VALUES ($1, $2, $3, $4)`,
-                    [inspectionId, reviewerId, reviewerRole, notes]
+                    `INSERT INTO review_comments (asset_inspection_id, reviewer_id, reviewer_type, comments, photos)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [inspectionId, reviewerId, reviewerRole, notes, JSON.stringify(photos || [])]
                 );
             }
         }

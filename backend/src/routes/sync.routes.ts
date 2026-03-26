@@ -52,8 +52,8 @@ router.post('/batch/surveys', authenticate, async (req: AuthRequest, res: Respon
             );
 
             if (existing.rows.length > 0) {
-                const isSubmitted = existing.rows[0].status === 'submitted' || existing.rows[0].status === 'completed';
-                if (isSubmitted && req.user!.role !== 'admin') {
+                const isLocked = existing.rows[0].status === 'approved' || existing.rows[0].status === 'completed';
+                if (isLocked && req.user!.role !== 'admin') {
                     // Locked. Return synced: true to clear client sync queue.
                     results.push({ localId, serverId: existing.rows[0].id, synced: true });
                     continue;
@@ -143,8 +143,8 @@ router.post('/batch/inspections', authenticate, async (req: AuthRequest, res: Re
                 [surveyId]
             );
             if (parentSurvey.rows.length > 0) {
-                const isSubmitted = parentSurvey.rows[0].status === 'submitted' || parentSurvey.rows[0].status === 'completed';
-                if (isSubmitted && req.user!.role !== 'admin') {
+                const isLocked = parentSurvey.rows[0].status === 'approved' || parentSurvey.rows[0].status === 'completed';
+                if (isLocked && req.user!.role !== 'admin') {
                     // Locked. Return synced: true to clear client sync queue.
                     results.push({ localId, serverId: existing.rows.length > 0 ? existing.rows[0].id : localId, synced: true });
                     continue;

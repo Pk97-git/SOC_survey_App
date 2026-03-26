@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { IconButton, useTheme, Text } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -25,6 +25,10 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
 
     const compressAndSavePhoto = async (uri: string): Promise<string> => {
         try {
+            if (Platform.OS === 'web') {
+                return uri;
+            }
+            
             // Create a unique filename
             const filename = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
             const docDir = FileSystem.documentDirectory || '';
@@ -141,6 +145,13 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
     };
 
     const showPhotoOptions = () => {
+        if (Platform.OS === 'web') {
+            // Browsers don't support multi-button Alert.alert well, and "Take Photo" is secondary to Gallery.
+            // Directly launch the picker.
+            pickFromGallery();
+            return;
+        }
+
         Alert.alert(
             'Add Photo',
             'Choose an option',

@@ -72,7 +72,8 @@ export class InspectionController {
                 gps_lng: req.body.gpsLng,
                 mag_review: req.body.magReview,
                 cit_review: req.body.citReview,
-                dgda_review: req.body.dgdaReview
+                dgda_review: req.body.dgdaReview,
+                photos: req.body.photos
             });
 
             res.status(201).json({
@@ -106,7 +107,11 @@ export class InspectionController {
                 quantity_working: req.body.quantityWorking,
                 remarks: req.body.remarks,
                 gps_lat: req.body.gpsLat,
-                gps_lng: req.body.gpsLng
+                gps_lng: req.body.gpsLng,
+                mag_review: req.body.magReview,
+                cit_review: req.body.citReview,
+                dgda_review: req.body.dgdaReview,
+                photos: req.body.photos
             }, userRole);
 
             res.json({
