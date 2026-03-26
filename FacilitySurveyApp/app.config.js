@@ -45,12 +45,11 @@ module.exports = {
     ],
     "extra": {
       "eas": {
-        "projectId": "24e8f7f5-716e-439c-b8e6-9629c36a8664"
+        "projectId": "badbf789-7481-415d-9c61-047cce865ca9"
       },
       "microsoftClientId": process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID,
       "microsoftTenantId": process.env.EXPO_PUBLIC_MICROSOFT_TENANT_ID,
       "microsoftDiscovery": process.env.EXPO_PUBLIC_MICROSOFT_DISCOVERY
-    },
-    "owner": "prashanthk977"
+    }
   }
 };
