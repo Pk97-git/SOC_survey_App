@@ -118,7 +118,7 @@ const getApiBaseUrl = () => {
     }
 
     // Production / Fallback URL (e.g., when building APK)
-    const PRODUCTION_URL = 'https://17a0-20-233-49-59.ngrok-free.app/socsurvey/api';
+    const PRODUCTION_URL = 'https://phrenologic-lynnette-nontelepathically.ngrok-free.dev/socsurvey/api';
     
     if (__DEV__) {
         return Platform.select({
