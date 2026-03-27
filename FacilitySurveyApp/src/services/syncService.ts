@@ -30,14 +30,14 @@ export type SyncStatus = {
 }
 
 class SyncService {
-    private syncStatus: SyncStatus = {
+    public syncStatus: SyncStatus = {
         isOnline: false,
         lastSync: null,
         pendingUploads: 0,
         isSyncing: false,
     };
 
-    private isAuthenticated: boolean = false; // Controlled by AuthContext
+    public isAuthenticated: boolean = false; // Controlled by AuthContext
     private isAdminUser: boolean = false; // Managed by AuthContext
     private listeners: ((status: SyncStatus) => void)[] = [];
     private netInfoUnsubscribe: (() => void) | null = null;
@@ -191,10 +191,7 @@ class SyncService {
                 // 2. Upload pending inspections
                 const inspectionFailures = await this.uploadPendingInspections();
 
-                // 3. Upload pending photos
-                const photoFailures = await this.uploadPendingPhotos();
-
-                totalFailures = surveyFailures + inspectionFailures + photoFailures;
+                totalFailures = surveyFailures + inspectionFailures;
                 this.syncStatus.pendingUploads = totalFailures;
             }
 
@@ -334,57 +331,73 @@ class SyncService {
             await storage.markInspectionSynced(inspection.id);
 
             // --- Upload photos stored inside the inspection record ---
-            // On mobile, PhotoPicker saves local file:// URIs inside the inspection
-            // (inspection.photos is a JSON string of local URIs). We must upload them
-            // to the backend photos table NOW so the server Excel export can embed them.
+            // On mobile, PhotoPicker saves local file:// URIs inside the inspection.
+            // We upload them now, and if successful, we *replace* the local file URI
+            // with the remote backend path in SQLite to prevent duplicate uploads later.
             const serverInspectionId = serverInspection?.id || (inspection as any).server_id;
             const surveyServerId = (survey as any).server_id;
+            
             if (serverInspectionId && surveyServerId) {
-                let photoUris: string[] = [];
-                try {
-                    const rawPhotos = inspection.photos;
-                    if (typeof rawPhotos === 'string') {
-                        photoUris = JSON.parse(rawPhotos);
-                    } else if (Array.isArray(rawPhotos)) {
-                        photoUris = rawPhotos;
-                    }
-                } catch { /* ignore parse errors */ }
+                let updatedInspection = { ...inspection, server_id: serverInspectionId };
+                let anyPhotoFailed = false;
 
-                for (const uri of photoUris) {
-                    // Only upload local URIs — skip already-uploaded server paths
-                    if (!uri || (!uri.startsWith('file:') && !uri.startsWith('content://'))) continue;
-                    try {
-                        await photoService.uploadPhoto(serverInspectionId, surveyServerId, uri);
-                    } catch (photoErr) {
-                        console.error(`Failed to upload photo for inspection ${serverInspectionId}:`, photoErr);
+                const uploadAndStep = async (rawPhotos: any, label: string) => {
+                    let uris: string[] = [];
+                    if (typeof rawPhotos === 'string') {
+                        try { uris = JSON.parse(rawPhotos); } catch { /* ignore */ }
+                    } else if (Array.isArray(rawPhotos)) {
+                        uris = rawPhotos;
+                    }
+                    
+                    const hasLocal = (photos: string[]) => (photos || []).some(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:') || p.startsWith('content:'));
+                    if (!hasLocal(uris)) return uris;
+                    
+                    const result: string[] = [];
+                    for (const uri of uris) {
+                        if (uri.startsWith('blob:') || uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('content:')) {
+                            try {
+                                const uploaded = await photoService.uploadPhoto(serverInspectionId, surveyServerId, uri);
+                                result.push(uploaded.file_path);
+                            } catch (err) {
+                                console.error(`[SyncService] Failed to upload ${label} photo:`, err);
+                                result.push(uri); // Keep local for retry on next sync cycle
+                                anyPhotoFailed = true;
+                            }
+                        } else {
+                            result.push(uri);
+                        }
+                    }
+                    return result;
+                };
+
+                updatedInspection.photos = await uploadAndStep(inspection.photos, 'Surveyor');
+
+                if (inspection.mag_review) {
+                    const parsed = typeof inspection.mag_review === 'string' ? safeJsonParse(inspection.mag_review) : inspection.mag_review;
+                    if (parsed?.photos) {
+                        parsed.photos = await uploadAndStep(parsed.photos, 'MAG');
+                        updatedInspection.mag_review = parsed;
                     }
                 }
+                if (inspection.cit_review) {
+                    const parsed = typeof inspection.cit_review === 'string' ? safeJsonParse(inspection.cit_review) : inspection.cit_review;
+                    if (parsed?.photos) {
+                        parsed.photos = await uploadAndStep(parsed.photos, 'CIT');
+                        updatedInspection.cit_review = parsed;
+                    }
+                }
+                if (inspection.dgda_review) {
+                    const parsed = typeof inspection.dgda_review === 'string' ? safeJsonParse(inspection.dgda_review) : inspection.dgda_review;
+                    if (parsed?.photos) {
+                        parsed.photos = await uploadAndStep(parsed.photos, 'DGDA');
+                        updatedInspection.dgda_review = parsed;
+                    }
+                }
+
+                // Save back progress (new server paths) regardless of failure,
+                // but ONLY mark as synced: true if 100% of photos succeeded.
+                await storage.saveAssetInspection({ ...updatedInspection, synced: !anyPhotoFailed });
             }
-        });
-    }
-
-    private async uploadPendingPhotos(): Promise<number> {
-        const photos = await storage.getPendingPhotos();
-        // Fetch inspections once outside the loop — avoids N+1 DB reads
-        const allInspections = await storage.getPendingInspections();
-
-        return this.syncItems(photos, async (photo) => {
-            const inspection = allInspections.find(i => i.id === photo.asset_inspection_id);
-
-            if (!inspection?.server_id) {
-                console.log(`Skipping photo ${photo.id}: Inspection not synced yet`);
-                return;
-            }
-
-            const serverPhoto = await photoService.uploadPhoto(
-                inspection.server_id,
-                photo.survey_id,
-                photo.file_path,
-                photo.caption
-            );
-
-            await storage.updatePhotoServerId(photo.id, serverPhoto.id);
-            await storage.markPhotoSynced(photo.id);
         });
     }
 

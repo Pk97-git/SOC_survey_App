@@ -11,6 +11,8 @@ import * as hybridStorage from '../services/hybridStorage';
 import AssetInspectionCard from '../components/AssetInspectionCard';
 import { generateAndShareExcel } from '../services/excelService';
 import { photoService } from '../services/photoService';
+import { syncService } from '../services/syncService';
+import NetInfo from '@react-native-community/netinfo';
 import { Radius, Typography, Spacing } from '../constants/design';
 import { ApiAsset } from '../services/api';
 
@@ -282,104 +284,28 @@ export default function AssetInspectionScreen() {
         setUploadStatus({ total: 0, completed: 0, failed: 0, currentAsset: 'Preparing...' });
         
         try {
-            // --- 1. Count Total Pending Uploads ---
-            const hasLocal = (photos: string[]) => (photos || []).some(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:'));
-            
-            let totalToUpload = 0;
-            const pendingInspections = inspections.filter(i => 
-                hasLocal(i.photos) || 
-                hasLocal(i.mag_review?.photos) || 
-                hasLocal(i.cit_review?.photos) || 
-                hasLocal(i.dgda_review?.photos)
-            );
-
-            pendingInspections.forEach(i => {
-                const countLocal = (photos: string[]) => (photos || []).filter(p => p.startsWith('blob:') || p.startsWith('data:') || p.startsWith('file:')).length;
-                totalToUpload += countLocal(i.photos);
-                totalToUpload += countLocal(i.mag_review?.photos);
-                totalToUpload += countLocal(i.cit_review?.photos);
-                totalToUpload += countLocal(i.dgda_review?.photos);
-            });
-
-            setUploadStatus(prev => ({ ...prev, total: totalToUpload, completed: 0 }));
-
-            // --- 2. Multi-Pass Upload Loop (with Retry) ---
-            const isRealUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-            let currentCompleted = 0;
-
-            for (const inspection of inspections) {
-                if (!isRealUUID(inspection.id)) continue;
-                
-                const asset = assets.find(a => a.id === inspection.asset_id);
-                setUploadStatus(prev => ({ ...prev, currentAsset: asset?.name || 'Asset' }));
-
-                let updatedInspection = { ...inspection };
-                let needsUpdate = false;
-
-                const uploadAndStep = async (photos: string[], label: string) => {
-                    if (!hasLocal(photos)) return photos;
-                    const result: string[] = [];
-                    for (const uri of photos) {
-                        if (uri.startsWith('blob:') || uri.startsWith('file:') || uri.startsWith('data:')) {
-                            try {
-                                const uploaded = await photoService.uploadPhoto(inspection.id, surveyId, uri);
-                                result.push(uploaded.file_path);
-                                currentCompleted++;
-                                setUploadStatus(prev => ({ ...prev, completed: currentCompleted }));
-                            } catch (err) {
-                                console.error(`Upload failed for ${label}:`, err);
-                                setUploadStatus(prev => ({ ...prev, failed: prev.failed + 1 }));
-                                result.push(uri); // Keep local for retry
-                            }
-                        } else {
-                            result.push(uri);
-                        }
-                    }
-                    return result;
-                };
-
-                // Sequential uploads within inspection to avoid server overload
-                if (hasLocal(inspection.photos)) {
-                    updatedInspection.photos = await uploadAndStep(inspection.photos, 'Surveyor');
-                    needsUpdate = true;
-                }
-                if (inspection.mag_review?.photos && hasLocal(inspection.mag_review.photos)) {
-                    const uploaded = await uploadAndStep(inspection.mag_review.photos, 'MAG');
-                    updatedInspection.mag_review = { ...updatedInspection.mag_review, photos: uploaded };
-                    needsUpdate = true;
-                }
-                if (inspection.cit_review?.photos && hasLocal(inspection.cit_review.photos)) {
-                    const uploaded = await uploadAndStep(inspection.cit_review.photos, 'CIT');
-                    updatedInspection.cit_review = { ...updatedInspection.cit_review, photos: uploaded };
-                    needsUpdate = true;
-                }
-                if (inspection.dgda_review?.photos && hasLocal(inspection.dgda_review.photos)) {
-                    const uploaded = await uploadAndStep(inspection.dgda_review.photos, 'DGDA');
-                    updatedInspection.dgda_review = { ...updatedInspection.dgda_review, photos: uploaded };
-                    needsUpdate = true;
-                }
-
-                if (needsUpdate) {
-                    await hybridStorage.saveAssetInspection(updatedInspection);
-                }
-            }
-
-            // --- 3. Final Check & Submit ---
-            if (currentCompleted < totalToUpload) {
-                const failed = totalToUpload - currentCompleted;
-                setShowUploadModal(false);
-                setSubmitting(false);
-                Alert.alert(
-                    'Upload Incomplete',
-                    `${failed} photo(s) failed to upload. Please check your internet connection and try again.`,
-                    [{ text: 'OK' }]
-                );
-                return;
-            }
-
-            setUploadStatus(prev => ({ ...prev, currentAsset: 'Finalizing...' }));
+            // 1. Mark the survey as submitted locally so the sync engine knows to upload it
             await hybridStorage.updateSurvey(surveyId, { status: 'submitted' });
-            
+
+            // 2. If online, trigger a full background sync to ensure data and photos are pushed.
+            // The sync service handles local ID -> backend UUID resolution safely.
+            const netInfo = await NetInfo.fetch();
+            if (netInfo.isConnected && syncService.isAuthenticated) {
+                setUploadStatus({ total: 1, completed: 0, failed: 0, currentAsset: 'Syncing Data to Server...' });
+                await syncService.syncAll();
+                
+                // If there were upload failures during sync, alert the user but continue generating Excel
+                if (syncService.syncStatus.pendingUploads > 0) {
+                    Alert.alert(
+                        'Sync Incomplete',
+                        `${syncService.syncStatus.pendingUploads} item(s) failed to sync to the server. They will upload automatically when your connection improves.`,
+                        [{ text: 'OK' }]
+                    );
+                }
+            }
+
+            // 3. Generate Excel Report locally
+            setUploadStatus({ total: 1, completed: 1, failed: 0, currentAsset: 'Finalizing Excel...' });
             const survey = { id: surveyId, site_name: siteName, trade, created_at: new Date().toISOString() };
             await generateAndShareExcel(survey, [], [], undefined, route.params.location);
             
@@ -395,6 +321,9 @@ export default function AssetInspectionScreen() {
             console.error('Error submitting survey:', error);
             setShowUploadModal(false);
             setSubmitting(false);
+            
+            // Revert status if completely failed locally
+            await hybridStorage.updateSurvey(surveyId, { status: 'in_progress' });
             Alert.alert('Error', 'Failed to submit survey. Please try again.');
         }
     };

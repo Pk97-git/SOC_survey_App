@@ -435,10 +435,10 @@ export const storage = {
                     `INSERT OR REPLACE INTO asset_inspections
                     (id, asset_id, survey_id, surveyor_id, status,
                      quantity_installed, quantity_working, remarks,
-                     mag_review, cit_review, dgda_review,
+                     photos, mag_review, cit_review, dgda_review,
                      gps_lat, gps_lng,
                      created_at, updated_at, synced)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     String(inspection.id),
                     String(inspection.asset_id),
                     String(inspection.survey_id),
@@ -447,13 +447,15 @@ export const storage = {
                     safeInstalled,
                     safeWorking,
                     String(inspection.remarks || ''),
+                    inspection.photos ? JSON.stringify(inspection.photos) : null,
                     inspection.mag_review ? JSON.stringify(inspection.mag_review) : null,
                     inspection.cit_review ? JSON.stringify(inspection.cit_review) : null,
                     inspection.dgda_review ? JSON.stringify(inspection.dgda_review) : null,
                     inspection.gps_lat ? Number(inspection.gps_lat) : null,
                     inspection.gps_lng ? Number(inspection.gps_lng) : null,
                     new Date().toISOString(),
-                    new Date().toISOString()
+                    new Date().toISOString(),
+                    inspection.synced !== undefined ? (inspection.synced ? 1 : 0) : 0
                 );
             } catch (error: any) {
                 console.error('[saveAssetInspection] CRASH! Full inspection object:', JSON.stringify(inspection, null, 2));
@@ -495,27 +497,30 @@ export const storage = {
             }
         } else {
             const db = await getDb();
-            // Two queries instead of 1 + N: one for inspections, one for all their photos
-            const [inspections, photos] = await Promise.all([
-                db.getAllAsync(
-                    `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line, a.floor, a.area
-                     FROM asset_inspections ai
-                     LEFT JOIN assets a ON ai.asset_id = a.id
-                     WHERE ai.survey_id = ?`,
-                    [surveyId]
-                ),
-                db.getAllAsync('SELECT * FROM photos WHERE survey_id = ?', [surveyId]),
-            ]);
+            const inspections = await db.getAllAsync(
+                `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line, a.floor, a.area
+                 FROM asset_inspections ai
+                 LEFT JOIN assets a ON ai.asset_id = a.id
+                 WHERE ai.survey_id = ?`,
+                [surveyId]
+            );
 
-            const photosByInspection = new Map<string, any[]>();
-            for (const photo of photos as any[]) {
-                const list = photosByInspection.get(photo.asset_inspection_id) ?? [];
-                list.push(photo);
-                photosByInspection.set(photo.asset_inspection_id, list);
-            }
             for (const inspection of inspections as any[]) {
-                inspection.photos = photosByInspection.get(inspection.id) ?? [];
+                if (inspection.photos && typeof inspection.photos === 'string') {
+                    try {
+                        inspection.photos = JSON.parse(inspection.photos);
+                    } catch (e) {
+                        inspection.photos = [];
+                    }
+                } else if (!inspection.photos) {
+                    inspection.photos = [];
+                }
+                // Parse other JSON fields if present as strings
+                if (typeof inspection.mag_review === 'string') inspection.mag_review = JSON.parse(inspection.mag_review);
+                if (typeof inspection.cit_review === 'string') inspection.cit_review = JSON.parse(inspection.cit_review);
+                if (typeof inspection.dgda_review === 'string') inspection.dgda_review = JSON.parse(inspection.dgda_review);
             }
+            
             return inspections as any[];
         }
     },

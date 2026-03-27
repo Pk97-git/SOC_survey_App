@@ -174,5 +174,8 @@ export const migrateDb = async (db: SQLite.SQLiteDatabase) => {
   await addColumnIfNotExists('asset_inspections', 'cit_review', 'TEXT');
   await addColumnIfNotExists('asset_inspections', 'dgda_review', 'TEXT');
 
+  // Phase 16 Migration: Add photos column to asset_inspections to prevent offline data loss
+  await addColumnIfNotExists('asset_inspections', 'photos', 'TEXT');
+
   console.log('Database migrated successfully');
 };
