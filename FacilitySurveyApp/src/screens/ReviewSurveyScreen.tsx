@@ -322,6 +322,9 @@ export default function ReviewSurveyScreen() {
                                 </Text>
                                 <PhotoPicker
                                     photos={reviewComments[inspection.id]?.photos || []}
+                                    surveyId={surveyId}
+                                    assetInspectionId={inspection.id}
+                                    assetId={inspection.asset_id}
                                     onPhotosChange={(photos) => {
                                         setReviewComments({
                                             ...reviewComments,

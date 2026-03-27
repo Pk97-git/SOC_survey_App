@@ -8,6 +8,7 @@ import { Colors, Radius, Typography, Spacing } from '../constants/design';
 interface AssetInspectionCardProps {
     asset: any;
     inspection: any;
+    surveyId: string;
     onUpdate: (assetId: string, inspection: any) => void;
     onCaptureGPS: () => Promise<{ lat: number; lng: number } | null>;
 }
@@ -32,6 +33,7 @@ const OVERALL_CONDITIONS = [
 const AssetInspectionCard = ({
     asset,
     inspection,
+    surveyId,
     onUpdate,
     onCaptureGPS
 }: AssetInspectionCardProps) => {
@@ -190,6 +192,9 @@ const AssetInspectionCard = ({
                     <PhotoPicker
                         photos={inspection.photos || []}
                         onPhotosChange={handlePhotosChange}
+                        surveyId={surveyId}
+                        assetInspectionId={inspection.id}
+                        assetId={asset.id}
                         maxPhotos={10}
                     />
                 </View>
@@ -232,6 +237,9 @@ const AssetInspectionCard = ({
                     <PhotoPicker
                         photos={inspection.mag_review?.photos || []}
                         onPhotosChange={(photos) => onUpdate(asset.id, { ...inspection, mag_review: { ...(inspection.mag_review || {}), photos } })}
+                        surveyId={surveyId}
+                        assetInspectionId={inspection.id}
+                        assetId={asset.id}
                         maxPhotos={5}
                     />
                 </View>

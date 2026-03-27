@@ -528,6 +528,7 @@ export const inspectionsApi = {
     },
 
     create: async (surveyId: string, data: {
+        id?: string;
         assetId: string;
         conditionRating?: string;
         overallCondition?: string;
@@ -536,6 +537,10 @@ export const inspectionsApi = {
         remarks?: string;
         gpsLat?: number;
         gpsLng?: number;
+        photos?: string[];
+        magReview?: any;
+        citReview?: any;
+        dgdaReview?: any;
     }) => {
         const response = await api.post(`/surveys/${surveyId}/inspections`, data);
         return response.data.inspection;

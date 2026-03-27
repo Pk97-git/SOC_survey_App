@@ -3,14 +3,25 @@ import { View, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform 
 import { IconButton, useTheme, Text } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { photoService } from '../services/photoService';
 
 interface PhotoPickerProps {
     photos: string[]; // Array of file URIs
     onPhotosChange: (photos: string[]) => void;
+    surveyId: string;
+    assetInspectionId: string;
+    assetId?: string;
     maxPhotos?: number;
 }
 
-export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: PhotoPickerProps) {
+export default function PhotoPicker({ 
+    photos, 
+    onPhotosChange, 
+    surveyId,
+    assetInspectionId,
+    assetId,
+    maxPhotos = 10 
+}: PhotoPickerProps) {
     const theme = useTheme();
     const [loading, setLoading] = useState(false);
 
@@ -55,6 +66,19 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
         }
     };
 
+    const uploadPhotoToServer = async (uri: string): Promise<string> => {
+        try {
+            console.log('[PhotoPicker] Uploading to server:', uri);
+            const uploadedPhoto = await photoService.uploadPhoto(assetInspectionId, surveyId, uri, undefined, assetId);
+            const serverUrl = photoService.getPhotoUrl(uploadedPhoto.id);
+            console.log('[PhotoPicker] Upload success:', serverUrl);
+            return serverUrl;
+        } catch (error) {
+            console.error('[PhotoPicker] Upload error:', error);
+            throw error;
+        }
+    };
+
     const takePhoto = async () => {
         if (photos.length >= maxPhotos) {
             Alert.alert('Limit Reached', `You can only add up to ${maxPhotos} photos.`);
@@ -74,8 +98,18 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
             });
 
             if (!result.canceled && result.assets[0]) {
-                const savedPath = await compressAndSavePhoto(result.assets[0].uri);
-                onPhotosChange([...photos, savedPath]);
+                const asset = result.assets[0];
+                let photoPath = asset.uri;
+                
+                if (Platform.OS === 'web') {
+                    // Immediate upload on web
+                    photoPath = await uploadPhotoToServer(asset.uri);
+                } else {
+                    // Mobile: just save locally, sync system handles upload
+                    photoPath = await compressAndSavePhoto(asset.uri);
+                }
+                
+                onPhotosChange([...photos, photoPath]);
             }
         } catch (error: any) {
             console.error('Error taking photo:', error);
@@ -113,10 +147,17 @@ export default function PhotoPicker({ photos, onPhotosChange, maxPhotos = 10 }: 
             });
 
             if (!result.canceled) {
-                const newPhotos = await Promise.all(
-                    result.assets.slice(0, maxPhotos - photos.length).map(asset => compressAndSavePhoto(asset.uri))
+                const assetsToProcess = result.assets.slice(0, maxPhotos - photos.length);
+                const newPhotoPaths = await Promise.all(
+                    assetsToProcess.map(async (asset) => {
+                        if (Platform.OS === 'web') {
+                            return await uploadPhotoToServer(asset.uri);
+                        } else {
+                            return await compressAndSavePhoto(asset.uri);
+                        }
+                    })
                 );
-                onPhotosChange([...photos, ...newPhotos]);
+                onPhotosChange([...photos, ...newPhotoPaths]);
             }
         } catch (error) {
             console.error('Error picking photo:', error);

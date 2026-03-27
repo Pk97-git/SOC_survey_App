@@ -15,6 +15,7 @@ import { syncService } from '../services/syncService';
 import NetInfo from '@react-native-community/netinfo';
 import { Radius, Typography, Spacing } from '../constants/design';
 import { ApiAsset } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 export default function AssetInspectionScreen() {
     const navigation = useNavigation<any>();
@@ -30,6 +31,7 @@ export default function AssetInspectionScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isScannerVisible, setIsScannerVisible] = useState(false);
     const [uploadStatus, setUploadStatus] = useState({ total: 0, completed: 0, failed: 0, currentAsset: '' });
+    const draftIdsRef = useRef<Record<string, string>>({});
     const [showUploadModal, setShowUploadModal] = useState(false);
 
 
@@ -60,12 +62,15 @@ export default function AssetInspectionScreen() {
             if (siteId) {
                 const siteAssets = await hybridStorage.getAssets(siteId);
                 const filtered = siteAssets.filter((a: any) => {
-                    const tradeMatch = !trade || a.serviceLine === trade || a.service_line === trade;
-                    const surveyLocation = route.params.location;
+                    const assetTrade = (a.serviceLine || a.service_line || '').toString().trim().toUpperCase();
+                    const surveyTrade = (trade || '').toString().trim().toUpperCase();
+                    const tradeMatch = !trade || assetTrade === surveyTrade;
+
+                    const surveyLocation = (route.params.location || '').toString().trim().toUpperCase();
                     let locationMatch = true;
                     if (surveyLocation) {
-                        const assetBldg = a.building || '';
-                        const assetLoc = a.location || '';
+                        const assetBldg = (a.building || '').toString().trim().toUpperCase();
+                        const assetLoc = (a.location || '').toString().trim().toUpperCase();
                         const combinedAssetLoc = (assetBldg && assetLoc) ? `${assetBldg} - ${assetLoc}` : (assetBldg || assetLoc);
                         locationMatch = assetBldg === surveyLocation || assetLoc === surveyLocation || combinedAssetLoc === surveyLocation;
                     }
@@ -166,9 +171,9 @@ export default function AssetInspectionScreen() {
             setInspections(prev => {
                 const existing = prev.find(i => i.asset_id === assetId);
                 if (existing) {
-                    return prev.map(i => i.asset_id === assetId ? updatedInspection : i);
+                    return prev.map(i => i.asset_id === assetId ? { ...i, ...updatedInspection } : i);
                 } else {
-                    return [...prev, updatedInspection];
+                    return [...prev, { ...updatedInspection, id: updatedInspection.id || generateUUID() }];
                 }
             });
             const savedInspection = await hybridStorage.saveAssetInspection(updatedInspection);
@@ -455,16 +460,23 @@ export default function AssetInspectionScreen() {
                         </Surface>
                     }
                     renderItem={({ item: asset }) => {
-                        const inspection = inspections.find(i => i.asset_id === asset.id) || {
-                            id: `inspection_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-                            survey_id: surveyId,
-                            asset_id: asset.id,
-                            photos: [],
-                        };
+                        let inspection = inspections.find(i => i.asset_id === asset.id);
+                        if (!inspection) {
+                            if (!draftIdsRef.current[asset.id]) {
+                                draftIdsRef.current[asset.id] = generateUUID();
+                            }
+                            inspection = {
+                                id: draftIdsRef.current[asset.id],
+                                survey_id: surveyId,
+                                asset_id: asset.id,
+                                photos: [],
+                            };
+                        }
                         return (
                             <AssetInspectionCard
                                 asset={asset}
                                 inspection={inspection}
+                                surveyId={surveyId}
                                 onUpdate={handleInspectionUpdate}
                                 onCaptureGPS={captureGPS}
                             />

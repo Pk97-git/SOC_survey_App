@@ -61,6 +61,7 @@ export class InspectionController {
             }
 
             const inspection = await this.service.createInspection({
+                id: req.body.id,
                 survey_id: surveyId,
                 asset_id: req.body.assetId,
                 condition_rating: req.body.conditionRating,

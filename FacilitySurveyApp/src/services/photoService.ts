@@ -17,7 +17,8 @@ export const photoService = {
         assetInspectionId: string,
         surveyId: string,
         photoUri: string,
-        caption?: string
+        caption?: string,
+        assetId?: string
     ): Promise<Photo> {
         const formData = new FormData();
 
@@ -36,6 +37,7 @@ export const photoService = {
                 formData.append('assetInspectionId', assetInspectionId);
                 formData.append('surveyId', surveyId);
                 if (caption) formData.append('caption', caption);
+                if (assetId) formData.append('assetId', assetId);
 
                 // Use fetch directly on web to avoid Axios boundary issues with FormData
                 const uploadResponse = await fetch(`${api.defaults.baseURL}/photos/upload`, {
@@ -73,6 +75,9 @@ export const photoService = {
             if (caption) {
                 formData.append('caption', caption);
             }
+            if (assetId) {
+                formData.append('assetId', assetId);
+            }
 
             const response = await api.post('/photos/upload', formData, {
                 headers: {
@@ -89,7 +94,8 @@ export const photoService = {
         assetInspectionId: string,
         surveyId: string,
         photos: string[],
-        caption?: string
+        caption?: string,
+        assetId?: string
     ): Promise<string[]> {
         if (!photos || photos.length === 0) return [];
 
@@ -103,7 +109,7 @@ export const photoService = {
 
             try {
                 console.log(`Uploading photo: ${uri}`);
-                const uploaded = await this.uploadPhoto(assetInspectionId, surveyId, uri, caption);
+                const uploaded = await this.uploadPhoto(assetInspectionId, surveyId, uri, caption, assetId);
                 // Use the file_path returned by server
                 processedPhotos.push(uploaded.file_path);
             } catch (error) {

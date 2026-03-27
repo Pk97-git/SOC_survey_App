@@ -48,7 +48,7 @@ router.post('/upload', authenticate, authorize('surveyor', 'admin'), upload.sing
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const { assetInspectionId, surveyId, caption } = req.body;
+        const { assetInspectionId, surveyId, caption, assetId } = req.body;
 
         if (!assetInspectionId || !surveyId) {
             fs.unlinkSync(req.file.path);
@@ -58,6 +58,17 @@ router.post('/upload', authenticate, authorize('surveyor', 'admin'), upload.sing
         if (!isValidUUID(assetInspectionId) || !isValidUUID(surveyId)) {
             fs.unlinkSync(req.file.path);
             return res.status(400).json({ error: 'Invalid asset inspection ID or survey ID format' });
+        }
+
+        // Deep Fix: If assetId is provided (meaning this may be a brand new inspection), 
+        // upsert a placeholder record so the FK constraint on photos survives.
+        if (assetId && isValidUUID(assetId)) {
+            await pool.query(
+                `INSERT INTO asset_inspections (id, survey_id, asset_id) 
+                 VALUES ($1, $2, $3) 
+                 ON CONFLICT (id) DO NOTHING`,
+                 [assetInspectionId, surveyId, assetId]
+            );
         }
 
         const result = await pool.query(

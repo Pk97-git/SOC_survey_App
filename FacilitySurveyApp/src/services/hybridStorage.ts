@@ -346,11 +346,23 @@ export const saveAssetInspection = async (inspection: any) => {
 
         try {
             if (inspection.id && isRealUUID(inspection.id)) {
-                // Already exists on server — just update fields
-                const updated = await inspectionsApi.update(inspection.id, payload);
-                return updated;
+                try {
+                    // Already exists based on ID format — try update first
+                    const updated = await inspectionsApi.update(inspection.id, payload);
+                    return updated;
+                } catch (updateError: any) {
+                    // If 404, it's a new record with a pre-generated UUID (typical on Web)
+                    if (updateError.response?.status === 404) {
+                        const created = await inspectionsApi.create(inspection.survey_id, { 
+                            id: inspection.id, 
+                            ...payload 
+                        });
+                        return created;
+                    }
+                    throw updateError;
+                }
             } else {
-                // First save — create a new record and return with real UUID
+                // No ID or not a UUID — standard backend create
                 const created = await inspectionsApi.create(inspection.survey_id, payload);
                 return created;
             }

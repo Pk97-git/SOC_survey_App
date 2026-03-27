@@ -26,7 +26,11 @@ export class InspectionRepository {
 
     async getBySurveyId(surveyId: string) {
         const result = await this.pool.query(
-            `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line
+            `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line,
+                    COALESCE(
+                        (SELECT json_agg(p.file_path) FROM photos p WHERE p.asset_inspection_id = ai.id),
+                        '[]'::json
+                    ) as photos
              FROM asset_inspections ai
              LEFT JOIN assets a ON ai.asset_id = a.id
              WHERE ai.survey_id = $1
@@ -39,7 +43,11 @@ export class InspectionRepository {
     async getBulkBySurveyIds(surveyIds: string[]) {
         const result = await this.pool.query(
             `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line,
-                    ai.survey_id
+                    ai.survey_id,
+                    COALESCE(
+                        (SELECT json_agg(p.file_path) FROM photos p WHERE p.asset_inspection_id = ai.id),
+                        '[]'::json
+                    ) as photos
              FROM asset_inspections ai
              LEFT JOIN assets a ON ai.asset_id = a.id
              WHERE ai.survey_id = ANY($1::uuid[])
@@ -54,20 +62,22 @@ export class InspectionRepository {
         try {
             await client.query('BEGIN');
             
+            const id = data.id;
             const result = await client.query(
                 `INSERT INTO asset_inspections (
-                    survey_id, asset_id, condition_rating, overall_condition, 
+                    id, survey_id, asset_id, condition_rating, overall_condition, 
                     quantity_installed, quantity_working, remarks, gps_lat, gps_lng,
                     mag_review, cit_review, dgda_review
                 ) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb) 
+                VALUES (COALESCE($13, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb) 
                 RETURNING *`,
                 [
                     data.survey_id, data.asset_id, data.condition_rating, data.overall_condition,
                     data.quantity_installed, data.quantity_working, data.remarks, data.gps_lat, data.gps_lng,
                     data.mag_review ? JSON.stringify(data.mag_review) : null,
                     data.cit_review ? JSON.stringify(data.cit_review) : null,
-                    data.dgda_review ? JSON.stringify(data.dgda_review) : null
+                    data.dgda_review ? JSON.stringify(data.dgda_review) : null,
+                    id
                 ]
             );
             
