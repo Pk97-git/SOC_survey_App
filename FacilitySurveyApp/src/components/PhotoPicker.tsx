@@ -204,12 +204,24 @@ export default function PhotoPicker({
         );
     };
 
+    const getDisplayUri = (uri: string) => {
+        if (!uri) return '';
+        if (uri.startsWith('http') || uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('content:') || uri.startsWith('blob:')) {
+            return uri;
+        }
+        // If it's a UUID, resolve to API URL
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uri)) {
+            return photoService.getPhotoUrl(uri);
+        }
+        return uri;
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
                 {photos.map((uri, index) => (
                     <View key={index} style={styles.photoContainer}>
-                        <Image source={{ uri }} style={styles.photo} />
+                        <Image source={{ uri: getDisplayUri(uri) }} style={styles.photo} />
                         <TouchableOpacity
                             style={[styles.removeButton, { backgroundColor: theme.colors.error }]}
                             onPress={() => removePhoto(index)}

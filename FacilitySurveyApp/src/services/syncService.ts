@@ -357,7 +357,10 @@ class SyncService {
                         if (uri.startsWith('blob:') || uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('content:')) {
                             try {
                                 const uploaded = await photoService.uploadPhoto(serverInspectionId, surveyServerId, uri);
-                                result.push(uploaded.file_path);
+                                // Save the full API URL (e.g., .../api/photos/UUID) into the inspection's photo array.
+                                // This ensures that when the app reloads this record from SQLite, it has a valid URL.
+                                const photoUrl = photoService.getPhotoUrl(uploaded.id);
+                                result.push(photoUrl);
                             } catch (err) {
                                 console.error(`[SyncService] Failed to upload ${label} photo:`, err);
                                 result.push(uri); // Keep local for retry on next sync cycle

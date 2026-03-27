@@ -168,16 +168,19 @@ export default function AssetInspectionScreen() {
 
     const handleInspectionUpdate = useCallback(async (assetId: string, updatedInspection: any) => {
         try {
+            // Force synced: 0 to ensure the sync service picks up changes (e.g., photo removal or remark edits)
+            const inspectionToSave = { ...updatedInspection, synced: 0 };
+
             setInspections(prev => {
                 const existing = prev.find(i => i.asset_id === assetId);
                 if (existing) {
-                    return prev.map(i => i.asset_id === assetId ? { ...i, ...updatedInspection } : i);
+                    return prev.map(i => i.asset_id === assetId ? { ...i, ...inspectionToSave } : i);
                 } else {
-                    return [...prev, { ...updatedInspection, id: updatedInspection.id || generateUUID() }];
+                    return [...prev, { ...inspectionToSave, id: inspectionToSave.id || generateUUID() }];
                 }
             });
-            const savedInspection = await hybridStorage.saveAssetInspection(updatedInspection);
-            if (savedInspection && savedInspection.id !== updatedInspection.id) {
+            const savedInspection = await hybridStorage.saveAssetInspection(inspectionToSave);
+            if (savedInspection && savedInspection.id !== inspectionToSave.id) {
                 setInspections(prev => prev.map(i =>
                     i.asset_id === assetId ? { ...i, id: savedInspection.id } : i
                 ));
@@ -199,6 +202,8 @@ export default function AssetInspectionScreen() {
                 try {
                     const savedAsset = await hybridStorage.saveAsset(assetWithSite);
                     setAssets(prev => [...prev, savedAsset]);
+                    // Update survey status to in_progress when an asset is added
+                    await hybridStorage.updateSurvey(surveyId, { status: 'in_progress' });
                     navigation.goBack();
                 } catch (error) {
                     console.error('Error saving asset:', error);

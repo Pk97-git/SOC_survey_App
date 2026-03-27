@@ -28,7 +28,7 @@ export class InspectionRepository {
         const result = await this.pool.query(
             `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line,
                     COALESCE(
-                        (SELECT json_agg(p.file_path) FROM photos p WHERE p.asset_inspection_id = ai.id),
+                        (SELECT json_agg(p.id) FROM photos p WHERE p.asset_inspection_id = ai.id),
                         '[]'::json
                     ) as photos
              FROM asset_inspections ai
@@ -45,7 +45,7 @@ export class InspectionRepository {
             `SELECT ai.*, a.name as asset_name, a.ref_code, a.service_line,
                     ai.survey_id,
                     COALESCE(
-                        (SELECT json_agg(p.file_path) FROM photos p WHERE p.asset_inspection_id = ai.id),
+                        (SELECT json_agg(p.id) FROM photos p WHERE p.asset_inspection_id = ai.id),
                         '[]'::json
                     ) as photos
              FROM asset_inspections ai
@@ -83,7 +83,7 @@ export class InspectionRepository {
             
             const inspection = result.rows[0];
 
-            // Handle photos if provided
+            // Handle photos if provided (as file paths from photo upload)
             if (data.photos && data.photos.length > 0) {
                 for (const filePath of data.photos) {
                     await client.query(
@@ -148,7 +148,6 @@ export class InspectionRepository {
         try {
             await client.query('BEGIN');
 
-            // 1. Lock the parent survey row to prevent concurrent status changes
             const parentCheck = await client.query(
                 `SELECT s.id, s.status 
                  FROM asset_inspections ai 
@@ -165,7 +164,8 @@ export class InspectionRepository {
                 }
             }
 
-            // 2. Perform the update safely
+            const surveyId = parentCheck.rows[0]?.id;
+
             const result = await client.query(
                 `UPDATE asset_inspections
                  SET condition_rating = COALESCE($1, condition_rating),
@@ -191,40 +191,59 @@ export class InspectionRepository {
                 ]
             );
 
-            // Collect all unique photos from all arrays (top-level and reviews)
-            const allPhotos = new Set<string>();
-            if (data.photos) data.photos.forEach(p => allPhotos.add(p));
-            if (data.mag_review?.photos) data.mag_review.photos.forEach(p => allPhotos.add(p));
-            if (data.cit_review?.photos) data.cit_review.photos.forEach(p => allPhotos.add(p));
-            if (data.dgda_review?.photos) data.dgda_review.photos.forEach(p => allPhotos.add(p));
+            // Synchronize photos
+            // The frontend sends a list of photo identifiers (can be URLs, UUIDs, or paths)
+            const providedIdentifiers = new Set<string>();
+            const extractIds = (items: string[] = []) => {
+                items.forEach(p => {
+                    // Extract UUID if it's a full URL or a relative path
+                    const match = p.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+                    if (match) {
+                        providedIdentifiers.add(match[1]);
+                    } else if (p.startsWith('uploads/')) {
+                        providedIdentifiers.add(p);
+                    }
+                });
+            };
 
-            if (allPhotos.size > 0) {
-                const surveyId = parentCheck.rows[0].id;
-                const validPhotos = Array.from(allPhotos).filter(p => 
-                    !p.startsWith('blob:') && 
-                    !p.startsWith('file:') && 
-                    !p.startsWith('data:')
+            extractIds(data.photos);
+            if (data.mag_review?.photos) extractIds(data.mag_review.photos);
+            if (data.cit_review?.photos) extractIds(data.cit_review.photos);
+            if (data.dgda_review?.photos) extractIds(data.dgda_review.photos);
+
+            // 1. Delete photos that are NOT in the provided list
+            // Only targets photos linked to THIS inspection.
+            if (surveyId) {
+                // Fetch current photos to handle deletions correctly
+                const currentPhotos = await client.query(
+                    `SELECT id, file_path FROM photos WHERE asset_inspection_id = $1`,
+                    [id]
                 );
 
-                for (const filePath of validPhotos) {
-                    // Check if already exists to avoid duplicates
-                    const existingPhoto = await client.query(
+                for (const row of currentPhotos.rows) {
+                    if (!providedIdentifiers.has(row.id) && !providedIdentifiers.has(row.file_path)) {
+                        await client.query(`DELETE FROM photos WHERE id = $1`, [row.id]);
+                        console.log(`[InspectionRepo] Deleted orphan photo ${row.id} (${row.file_path})`);
+                    }
+                }
+
+                // 2. Add new photos (the ones that are NOT UUIDs yet, i.e., file paths from recent upload)
+                const newPaths = (data.photos || []).filter(p => p.startsWith('uploads/'));
+                for (const filePath of newPaths) {
+                    const exists = await client.query(
                         `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,
                         [id, filePath]
                     );
-                    
-                    if (existingPhoto.rows.length === 0) {
+                    if (exists.rows.length === 0) {
                         await client.query(
-                             `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
-                              VALUES ($1, $2, $3)`,
-                             [id, surveyId, filePath]
+                            `INSERT INTO photos (asset_inspection_id, survey_id, file_path) VALUES ($1, $2, $3)`,
+                            [id, surveyId, filePath]
                         );
                     }
                 }
             }
             
             await client.query('COMMIT');
-
             return result.rows[0];
         } catch (e) {
             await client.query('ROLLBACK');

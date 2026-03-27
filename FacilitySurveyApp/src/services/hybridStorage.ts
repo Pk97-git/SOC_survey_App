@@ -216,13 +216,14 @@ export const deleteAsset = async (id: string) => {
 // ==================== Surveys ====================
 
 export const getSurveys = async (siteId?: string): Promise<SurveyRecord[]> => {
+    let remoteSurveys: SurveyRecord[] = [];
+    let isOnline = false;
+
     try {
-        if (await syncService.getStatus().isOnline) {
+        isOnline = await syncService.getStatus().isOnline;
+        if (isOnline) {
             console.log('Fetching surveys from backend...');
-            const surveys = await surveysApi.getAll(siteId);
-            // Optional: Update local storage with fresh data
-            // For now, we return backend data directly to ensure latest view
-            return surveys as SurveyRecord[];
+            remoteSurveys = await surveysApi.getAll(siteId) as SurveyRecord[];
         }
     } catch (error: any) {
         if (error.response?.status !== 401) {
@@ -231,9 +232,35 @@ export const getSurveys = async (siteId?: string): Promise<SurveyRecord[]> => {
     }
 
     if (Platform.OS === 'web' || isExpoGo) {
-        return []; // No local cache on web
+        return remoteSurveys;
     }
-    return await localStorage.getSurveys(siteId);
+
+    // Native: Merge local and remote
+    const localSurveys = await localStorage.getSurveys(siteId);
+    const mergedMap = new Map<string, SurveyRecord>();
+
+    // 1. Add remote surveys
+    remoteSurveys.forEach(remote => {
+        mergedMap.set(remote.id, remote);
+    });
+
+    // 2. Override with local data if unsynced or if local is "more advanced"
+    localSurveys.forEach(local => {
+        const serverId = (local as any).server_id;
+        const key = serverId || local.id;
+        const existing = mergedMap.get(key);
+
+        if (!existing) {
+            // Local-only survey (not yet uploaded)
+            mergedMap.set(local.id, local);
+        } else if (!(local as any).synced || (local as any).synced === 0) {
+            // Local has unsynced changes (e.g. status changed to 'in_progress' or 'submitted')
+            // Prefer the local status but keep other server-side fields
+            mergedMap.set(key, { ...existing, ...local, id: existing.id });
+        }
+    });
+
+    return Array.from(mergedMap.values());
 };
 
 export const saveSurvey = async (survey: any): Promise<SurveyRecord> => {
@@ -379,10 +406,13 @@ export const saveAssetInspection = async (inspection: any) => {
 };
 
 export const getInspectionsForSurvey = async (surveyId: string): Promise<Record<string, any>[]> => {
+    let remoteInspections: any[] = [];
+    let isOnline = false;
+
     try {
-        if (await syncService.getStatus().isOnline) {
-            const inspections = await inspectionsApi.getBySurvey(surveyId);
-            return inspections;
+        isOnline = await syncService.getStatus().isOnline;
+        if (isOnline) {
+            remoteInspections = await inspectionsApi.getBySurvey(surveyId);
         }
     } catch (error: any) {
         if (error.response?.status !== 401) {
@@ -391,9 +421,34 @@ export const getInspectionsForSurvey = async (surveyId: string): Promise<Record<
     }
 
     if (Platform.OS === 'web' || isExpoGo) {
-        return []; // No local cache on web
+        return remoteInspections;
     }
-    return await localStorage.getInspectionsForSurvey(surveyId);
+
+    // Native: Merge local and remote
+    const localInspections = await localStorage.getInspectionsForSurvey(surveyId);
+    const mergedMap = new Map<string, any>();
+
+    // 1. Add remote inspections
+    remoteInspections.forEach(remote => {
+        mergedMap.set(remote.id, remote);
+    });
+
+    // 2. Override with local data if unsynced
+    localInspections.forEach(local => {
+        const serverId = (local as any).server_id;
+        const key = serverId || local.id;
+        const existing = mergedMap.get(key);
+
+        if (!existing) {
+            // Local-only inspection (not yet uploaded)
+            mergedMap.set(local.id, local);
+        } else if (!(local as any).synced || (local as any).synced === 0) {
+            // Local has unsynced changes
+            mergedMap.set(key, { ...existing, ...local, id: existing.id });
+        }
+    });
+
+    return Array.from(mergedMap.values());
 };
 
 // ==================== Photos ====================
