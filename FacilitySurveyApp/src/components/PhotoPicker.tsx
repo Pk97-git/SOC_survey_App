@@ -168,6 +168,15 @@ export default function PhotoPicker({
     };
 
     const removePhoto = (index: number) => {
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to remove this photo?');
+            if (confirmed) {
+                const newPhotos = photos.filter((_, i) => i !== index);
+                onPhotosChange(newPhotos);
+            }
+            return;
+        }
+
         Alert.alert(
             'Remove Photo',
             'Are you sure you want to remove this photo?',
