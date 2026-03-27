@@ -34,3 +34,15 @@ export const VALID_OVERALL_CONDITIONS = new Set([
 
 /** Max items allowed in a single batch upload request. */
 export const BATCH_LIMIT = 500;
+
+/** 
+ * Sanitizes an array of photo identifiers to include ONLY local 'uploads/' paths.
+ * Filters out browser URLs, API URLs, and Blob strings.
+ */
+export const sanitizePhotoPaths = (photos: any): string[] => {
+    if (!Array.isArray(photos)) return [];
+    return photos.filter((p): p is string => 
+        typeof p === 'string' && 
+        (p.startsWith('uploads/') || p.startsWith('uploads\\'))
+    );
+};

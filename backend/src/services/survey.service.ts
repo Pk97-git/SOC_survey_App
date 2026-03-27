@@ -458,11 +458,9 @@ export class SurveyService {
                     try {
                         let photoIdx = 0;
                         for (const photoPathRaw of parsedPhotos) {
-                            const filename = photoPathRaw.split(/[/\\]/).pop() || '';
-                            const finalPath = photoPathRaw.startsWith('uploads/') ? photoPathRaw : `uploads/${filename}`;
-                            if (photoPathRaw.startsWith('blob:') || !filename) continue;
+                            if (typeof photoPathRaw !== 'string' || !photoPathRaw.startsWith('uploads/')) continue;
 
-                            const absolutePath = path.resolve(finalPath);
+                            const absolutePath = path.resolve(photoPathRaw);
                             if (fs.existsSync(absolutePath)) {
                                 const imageId = workbook.addImage({
                                     filename: absolutePath,

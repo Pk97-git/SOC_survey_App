@@ -85,7 +85,11 @@ export class InspectionRepository {
 
             // Handle photos if provided (as file paths from photo upload)
             if (data.photos && data.photos.length > 0) {
-                for (const filePath of data.photos) {
+                // IMPORTANT: Only insert strings that look like local file paths (starting with 'uploads/')
+                // This prevents URLs or 'blob:' strings from being saved as file paths.
+                const localPaths = data.photos.filter(p => typeof p === 'string' && p.startsWith('uploads/'));
+                
+                for (const filePath of localPaths) {
                     await client.query(
                         `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
                          VALUES ($1, $2, $3)`,
@@ -228,7 +232,7 @@ export class InspectionRepository {
                 }
 
                 // 2. Add new photos (the ones that are NOT UUIDs yet, i.e., file paths from recent upload)
-                const newPaths = (data.photos || []).filter(p => p.startsWith('uploads/'));
+                const newPaths = (data.photos || []).filter(p => typeof p === 'string' && p.startsWith('uploads/'));
                 for (const filePath of newPaths) {
                     const exists = await client.query(
                         `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,

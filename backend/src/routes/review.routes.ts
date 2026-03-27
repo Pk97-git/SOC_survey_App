@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import pool from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.middleware';
+import { sanitizePhotoPaths } from '../utils/validation.utils';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.post('/:surveyId', authenticate, authorize('reviewer'), async (req: AuthR
             `INSERT INTO review_comments (asset_inspection_id, reviewer_id, reviewer_type, comments, photos)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-            [assetInspectionId, reviewerId, reviewerType, comments, JSON.stringify(photos || [])]
+            [assetInspectionId, reviewerId, reviewerType, comments, JSON.stringify(sanitizePhotoPaths(photos))]
         );
 
         res.json({ review: result.rows[0] });
@@ -84,7 +85,7 @@ router.post('/:surveyId/bulk', authenticate, authorize('reviewer'), async (req: 
                  VALUES ($1, $2, $3, $4, $5)
                  ON CONFLICT (asset_inspection_id, reviewer_id) 
                  DO UPDATE SET comments = $4, photos = $5, updated_at = NOW()`,
-                [inspectionId, reviewerId, reviewerRole, notes, JSON.stringify(photos || [])]
+                [inspectionId, reviewerId, reviewerRole, notes, JSON.stringify(sanitizePhotoPaths(photos))]
             );
         }
 
@@ -106,7 +107,7 @@ router.put('/:id', authenticate, authorize('reviewer'), async (req: AuthRequest,
        SET comments = $1, photos = $2, updated_at = NOW()
        WHERE id = $3
        RETURNING *`,
-            [comments, JSON.stringify(photos || []), id]
+            [comments, JSON.stringify(sanitizePhotoPaths(photos)), id]
         );
 
         if (result.rows.length === 0) {

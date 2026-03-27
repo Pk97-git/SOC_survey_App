@@ -111,12 +111,15 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
         const photo = result.rows[0];
 
-        const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
-        const resolvedPath = path.resolve(photo.file_path);
+        const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads').toLowerCase();
+        let resolvedPath = path.resolve(photo.file_path).toLowerCase();
 
         // Guard against path traversal: resolved path must be inside the upload directory
+        // We use toLowerCase() for Windows compatibility
         if (!resolvedPath.startsWith(uploadDir + path.sep) && resolvedPath !== uploadDir) {
-            return res.status(403).json({ error: 'Access denied' });
+            // SPECIAL CASE: If the database has a URL or Blob instead of a path, 
+            // the above check will fail. We should NOT serve those.
+            return res.status(403).json({ error: 'Access denied: Invalid file path stored in database' });
         }
 
         if (!fs.existsSync(resolvedPath)) {
