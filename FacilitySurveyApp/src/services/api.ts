@@ -280,6 +280,11 @@ export const authApi = {
         const response = await api.post('/auth/reset-password', { token, password });
         return response.data;
     },
+
+    changePassword: async (currentPassword: string, newPassword: string) => {
+        const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+        return response.data;
+    },
 };
 
 // ==================== Sites API ====================

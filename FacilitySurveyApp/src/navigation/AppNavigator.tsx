@@ -25,8 +25,10 @@ import AnalyticsScreen from '../screens/AnalyticsScreen';
 import SavedReportsScreen from '../screens/SavedReportsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReviewerDashboardScreen from '../screens/ReviewerDashboardScreen';
 import ReviewSurveyScreen from '../screens/ReviewSurveyScreen';
+import HelpScreen from '../screens/HelpScreen';
 import { Colors, Radius, Typography } from '../constants/design';
 
 const Tab = createBottomTabNavigator();
@@ -76,6 +78,14 @@ const ReviewerStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="ReviewerDashboard" component={ReviewerDashboardScreen} />
         <Stack.Screen name="ReviewSurvey" component={ReviewSurveyScreen} />
+    </Stack.Navigator>
+);
+
+const ProfileStack = () => (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Help" component={HelpScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
 );
 
@@ -304,7 +314,7 @@ const SurveyorTabs = () => {
             />
             <Tab.Screen
                 name="ProfileTab"
-                component={ProfileScreen}
+                component={ProfileStack}
                 options={{
                     tabBarLabel: 'Profile',
                     tabBarIcon: ({ color, size, focused }) => (
@@ -351,7 +361,7 @@ const ReviewerTabs = () => {
             />
             <Tab.Screen
                 name="ProfileTab"
-                component={ProfileScreen}
+                component={ProfileStack}
                 options={{
                     tabBarLabel: 'Profile',
                     tabBarIcon: ({ color, size, focused }) => (
@@ -427,7 +437,7 @@ const AdminTabs = () => {
             />
             <Tab.Screen
                 name="ProfileTab"
-                component={ProfileScreen}
+                component={ProfileStack}
                 options={{
                     tabBarLabel: 'Profile',
                     tabBarIcon: ({ color, size, focused }) => (

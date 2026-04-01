@@ -7,6 +7,9 @@ import PhotoPicker from '../components/PhotoPicker';
 import { useAuth } from '../context/AuthContext';
 import * as hybridStorage from '../services/hybridStorage';
 import { photoService } from '../services/photoService';
+import { Colors, Radius, Typography, Spacing } from '../constants/design';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export default function ReviewSurveyScreen() {
     const theme = useTheme();
@@ -238,13 +241,13 @@ export default function ReviewSurveyScreen() {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
             <Surface style={[styles.header, { backgroundColor: theme.colors.tertiaryContainer }]} elevation={2}>
-                <Text style={[styles.title, { color: theme.colors.onTertiaryContainer }]}>
+                <Text style={[Typography.headlineLg, { color: theme.colors.onTertiaryContainer }]}>
                     Review Survey
                 </Text>
-                <Text style={[styles.subtitle, { color: theme.colors.onTertiaryContainer, opacity: 0.8 }]}>
+                <Text style={[Typography.bodyMd, { color: theme.colors.onTertiaryContainer, opacity: 0.8, marginTop: Spacing[1] }]}>
                     {survey?.site_name} • {survey?.trade}
                 </Text>
-                <Text style={[styles.subtitle, { color: theme.colors.onTertiaryContainer, opacity: 0.7 }]}>
+                <Text style={[Typography.bodyMd, { color: theme.colors.onTertiaryContainer, opacity: 0.7, marginTop: Spacing[1] }]}>
                     Surveyor: {survey?.surveyor_name}
                 </Text>
             </Surface>
@@ -258,54 +261,66 @@ export default function ReviewSurveyScreen() {
                     <Surface style={[styles.card, { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.outlineVariant }]} elevation={1}>
                         {/* Surveyor Data (Read-only) */}
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
+                            <Text style={[Typography.titleMd, { color: theme.colors.primary }]}>
                                 Asset: {inspection.asset_name}
                             </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                            <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant, marginTop: Spacing[1] }]}>
                                 Ref: {inspection.ref_code} • {inspection.service_line}
                             </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                            <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant }]}>
                                 Floor: {inspection.floor} • Area: {inspection.area}
                             </Text>
                         </View>
 
-                        <Divider style={{ marginVertical: 12 }} />
+                        <Divider style={{ marginVertical: Spacing[3] }} />
 
                         <View style={styles.section}>
-                            <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-                                Condition Rating:
-                            </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[1] }}>
+                                <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                                    Condition Rating
+                                </Text>
+                                <HelpIcon text={HELP_TEXT.CONDITION_RATING} />
+                            </View>
+                            <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant }]}>
                                 {inspection.condition_rating || 'N/A'}
                             </Text>
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-                                Overall Condition:
-                            </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[1] }}>
+                                <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                                    Overall Condition
+                                </Text>
+                                <HelpIcon text={HELP_TEXT.OVERALL_CONDITION} />
+                            </View>
+                            <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant }]}>
                                 {inspection.overall_condition || 'N/A'}
                             </Text>
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={[styles.label, { color: theme.colors.onSurface }]}>
+                            <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[1] }]}>
                                 Surveyor Remarks:
                             </Text>
-                            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                            <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant }]}>
                                 {inspection.remarks || 'No remarks'}
                             </Text>
                         </View>
 
-                        <Divider style={{ marginVertical: 12 }} />
+                        <Divider style={{ marginVertical: Spacing[3] }} />
 
                         {/* Reviewer Input */}
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.secondary }]}>
+                            <Text style={[Typography.titleMd, { color: theme.colors.secondary, marginBottom: Spacing[2] }]}>
                                 {reviewerType} Review
                             </Text>
 
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                                <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                                    {reviewerType} Comments
+                                </Text>
+                                <HelpIcon text={HELP_TEXT.REVIEW_COMMENTS} />
+                            </View>
                             <TextInput
                                 label={`${reviewerType} Comments`}
                                 value={reviewComments[inspection.id]?.comments || ''}
@@ -316,10 +331,13 @@ export default function ReviewSurveyScreen() {
                                 style={styles.input}
                             />
 
-                            <View style={{ marginTop: 12 }}>
-                                <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 8 }]}>
-                                    {reviewerType} Pictures:
-                                </Text>
+                            <View style={{ marginTop: Spacing[3] }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                                        {reviewerType} Pictures
+                                    </Text>
+                                    <HelpIcon text={HELP_TEXT.REVIEW_PHOTOS} />
+                                </View>
                                 <PhotoPicker
                                     photos={reviewComments[inspection.id]?.photos || []}
                                     surveyId={surveyId}
@@ -410,50 +428,33 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        padding: 20,
-        marginBottom: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    subtitle: {
-        fontSize: 14,
-        marginTop: 4,
+        padding: Spacing[5],
+        marginBottom: Spacing[4],
     },
     listContent: {
-        padding: 20,
+        padding: Spacing[5],
         paddingBottom: 100,
     },
     card: {
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 16,
+        padding: Spacing[4],
+        borderRadius: Radius.lg,
+        marginBottom: Spacing[4],
     },
     section: {
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    label: {
-        fontWeight: '600',
-        marginBottom: 4,
+        marginBottom: Spacing[3],
     },
     input: {
-        marginTop: 8,
+        marginTop: Spacing[2],
     },
     footer: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 20,
+        padding: Spacing[5],
         borderTopWidth: 1,
     },
     saveButton: {
-        borderRadius: 12,
+        borderRadius: Radius.md,
     },
 });

@@ -40,9 +40,27 @@ export const HELP_TEXT = {
 
     REF_CODE: 'Optional: Internal reference code or asset tag number from your inventory system.',
 
+    ASSET_TAG: 'Optional: Physical tag or label number attached to the asset for easy identification during inspections.',
+
     ASSET_BUILDING: 'The building, floor, or area where this asset is located (e.g., "Main Building - 2nd Floor", "Rooftop").',
 
     ASSET_SERVICE_LINE: 'The trade category this asset belongs to (HVAC, Plumbing, Electrical, etc.). Used to group assets in surveys.',
+
+    ASSET_ZONE: 'Optional: The zone or sector within the facility where this asset is located (e.g., "North Wing", "Zone A").',
+
+    ASSET_AREA: 'Optional: The physical area or space this asset serves or occupies, measured in square meters (m²).',
+
+    ASSET_AGE: 'Optional: The age of the asset in years since installation or manufacture. Helps estimate remaining useful life.',
+
+    ASSET_GPS: 'Capture the GPS coordinates of the asset location. Useful for outdoor assets or mapping facility equipment.',
+
+    // ── UserManagementScreen ─────────────────────────────────────────────
+    USER_ROLE: 'Surveyor: Conducts surveys and inspects assets.\nAdmin: Full access to manage users, sites, and all surveys.\nReviewer: Reviews submitted surveys and provides approval.',
+
+    USER_ORGANIZATION: 'The organization the reviewer belongs to (MAG, CIT, or DGDA). This determines which review column their comments appear in when reviewing surveys.',
+
+    // ── SiteManagementScreen ─────────────────────────────────────────────
+    SITE_LOCATION: 'The physical address or GPS coordinates of the site. You can enter manually, use your current GPS location, or select from the map.',
 
     // ── ProfileScreen ────────────────────────────────────────────────────
     CHANGE_PASSWORD: 'Update your account password. Must be at least 6 characters. You will need to use the new password on your next login.',

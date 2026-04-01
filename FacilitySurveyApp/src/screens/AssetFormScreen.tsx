@@ -5,6 +5,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import * as hybridStorage from '../services/hybridStorage';
 import { Colors, Radius, Spacing, Typography } from '../constants/design';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export default function AssetFormScreen() {
     const navigation = useNavigation<any>();
@@ -125,10 +127,30 @@ export default function AssetFormScreen() {
                     Asset Identity
                 </Text>
                 <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                    <TextInput label="Asset Description *" value={name} onChangeText={setName} mode="outlined" style={styles.input} />
-                    <TextInput label="Asset Code / Ref" value={assetCode} onChangeText={setAssetCode} mode="outlined" style={styles.input} />
-                    <TextInput label="Asset Tag" value={assetTag} onChangeText={setAssetTag} mode="outlined" style={styles.input} />
-                    <TextInput label="Asset System / Service Line" value={serviceLine} onChangeText={setServiceLine} mode="outlined" style={styles.input} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Asset Description *</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_NAME} size={16} />
+                    </View>
+                    <TextInput value={name} onChangeText={setName} mode="outlined" style={styles.input} />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Asset Code / Ref</Text>
+                        <HelpIcon text={HELP_TEXT.REF_CODE} size={16} />
+                    </View>
+                    <TextInput value={assetCode} onChangeText={setAssetCode} mode="outlined" style={styles.input} />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Asset Tag</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_TAG} size={16} />
+                    </View>
+                    <TextInput value={assetTag} onChangeText={setAssetTag} mode="outlined" style={styles.input} />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Asset System / Service Line</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_SERVICE_LINE} size={16} />
+                    </View>
+                    <TextInput value={serviceLine} onChangeText={setServiceLine} mode="outlined" style={styles.input} />
+
                     <TextInput label="Asset Status" value={status} onChangeText={setStatus} mode="outlined" style={[styles.input, { marginBottom: 0 }]} />
                 </Surface>
 
@@ -137,7 +159,12 @@ export default function AssetFormScreen() {
                     Location
                 </Text>
                 <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                    <TextInput label="Zone" value={zone} onChangeText={setZone} mode="outlined" style={styles.input} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Zone</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_ZONE} size={16} />
+                    </View>
+                    <TextInput value={zone} onChangeText={setZone} mode="outlined" style={styles.input} />
+
                     <TextInput label="Building" value={building} onChangeText={setBuilding} mode="outlined" style={styles.input} />
                     <TextInput label="Location / Room / Space" value={locationText} onChangeText={setLocationText} mode="outlined" style={styles.input} />
                     <TextInput label="Floor" value={floor} onChangeText={setFloor} mode="outlined" style={[styles.input, { marginBottom: 0 }]} />
@@ -148,8 +175,22 @@ export default function AssetFormScreen() {
                     Details
                 </Text>
                 <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                    <TextInput label="Area (m²)" value={area} onChangeText={setArea} mode="outlined" style={styles.input} keyboardType="numeric" />
-                    <TextInput label="Age (years)" value={age} onChangeText={setAge} mode="outlined" style={styles.input} keyboardType="numeric" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Area (m²)</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_AREA} size={16} />
+                    </View>
+                    <TextInput value={area} onChangeText={setArea} mode="outlined" style={styles.input} keyboardType="numeric" />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>Age (years)</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_AGE} size={16} />
+                    </View>
+                    <TextInput value={age} onChangeText={setAge} mode="outlined" style={styles.input} keyboardType="numeric" />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelMd, { color: theme.colors.onSurface, flex: 1 }]}>GPS Location</Text>
+                        <HelpIcon text={HELP_TEXT.ASSET_GPS} size={16} />
+                    </View>
                     <Button
                         mode="outlined"
                         icon="crosshairs-gps"

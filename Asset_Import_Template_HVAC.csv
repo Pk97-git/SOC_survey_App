@@ -1,0 +1,6 @@
+Asset Code,Asset Description,Asset System,Asset Status,Asset Tag,Zone,Building,Location
+HVAC-001,Rooftop AC Unit #1,HVAC,Active,TAG-1001,Zone A,Main Building,Rooftop
+HVAC-002,Rooftop AC Unit #2,HVAC,Active,TAG-1002,Zone A,Main Building,Rooftop
+HVAC-003,Chiller #1,HVAC,Active,TAG-1003,Zone B,Main Building,Basement
+HVAC-004,Air Handler - Floor 2,HVAC,Active,TAG-1004,Zone A,Main Building,2nd Floor
+HVAC-005,Exhaust Fan - Lobby,HVAC,Active,TAG-1005,Zone A,Main Building,Lobby

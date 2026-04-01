@@ -3,6 +3,7 @@ import { View, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Button, Surface, useTheme, Avatar, Divider, Portal, Modal, TextInput, Chip, TouchableRipple } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usersApi } from '../services/api';
 import { syncService } from '../services/hybridStorage';
@@ -11,6 +12,7 @@ import { Colors, Spacing, Typography, Radius } from '../constants/design';
 export default function ProfileScreen() {
     const { logout, user } = useAuth();
     const theme = useTheme();
+    const navigation = useNavigation<any>();
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -104,7 +106,7 @@ export default function ProfileScreen() {
                     </Text>
 
                     <TouchableRipple
-                        onPress={() => setPasswordModalVisible(true)}
+                        onPress={() => navigation.navigate('ChangePassword')}
                         borderless
                         style={{ borderRadius: Radius.sm, marginBottom: Spacing[2] }}
                     >
@@ -115,6 +117,23 @@ export default function ProfileScreen() {
                             <View style={{ flex: 1, marginLeft: Spacing[3] }}>
                                 <Text style={[Typography.labelMd, { color: theme.colors.onSurface }]}>Change Password</Text>
                                 <Text style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant }]}>Update your account password</Text>
+                            </View>
+                            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+                        </View>
+                    </TouchableRipple>
+
+                    <TouchableRipple
+                        onPress={() => navigation.navigate('Help')}
+                        borderless
+                        style={{ borderRadius: Radius.sm, marginBottom: Spacing[2] }}
+                    >
+                        <View style={styles.actionRow}>
+                            <View style={[styles.actionIcon, { backgroundColor: theme.colors.tertiaryContainer }]}>
+                                <MaterialCommunityIcons name="help-circle" size={20} color={theme.colors.tertiary} />
+                            </View>
+                            <View style={{ flex: 1, marginLeft: Spacing[3] }}>
+                                <Text style={[Typography.labelMd, { color: theme.colors.onSurface }]}>How to Use</Text>
+                                <Text style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant }]}>Step-by-step guides and FAQ</Text>
                             </View>
                             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
                         </View>

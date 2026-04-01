@@ -6,6 +6,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { usersApi, authApi } from '../services/api';
 import { Colors } from '../constants/design';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export default function UserManagementScreen() {
     const theme = useTheme();
@@ -35,6 +37,20 @@ export default function UserManagementScreen() {
         if (!/\d/.test(pw)) errs.push('One number');
         return errs;
     };
+
+    // Password strength (0-4)
+    const getPasswordStrength = (password: string): number => {
+        let score = 0;
+        if (password.length >= 8) score++;
+        if (password.length >= 12) score++;
+        if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+        if (/\d/.test(password)) score++;
+        if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score++;
+        return Math.min(score, 4);
+    };
+
+    const strengthLabels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+    const strengthColors = ['#FF0000', '#FF6600', '#FFCC00', '#99CC00', '#00CC00'];
 
     const generatePassword = () => {
         const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -398,6 +414,35 @@ export default function UserManagementScreen() {
                                 </Button>
                             )}
                         </View>
+                        {/* Password Strength Meter */}
+                        {!editingUser && formData.password.length > 0 && (
+                            <View style={{ marginTop: 8, marginBottom: 4 }}>
+                                <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>
+                                    Password Strength
+                                </Text>
+                                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 4 }}>
+                                    {[0, 1, 2, 3, 4].map((level) => {
+                                        const passwordStrength = getPasswordStrength(formData.password);
+                                        return (
+                                            <View
+                                                key={level}
+                                                style={{
+                                                    flex: 1,
+                                                    height: 4,
+                                                    borderRadius: 2,
+                                                    backgroundColor: passwordStrength > level
+                                                        ? strengthColors[passwordStrength]
+                                                        : '#E0E0E0'
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </View>
+                                <Text style={{ fontSize: 11, color: strengthColors[getPasswordStrength(formData.password)], marginBottom: 4 }}>
+                                    {strengthLabels[getPasswordStrength(formData.password)]}
+                                </Text>
+                            </View>
+                        )}
                         {/* Inline password validation errors */}
                         {!editingUser && passwordErrors.length > 0 && (
                             <View style={{ marginTop: 4, marginBottom: 4, paddingHorizontal: 4 }}>
@@ -409,9 +454,12 @@ export default function UserManagementScreen() {
                             </View>
                         )}
                         {!editingUser && formData.password.length > 0 && passwordErrors.length === 0 && (
-                            <Text style={{ fontSize: 12, color: Colors.status.successGreen, marginTop: 4 }}>Password meets all requirements</Text>
+                            <Text style={{ fontSize: 12, color: Colors.status.successGreen, marginTop: 4 }}>✓ Password meets all requirements</Text>
                         )}
-                        <Text style={{ marginTop: 12, marginBottom: 8, fontWeight: 'bold' }}>Role</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
+                            <Text style={{ fontWeight: 'bold', flex: 1 }}>Role</Text>
+                            <HelpIcon text={HELP_TEXT.USER_ROLE} size={18} />
+                        </View>
                         <SegmentedButtons
                             value={formData.role}
                             onValueChange={(value) => setFormData({ ...formData, role: value, organization: value !== 'reviewer' ? '' : formData.organization })}
@@ -424,7 +472,10 @@ export default function UserManagementScreen() {
                         />
                         {formData.role === 'reviewer' && (
                             <>
-                                <Text style={{ marginBottom: 8, fontWeight: 'bold' }}>Organisation</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                    <Text style={{ fontWeight: 'bold', flex: 1 }}>Organisation</Text>
+                                    <HelpIcon text={HELP_TEXT.USER_ORGANIZATION} size={18} />
+                                </View>
                                 <SegmentedButtons
                                     value={formData.organization}
                                     onValueChange={(value) => setFormData({ ...formData, organization: value })}

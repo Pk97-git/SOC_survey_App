@@ -1,0 +1,6 @@
+Asset Code,Asset Description,Asset System,Asset Status,Asset Tag,Zone,Building,Location
+P-001,Main Water Pump,Plumbing,Active,TAG-2001,Zone C,Main Building,Basement
+P-002,Hot Water Heater #1,Plumbing,Active,TAG-2002,Zone C,Main Building,Basement
+P-003,Sump Pump,Plumbing,Active,TAG-2003,Zone C,Main Building,Basement
+P-004,Water Softener,Plumbing,Active,TAG-2004,Zone C,Main Building,Utility Room
+P-005,Backflow Preventer,Plumbing,Active,TAG-2005,Zone C,Main Building,Exterior

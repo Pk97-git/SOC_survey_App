@@ -1,0 +1,6 @@
+Asset Code,Asset Description,Asset System,Asset Status,Asset Tag,Zone,Building,Location
+E-001,Main Distribution Panel,Electrical,Active,TAG-3001,Zone D,Main Building,Electrical Room
+E-002,UPS System,Electrical,Active,TAG-3002,Zone D,Main Building,Server Room
+E-003,Generator,Electrical,Active,TAG-3003,Zone E,Outdoor,Generator Yard
+E-004,Transformer #1,Electrical,Active,TAG-3004,Zone E,Outdoor,Transformer Pad
+E-005,Emergency Lighting Panel,Electrical,Active,TAG-3005,Zone D,Main Building,1st Floor

@@ -10,6 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { sitesApi } from '../services/api';
 import { syncService } from '../services/syncService';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export interface SiteRecord {
     id: string;
@@ -305,13 +307,16 @@ export default function SiteManagementScreen() {
                             style={styles.input}
                             theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                         />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: 'bold', flex: 1 }}>Location</Text>
+                            <HelpIcon text={HELP_TEXT.SITE_LOCATION} size={18} />
+                        </View>
                         <TextInput
-                            label="Location"
                             value={location}
                             onChangeText={setLocation}
                             mode="outlined"
                             style={styles.input}
-                            placeholder="Select on Map"
+                            placeholder="Select on Map or enter manually"
                             theme={{ colors: { primary: theme.colors.primary, onSurface: '#1C1917', onSurfaceVariant: '#57534E', placeholder: '#57534E', background: '#FFFFFF' } }}
                             right={
                                 <TextInput.Icon
