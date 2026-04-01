@@ -3,6 +3,19 @@ import { DeviceEventEmitter, Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { storage } from './storage';
 
+// Configure NetInfo to use the correct subfolder for reachability checks on Web.
+// By default, it hits window.location.origin (which redirects to /cit-os/ and causes 502 errors).
+if (Platform.OS === 'web') {
+    NetInfo.configure({
+        reachabilityUrl: '/socsurvey/',
+        reachabilityTest: async (response) => response.status === 200,
+        reachabilityLongTimeout: 60 * 1000, // 60s
+        reachabilityShortTimeout: 5 * 1000, // 5s
+        reachabilityRequestTimeout: 15 * 1000, // 15s
+    });
+}
+
+
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
