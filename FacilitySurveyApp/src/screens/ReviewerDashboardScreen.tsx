@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as hybridStorage from '../services/hybridStorage';
 import { Colors, Radius, Typography, Spacing, Layout } from '../constants/design';
+import { StatusLegend } from '../components/StatusLegend';
 
 export default function ReviewerDashboardScreen() {
     const theme = useTheme();
@@ -233,6 +234,9 @@ export default function ReviewerDashboardScreen() {
 
             {/* Search + Filters */}
             <View style={{ paddingHorizontal: Layout.screenPaddingH }}>
+                {/* Status Legend */}
+                <StatusLegend visibleStatuses={['submitted', 'under_review', 'completed']} />
+
                 <Searchbar
                     placeholder="Search location, trade, surveyor..."
                     onChangeText={setSearchQuery}

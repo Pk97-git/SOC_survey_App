@@ -10,6 +10,9 @@ import * as hybridStorage from '../services/hybridStorage';
 import { surveysApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Colors, Radius } from '../constants/design';
+import { BreadcrumbNav } from '../components/BreadcrumbNav';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export default function StartSurveyScreen() {
     const navigation = useNavigation<any>();
@@ -309,11 +312,26 @@ export default function StartSurveyScreen() {
                     </Text>
                 </Surface>
 
+                {/* Breadcrumb Navigation */}
+                <BreadcrumbNav
+                    path={[
+                        { label: 'Home', icon: 'home' },
+                        { label: siteName || 'Select Site', icon: 'office-building' },
+                        ...(siteName ? [{ label: 'New Survey', icon: 'file-document-plus' }] : [])
+                    ]}
+                    onNavigate={(index) => {
+                        if (index === 0) navigation.navigate('HomeTab', { screen: 'Dashboard' });
+                    }}
+                />
+
                 {/* Form */}
                 <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
                     {/* Site Selection */}
                     <View style={styles.fieldContainer}>
-                        <Text style={[styles.label, { color: theme.colors.onSurface }]}>Site / Location *</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 0 }]}>Site / Location *</Text>
+                            <HelpIcon text={HELP_TEXT.SITE_SELECTION} />
+                        </View>
                         <Button
                             mode="outlined"
                             onPress={openSiteMenu}
@@ -352,7 +370,10 @@ export default function StartSurveyScreen() {
                     {/* Location / Building Filter */}
                     {locations.length > 0 && (
                         <View style={styles.fieldContainer}>
-                            <Text style={[styles.label, { color: theme.colors.onSurface }]}>Location / Building</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 0 }]}>Location / Building</Text>
+                                <HelpIcon text={HELP_TEXT.LOCATION_BUILDING} />
+                            </View>
                             <Button
                                 mode="outlined"
                                 onPress={openLocationMenu}
@@ -388,7 +409,10 @@ export default function StartSurveyScreen() {
 
                     {/* Service Line Selection */}
                     <View style={styles.fieldContainer}>
-                        <Text style={[styles.label, { color: theme.colors.onSurface }]}>Service Line *</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 0 }]}>Service Line *</Text>
+                            <HelpIcon text={HELP_TEXT.SERVICE_LINE} />
+                        </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {/* If service lines exist in dropdown */}
                             {serviceLines.length > 0 ? (
@@ -444,7 +468,10 @@ export default function StartSurveyScreen() {
 
                     {/* Surveyor Name */}
                     <View style={styles.fieldContainer}>
-                        <Text style={[styles.label, { color: theme.colors.onSurface }]}>Surveyor Name</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 0 }]}>Surveyor Name</Text>
+                            <HelpIcon text={HELP_TEXT.SURVEYOR_NAME} />
+                        </View>
                         <TextInput
                             mode="outlined"
                             value={surveyorName}
@@ -456,7 +483,10 @@ export default function StartSurveyScreen() {
 
                     {/* GPS Location */}
                     <View style={styles.fieldContainer}>
-                        <Text style={[styles.label, { color: theme.colors.onSurface }]}>GPS Location</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={[styles.label, { color: theme.colors.onSurface, marginBottom: 0 }]}>GPS Location</Text>
+                            <HelpIcon text={HELP_TEXT.GPS_LOCATION} />
+                        </View>
                         <View style={[styles.gpsBox, { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }]}>
                             <MaterialCommunityIcons name="crosshairs-gps" size={20} color={theme.colors.primary} />
                             <Text style={{ color: theme.colors.onSurfaceVariant, marginLeft: 12, flex: 1 }}>{gps}</Text>

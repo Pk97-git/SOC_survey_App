@@ -150,7 +150,6 @@ export class SurveyRepository {
                     SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption) ORDER BY p.id)
                     FROM photos p
                     WHERE p.asset_inspection_id = ai.id
-                    AND (p.file_path LIKE 'uploads%' OR p.file_path LIKE 'uploads/%' OR p.file_path LIKE 'uploads\%')
                 ) as photos,
                 ai.mag_review,
                 ai.cit_review,
@@ -217,7 +216,6 @@ export class SurveyRepository {
                     SELECT json_agg(json_build_object('id', p.id, 'file_path', p.file_path, 'caption', p.caption) ORDER BY p.id)
                     FROM photos p
                     WHERE p.asset_inspection_id = ai.id
-                    AND (p.file_path LIKE 'uploads%' OR p.file_path LIKE 'uploads/%' OR p.file_path LIKE 'uploads\%')
                 ) as photos,
                 ai.mag_review,
                 ai.cit_review,

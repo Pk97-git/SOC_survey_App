@@ -457,11 +457,32 @@ export class SurveyService {
                 if (parsedPhotos && Array.isArray(parsedPhotos) && parsedPhotos.length > 0) {
                     try {
                         let photoIdx = 0;
-                        for (const photoPathRaw of parsedPhotos) {
-                            if (typeof photoPathRaw !== 'string' || !photoPathRaw.startsWith('uploads/')) continue;
+                        for (const photoIdentifier of parsedPhotos) {
+                            if (typeof photoIdentifier !== 'string') continue;
 
-                            const absolutePath = path.resolve(photoPathRaw);
-                            if (fs.existsSync(absolutePath)) {
+                            let absolutePath: string | null = null;
+
+                            // Case 1: UUID - look up file_path from photos table
+                            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(photoIdentifier)) {
+                                try {
+                                    const photoResult = await pool.query(
+                                        'SELECT file_path FROM photos WHERE id = $1',
+                                        [photoIdentifier]
+                                    );
+                                    if (photoResult.rows.length > 0 && photoResult.rows[0].file_path) {
+                                        absolutePath = path.resolve(photoResult.rows[0].file_path);
+                                    }
+                                } catch (err) {
+                                    console.error(`Failed to lookup photo UUID ${photoIdentifier}:`, err);
+                                    continue;
+                                }
+                            }
+                            // Case 2: File path
+                            else if (photoIdentifier.startsWith('uploads/')) {
+                                absolutePath = path.resolve(photoIdentifier);
+                            }
+
+                            if (absolutePath && fs.existsSync(absolutePath)) {
                                 const imageId = workbook.addImage({
                                     filename: absolutePath,
                                     extension: getExtension(absolutePath),
@@ -471,8 +492,8 @@ export class SurveyService {
                                 const rowFraction = verticalCount > 1 ? (photoIdx / verticalCount) : 0;
 
                                 worksheet.addImage(imageId, {
-                                    tl: { 
-                                        col: colIndex, 
+                                    tl: {
+                                        col: colIndex,
                                         row: (currentRowIndex - 1) + rowFraction
                                     } as any,
                                     ext: { width: PHOTO_SIZE, height: PHOTO_SIZE },

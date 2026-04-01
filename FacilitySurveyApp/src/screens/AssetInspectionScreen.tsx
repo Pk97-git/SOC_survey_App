@@ -16,6 +16,9 @@ import NetInfo from '@react-native-community/netinfo';
 import { Radius, Typography, Spacing } from '../constants/design';
 import { ApiAsset } from '../services/api';
 import { generateUUID } from '../utils/uuid';
+import { AssetListLoadingSkeleton } from '../components/SkeletonLoader';
+import { EmptyState } from '../components/EmptyState';
+import { BreadcrumbNav } from '../components/BreadcrumbNav';
 
 export default function AssetInspectionScreen() {
     const navigation = useNavigation<any>();
@@ -349,7 +352,7 @@ export default function AssetInspectionScreen() {
     );
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
 
             {/* ── Maroon header ────────────────────────────────────────── */}
             <Surface style={[styles.header, { backgroundColor: theme.colors.primary }]} elevation={3}>
@@ -435,15 +438,34 @@ export default function AssetInspectionScreen() {
                 </View>
             </Surface>
 
+            {/* Breadcrumb Navigation */}
+            <View style={{ paddingHorizontal: Spacing[4], paddingTop: Spacing[4] }}>
+                <BreadcrumbNav
+                    path={[
+                        { label: 'All Sites', icon: 'home' },
+                        { label: siteName || 'Site', icon: 'office-building' },
+                        { label: route.params.location || 'All Locations', icon: 'map-marker' },
+                        { label: trade || 'Survey', icon: 'tools' },
+                    ]}
+                    onNavigate={(index) => {
+                        if (index === 0 || index === 1) {
+                            navigation.navigate('HomeTab', { screen: 'Dashboard' });
+                        }
+                    }}
+                />
+            </View>
+
             {/* ── Asset list ───────────────────────────────────────────── */}
-            {assets.length === 0 && !loadingAssets ? (
-                <View style={styles.emptyContainer}>
-                    <IconButton icon="clipboard-text-outline" size={60} iconColor={theme.colors.onSurfaceVariant} style={{ opacity: 0.5 }} />
-                    <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No Items Yet</Text>
-                    <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                        {trade} has no pre-loaded assets here. Tap the '+' button to log an issue manually.
-                    </Text>
-                </View>
+            {loadingAssets ? (
+                <AssetListLoadingSkeleton />
+            ) : assets.length === 0 ? (
+                <EmptyState
+                    title="No Assets to Inspect"
+                    description={`${trade} has no pre-loaded assets at this location. Tap "Add Asset" below to log a new issue or deficiency.`}
+                    illustration="assets"
+                    actionLabel="Add Your First Asset"
+                    onAction={handleAddAsset}
+                />
             ) : (
                 <FlatList
                     ref={flatListRef}
@@ -564,6 +586,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flexGrow: 1,
+        paddingBottom: Platform.OS === 'ios' ? 140 : 120, // Extra padding for FAB and bottom safe area
     },
     emptyState: {
         margin: Spacing[4],
@@ -576,7 +599,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         margin: 16,
         right: 0,
-        bottom: 80, // Moved up to clear Submit button
+        bottom: Platform.OS === 'ios' ? 120 : 100, // Extra space for iOS home indicator and bottom buttons
     },
     emptyContainer: {
         flex: 1,

@@ -8,7 +8,10 @@ import { downloadSurveyReport, downloadAllSurveysZip } from '../services/excelSe
 import * as FileSystem from 'expo-file-system/legacy';
 import { SiteSelector } from '../components/SiteSelector';
 import { useAuth } from '../context/AuthContext';
-import { Colors } from '../constants/design';
+import { Colors, Spacing } from '../constants/design';
+import { DashboardLoadingSkeleton } from '../components/SkeletonLoader';
+import { EmptyState } from '../components/EmptyState';
+import { StatusLegend } from '../components/StatusLegend';
 
 // Interfaces
 interface Asset {
@@ -419,9 +422,12 @@ export default function SurveyManagementScreen() {
             </View>
 
             {loading ? (
-                <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+                <DashboardLoadingSkeleton />
             ) : selectedSite ? (
                 <ScrollView contentContainerStyle={{ padding: 16 }}>
+
+                    {/* Status Legend */}
+                    <StatusLegend />
 
                     {/* Phase A: Analytics Header */}
                     <Surface style={[styles.statsCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
@@ -684,14 +690,22 @@ export default function SurveyManagementScreen() {
                     })}
 
                     {hierarchy.length === 0 && (
-                        <Text style={{ textAlign: 'center', marginTop: 20, opacity: 0.5 }}>No assets found. Import assets to generate hierarchy.</Text>
+                        <View style={{ marginTop: Spacing[4] }}>
+                            <EmptyState
+                                title="No Workbooks Generated"
+                                description="No assets found for this site. Import assets first to generate survey workbooks organized by location and service line."
+                                illustration="assets"
+                            />
+                        </View>
                     )}
 
                 </ScrollView>
             ) : (
-                <View style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}>
-                    <Text>Select a Site to Manage Surveys</Text>
-                </View>
+                <EmptyState
+                    title="Select a Site"
+                    description="Choose a site from the dropdown above to view survey analytics, manage workbooks, and generate reports."
+                    illustration="sites"
+                />
             )}
 
             {/* Global Loader Overlay if needed for blocking ops */}

@@ -4,6 +4,8 @@ import { Card, Text, Button, TextInput, useTheme, Chip, SegmentedButtons, Divide
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import PhotoPicker from './PhotoPicker';
 import { Colors, Radius, Typography, Spacing } from '../constants/design';
+import { HelpIcon } from './HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 interface AssetInspectionCardProps {
     asset: any;
@@ -39,16 +41,61 @@ const AssetInspectionCard = ({
 }: AssetInspectionCardProps) => {
     const theme = useTheme();
     const [capturingGPS, setCapturingGPS] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const validateQuantity = (value: string, field: 'quantity_installed' | 'quantity_working') => {
+        const newErrors = { ...errors };
+        const num = parseInt(value);
+
+        // Check if it's a valid number
+        if (value && (isNaN(num) || num < 0)) {
+            newErrors[field] = 'Must be a positive number';
+        }
+        // Check if working quantity exceeds installed quantity
+        else if (field === 'quantity_working' && value && !isNaN(num)) {
+            const installed = inspection.quantity_installed || 0;
+            if (num > installed) {
+                newErrors[field] = `Cannot exceed installed qty (${installed})`;
+            } else {
+                delete newErrors[field];
+            }
+        }
+        else {
+            delete newErrors[field];
+        }
+
+        setErrors(newErrors);
+    };
+
+    const validateRemarks = () => {
+        const newErrors = { ...errors };
+
+        // Require remarks if condition is Unsatisfactory or has Comment
+        if ((inspection.overall_condition === 'Unsatisfactory' ||
+             inspection.overall_condition === 'Satisfactory with Comment') &&
+            (!inspection.remarks || inspection.remarks.trim().length === 0)) {
+            newErrors.remarks = 'Remarks required for this condition';
+        } else {
+            delete newErrors.remarks;
+        }
+
+        setErrors(newErrors);
+    };
 
     const handleConditionRatingChange = (rating: string) => {
         onUpdate(asset.id, { ...inspection, condition_rating: rating });
     };
+
     const handleOverallConditionChange = (condition: string) => {
         onUpdate(asset.id, { ...inspection, overall_condition: condition });
+        // Re-validate remarks when condition changes
+        setTimeout(validateRemarks, 100);
     };
+
     const handlePhotosChange = (photos: string[]) => {
         onUpdate(asset.id, { ...inspection, photos });
     };
+
     const handleCaptureGPS = async () => {
         setCapturingGPS(true);
         const coords = await onCaptureGPS();
@@ -104,9 +151,12 @@ const AssetInspectionCard = ({
 
                 {/* ── Condition Rating ──────────────────────────────────── */}
                 <View style={styles.section}>
-                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
-                        Condition Rating *
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                            Condition Rating *
+                        </Text>
+                        <HelpIcon text={HELP_TEXT.CONDITION_RATING} />
+                    </View>
                     <View style={styles.ratingGrid}>
                         {CONDITION_RATINGS.map((rating) => {
                             const isSelected = inspection.condition_rating === rating.value;
@@ -140,9 +190,12 @@ const AssetInspectionCard = ({
 
                 {/* ── Overall Condition ─────────────────────────────────── */}
                 <View style={styles.section}>
-                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
-                        Overall Condition *
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                            Overall Condition *
+                        </Text>
+                        <HelpIcon text={HELP_TEXT.OVERALL_CONDITION} />
+                    </View>
                     <SegmentedButtons
                         value={inspection.overall_condition || ''}
                         onValueChange={handleOverallConditionChange}
@@ -160,24 +213,48 @@ const AssetInspectionCard = ({
                 <View style={styles.section}>
                     <View style={styles.row}>
                         <View style={{ flex: 1, marginRight: Spacing[2] }}>
-                            <Text style={[Typography.labelMd, { color: theme.colors.onSurface, marginBottom: Spacing[1] }]}>Qty Installed</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[1] }}>
+                                <Text style={[Typography.labelMd, { color: theme.colors.onSurface }]}>Qty Installed</Text>
+                                <HelpIcon text={HELP_TEXT.QUANTITY_INSTALLED} size={14} />
+                            </View>
                             <TextInput
                                 mode="outlined"
                                 keyboardType="numeric"
                                 value={inspection.quantity_installed?.toString() || ''}
-                                onChangeText={(text) => onUpdate(asset.id, { ...inspection, quantity_installed: Math.floor(parseFloat(text)) || 0 })}
+                                onChangeText={(text) => {
+                                    validateQuantity(text, 'quantity_installed');
+                                    onUpdate(asset.id, { ...inspection, quantity_installed: Math.floor(parseFloat(text)) || 0 });
+                                }}
+                                error={!!errors.quantity_installed}
                                 dense
                             />
+                            {errors.quantity_installed && (
+                                <Text style={[Typography.bodyXs, { color: theme.colors.error, marginTop: 4 }]}>
+                                    {errors.quantity_installed}
+                                </Text>
+                            )}
                         </View>
                         <View style={{ flex: 1, marginLeft: Spacing[2] }}>
-                            <Text style={[Typography.labelMd, { color: theme.colors.onSurface, marginBottom: Spacing[1] }]}>Qty Working</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[1] }}>
+                                <Text style={[Typography.labelMd, { color: theme.colors.onSurface }]}>Qty Working</Text>
+                                <HelpIcon text={HELP_TEXT.QUANTITY_WORKING} size={14} />
+                            </View>
                             <TextInput
                                 mode="outlined"
                                 keyboardType="numeric"
                                 value={inspection.quantity_working?.toString() || ''}
-                                onChangeText={(text) => onUpdate(asset.id, { ...inspection, quantity_working: Math.floor(parseFloat(text)) || 0 })}
+                                onChangeText={(text) => {
+                                    validateQuantity(text, 'quantity_working');
+                                    onUpdate(asset.id, { ...inspection, quantity_working: Math.floor(parseFloat(text)) || 0 });
+                                }}
+                                error={!!errors.quantity_working}
                                 dense
                             />
+                            {errors.quantity_working && (
+                                <Text style={[Typography.bodyXs, { color: theme.colors.error, marginTop: 4 }]}>
+                                    {errors.quantity_working}
+                                </Text>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -186,9 +263,12 @@ const AssetInspectionCard = ({
 
                 {/* ── Photos ───────────────────────────────────────────── */}
                 <View style={styles.section}>
-                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
-                        Photos
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                            Photos
+                        </Text>
+                        <HelpIcon text={HELP_TEXT.PHOTOS} />
+                    </View>
                     <PhotoPicker
                         photos={inspection.photos || []}
                         onPhotosChange={handlePhotosChange}
@@ -203,17 +283,34 @@ const AssetInspectionCard = ({
 
                 {/* ── Remarks ──────────────────────────────────────────── */}
                 <View style={styles.section}>
-                    <Text style={[Typography.labelLg, { color: theme.colors.onSurface, marginBottom: Spacing[2] }]}>
-                        Remarks
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[2] }}>
+                        <Text style={[Typography.labelLg, { color: theme.colors.onSurface }]}>
+                            Remarks
+                            {(inspection.overall_condition === 'Unsatisfactory' ||
+                              inspection.overall_condition === 'Satisfactory with Comment') && (
+                                <Text style={{ color: theme.colors.error }}> *</Text>
+                            )}
+                        </Text>
+                        <HelpIcon text={HELP_TEXT.REMARKS_FIELD} />
+                    </View>
                     <TextInput
                         mode="outlined"
                         multiline
                         numberOfLines={3}
                         value={inspection.remarks || ''}
-                        onChangeText={(text) => onUpdate(asset.id, { ...inspection, remarks: text })}
+                        onChangeText={(text) => {
+                            onUpdate(asset.id, { ...inspection, remarks: text });
+                            validateRemarks();
+                        }}
+                        onBlur={validateRemarks}
+                        error={!!errors.remarks}
                         placeholder="Enter any observations or comments..."
                     />
+                    {errors.remarks && (
+                        <Text style={[Typography.bodyXs, { color: theme.colors.error, marginTop: 4 }]}>
+                            {errors.remarks}
+                        </Text>
+                    )}
                 </View>
 
                 <Divider style={{ marginTop: Spacing[4], marginBottom: Spacing[4] }} />

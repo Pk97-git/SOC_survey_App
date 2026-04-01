@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { View, Image, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
-import { IconButton, useTheme, Text } from 'react-native-paper';
+import { IconButton, useTheme, Text, Button } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
+import ImageViewing from 'react-native-image-viewing';
 import { photoService } from '../services/photoService';
+import { Colors, Radius } from '../constants/design';
 
 interface PhotoPickerProps {
     photos: string[]; // Array of file URIs
@@ -14,16 +17,18 @@ interface PhotoPickerProps {
     maxPhotos?: number;
 }
 
-export default function PhotoPicker({ 
-    photos, 
-    onPhotosChange, 
+export default function PhotoPicker({
+    photos,
+    onPhotosChange,
     surveyId,
     assetInspectionId,
     assetId,
-    maxPhotos = 10 
+    maxPhotos = 10
 }: PhotoPickerProps) {
     const theme = useTheme();
     const [loading, setLoading] = useState(false);
+    const [lightboxVisible, setLightboxVisible] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     const requestPermissions = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -39,7 +44,17 @@ export default function PhotoPicker({
             if (Platform.OS === 'web') {
                 return uri;
             }
-            
+
+            // ✅ FIX: Actually compress the image
+            console.log('[PhotoPicker] Compressing image:', uri);
+            const manipulatedImage = await ImageManipulator.manipulateAsync(
+                uri,
+                [{ resize: { width: 1920 } }], // Max width 1920px, maintains aspect ratio
+                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+            );
+
+            console.log('[PhotoPicker] Image compressed successfully');
+
             // Create a unique filename
             const filename = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
             const docDir = FileSystem.documentDirectory || '';
@@ -53,15 +68,16 @@ export default function PhotoPicker({
 
             const newPath = directory + filename;
 
-            // Copy/move the photo to our app directory
-            await FileSystem.copyAsync({
-                from: uri,
+            // Move the compressed photo to our app directory
+            await FileSystem.moveAsync({
+                from: manipulatedImage.uri,
                 to: newPath
             });
 
+            console.log('[PhotoPicker] Photo saved to:', newPath);
             return newPath;
         } catch (error) {
-            console.error('Error saving photo:', error);
+            console.error('Error compressing and saving photo:', error);
             throw error;
         }
     };
@@ -70,9 +86,10 @@ export default function PhotoPicker({
         try {
             console.log('[PhotoPicker] Uploading to server:', uri);
             const uploadedPhoto = await photoService.uploadPhoto(assetInspectionId, surveyId, uri, undefined, assetId);
-            const serverUrl = photoService.getPhotoUrl(uploadedPhoto.id);
-            console.log('[PhotoPicker] Upload success:', serverUrl);
-            return serverUrl;
+            // ✅ FIX: Return UUID only, not full URL
+            // Frontend will construct URL on-demand for display
+            console.log('[PhotoPicker] Upload success, photo ID:', uploadedPhoto.id);
+            return uploadedPhoto.id;
         } catch (error) {
             console.error('[PhotoPicker] Upload error:', error);
             throw error;
@@ -215,22 +232,74 @@ export default function PhotoPicker({
 
     const getDisplayUri = (uri: string) => {
         if (!uri) return '';
-        if (uri.startsWith('http') || uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('content:') || uri.startsWith('blob:')) {
+
+        // Local URIs (offline mobile)
+        if (uri.startsWith('file:') || uri.startsWith('blob:') ||
+            uri.startsWith('content:') || uri.startsWith('data:')) {
             return uri;
         }
-        // If it's a UUID, resolve to API URL
+
+        // UUID from server - construct URL on-demand
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uri)) {
             return photoService.getPhotoUrl(uri);
         }
+
+        // Legacy URLs (backward compatibility during migration)
+        if (uri.startsWith('http')) {
+            // Try to extract UUID from URL
+            const match = uri.match(/\/photos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+            if (match) {
+                return photoService.getPhotoUrl(match[1]);
+            }
+            return uri;
+        }
+
         return uri;
     };
+
+    const openLightbox = (index: number) => {
+        setLightboxIndex(index);
+        setLightboxVisible(true);
+    };
+
+    const deletePhotoFromLightbox = (imageIndex: number) => {
+        const confirmDelete = () => {
+            setLightboxVisible(false);
+            const newPhotos = photos.filter((_, i) => i !== imageIndex);
+            onPhotosChange(newPhotos);
+        };
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Delete this photo? This action cannot be undone.');
+            if (confirmed) confirmDelete();
+        } else {
+            Alert.alert(
+                'Delete Photo',
+                'Are you sure you want to delete this photo? This action cannot be undone.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: confirmDelete }
+                ]
+            );
+        }
+    };
+
+    const imageViewerData = photos.map(uri => ({
+        uri: getDisplayUri(uri)
+    }));
 
     return (
         <View style={styles.container}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
                 {photos.map((uri, index) => (
                     <View key={index} style={styles.photoContainer}>
-                        <Image source={{ uri: getDisplayUri(uri) }} style={styles.photo} />
+                        <TouchableOpacity onPress={() => openLightbox(index)} activeOpacity={0.8}>
+                            <Image source={{ uri: getDisplayUri(uri) }} style={styles.photo} />
+                            {/* Zoom indicator overlay */}
+                            <View style={[styles.zoomIndicator, { backgroundColor: 'rgba(0,0,0,0.65)' }]}>
+                                <IconButton icon="magnify-plus-outline" size={14} iconColor="#fff" style={{ margin: 0 }} />
+                            </View>
+                        </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.removeButton, { backgroundColor: theme.colors.error }]}
                             onPress={() => removePhoto(index)}
@@ -264,6 +333,48 @@ export default function PhotoPicker({
                     {photos.length} / {maxPhotos} photos
                 </Text>
             )}
+
+            {/* Photo Lightbox */}
+            <ImageViewing
+                images={imageViewerData}
+                imageIndex={lightboxIndex}
+                visible={lightboxVisible}
+                onRequestClose={() => setLightboxVisible(false)}
+                HeaderComponent={({ imageIndex }) => (
+                    <View style={styles.lightboxHeader}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.lightboxTitle}>
+                                Photo {imageIndex + 1} of {photos.length}
+                            </Text>
+                        </View>
+                        <Button
+                            mode="contained"
+                            icon="delete"
+                            onPress={() => deletePhotoFromLightbox(imageIndex)}
+                            compact
+                            buttonColor={Colors.status.errorRed}
+                            textColor="#FFFFFF"
+                            style={{ borderRadius: Radius.sm }}
+                        >
+                            Delete
+                        </Button>
+                        <IconButton
+                            icon="close"
+                            iconColor="#FFFFFF"
+                            size={24}
+                            onPress={() => setLightboxVisible(false)}
+                            style={{ margin: 0, marginLeft: 8 }}
+                        />
+                    </View>
+                )}
+                FooterComponent={({ imageIndex }) => (
+                    <View style={styles.lightboxFooter}>
+                        <Text style={styles.lightboxCaption}>
+                            Swipe left or right to view more photos
+                        </Text>
+                    </View>
+                )}
+            />
         </View>
     );
 }
@@ -285,6 +396,16 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: '#f0f0f0',
     },
+    zoomIndicator: {
+        position: 'absolute',
+        bottom: 4,
+        right: 4,
+        borderRadius: Radius.sm,
+        width: 26,
+        height: 26,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     removeButton: {
         position: 'absolute',
         top: 4,
@@ -304,5 +425,29 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#e0e0e0',
         borderStyle: 'dashed',
+    },
+    lightboxHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        paddingTop: Platform.OS === 'ios' ? 50 : 16,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+    },
+    lightboxTitle: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    lightboxFooter: {
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        alignItems: 'center',
+    },
+    lightboxCaption: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 13,
+        fontStyle: 'italic',
     },
 });

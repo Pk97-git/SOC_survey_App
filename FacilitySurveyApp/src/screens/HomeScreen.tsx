@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Surface, useTheme, IconButton, Searchbar, Avatar, Divider, Button, Chip } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,10 @@ import { storage } from '../services/storage';
 import * as hybridStorage from '../services/hybridStorage';
 import { Colors, Radius, Typography, Spacing, Layout } from '../constants/design';
 import { useAuth } from '../context/AuthContext';
+import { SiteListLoadingSkeleton, HierarchyCardSkeleton } from '../components/SkeletonLoader';
+import { EmptyState } from '../components/EmptyState';
+import { BreadcrumbNav } from '../components/BreadcrumbNav';
+import { StatusLegend } from '../components/StatusLegend';
 
 export default function HomeScreen() {
     const navigation = useNavigation<any>();
@@ -26,9 +30,13 @@ export default function HomeScreen() {
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             loadSites();
+            // Reload surveys if a site is currently selected
+            if (selectedSite) {
+                reloadCurrentSiteSurveys();
+            }
         });
         return unsubscribe;
-    }, [navigation]);
+    }, [navigation, selectedSite]);
 
     const loadSites = async () => {
         setLoading(true);
@@ -39,6 +47,17 @@ export default function HomeScreen() {
             console.error('Error loading sites:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const reloadCurrentSiteSurveys = async () => {
+        if (!selectedSite) return;
+        try {
+            const allSurveys = await storage.getSurveys(selectedSite.id);
+            const siteSurveys = allSurveys.filter((s: any) => s.site_id === selectedSite.id);
+            setSurveys(siteSurveys);
+        } catch (error) {
+            console.error('Error reloading site surveys:', error);
         }
     };
 
@@ -116,20 +135,11 @@ export default function HomeScreen() {
             </Text>
 
             {sites.length === 0 && !loading ? (
-                <View style={styles.emptyContainer}>
-                    <Avatar.Icon
-                        size={64}
-                        icon="domain-off"
-                        style={{ backgroundColor: theme.colors.surfaceVariant }}
-                        color={theme.colors.onSurfaceVariant}
-                    />
-                    <Text style={[Typography.bodyMd, { marginTop: Spacing[4], color: theme.colors.onSurfaceVariant, textAlign: 'center' }]}>
-                        No sites available.
-                    </Text>
-                    <Text style={[Typography.bodySm, { color: theme.colors.onSurfaceVariant, marginTop: Spacing[1], textAlign: 'center', opacity: 0.7 }]}>
-                        Your admin needs to create a site first.
-                    </Text>
-                </View>
+                <EmptyState
+                    title="No Sites Available"
+                    description="Your administrator needs to create a site before you can start surveys. Contact your admin to get started."
+                    illustration="sites"
+                />
             ) : (
                 <FlatList
                     data={sites}
@@ -169,18 +179,19 @@ export default function HomeScreen() {
 
     const renderLocationList = () => (
         <View style={styles.contentContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[4] }}>
-                <IconButton
-                    icon="arrow-left"
-                    size={24}
-                    onPress={handleBackToSites}
-                    style={{ marginLeft: -12 }}
-                    iconColor={theme.colors.primary}
-                />
-                <Text style={[Typography.h2, { color: theme.colors.onSurface, flex: 1 }]} numberOfLines={1}>
-                    {selectedSite?.name}
-                </Text>
-            </View>
+            {/* Breadcrumb Navigation */}
+            <BreadcrumbNav
+                path={[
+                    { label: 'All Sites', icon: 'home' },
+                    { label: selectedSite?.name || 'Site', icon: 'office-building' },
+                ]}
+                onNavigate={(index) => {
+                    if (index === 0) handleBackToSites();
+                }}
+            />
+
+            {/* Status Legend */}
+            <StatusLegend visibleStatuses={['in_progress', 'submitted', 'under_review', 'completed']} />
 
             <Searchbar
                 placeholder="Search locations..."
@@ -191,17 +202,13 @@ export default function HomeScreen() {
             />
 
             {locationHierarchy.length === 0 && !loading ? (
-                <View style={styles.emptyContainer}>
-                    <Avatar.Icon
-                        size={64}
-                        icon="map-search-outline"
-                        style={{ backgroundColor: theme.colors.surfaceVariant }}
-                        color={theme.colors.onSurfaceVariant}
-                    />
-                    <Text style={[Typography.bodyMd, { marginTop: Spacing[4], color: theme.colors.onSurfaceVariant, textAlign: 'center' }]}>
-                        No locations found for this site.
-                    </Text>
-                </View>
+                <EmptyState
+                    title="No Surveys Found"
+                    description={searchQuery ? `No locations match "${searchQuery}". Try a different search term.` : "No surveys have been created for this site yet. Contact your administrator to generate surveys."}
+                    illustration="search"
+                    actionLabel={searchQuery ? "Clear Search" : undefined}
+                    onAction={searchQuery ? () => setSearchQuery('') : undefined}
+                />
             ) : (
                 <FlatList
                     data={locationHierarchy}
@@ -331,7 +338,25 @@ export default function HomeScreen() {
             </Surface>
 
             {loading && !selectedSite ? (
-                <ActivityIndicator size="large" style={{ marginTop: 40 }} color={theme.colors.primary} />
+                <SiteListLoadingSkeleton />
+            ) : loading && selectedSite ? (
+                <View style={styles.contentContainer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing[4] }}>
+                        <IconButton
+                            icon="arrow-left"
+                            size={24}
+                            onPress={handleBackToSites}
+                            style={{ marginLeft: -12 }}
+                            iconColor={theme.colors.primary}
+                        />
+                        <Text style={[Typography.h2, { color: theme.colors.onSurface, flex: 1 }]} numberOfLines={1}>
+                            {selectedSite?.name}
+                        </Text>
+                    </View>
+                    <HierarchyCardSkeleton />
+                    <HierarchyCardSkeleton />
+                    <HierarchyCardSkeleton />
+                </View>
             ) : selectedSite ? (
                 renderLocationList()
             ) : (

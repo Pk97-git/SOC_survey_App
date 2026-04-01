@@ -83,18 +83,46 @@ export class InspectionRepository {
             
             const inspection = result.rows[0];
 
-            // Handle photos if provided (as file paths from photo upload)
+            // Handle photos if provided
             if (data.photos && data.photos.length > 0) {
-                // IMPORTANT: Only insert strings that look like local file paths (starting with 'uploads/')
-                // This prevents URLs or 'blob:' strings from being saved as file paths.
-                const localPaths = data.photos.filter(p => typeof p === 'string' && p.startsWith('uploads/'));
-                
-                for (const filePath of localPaths) {
-                    await client.query(
-                        `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
-                         VALUES ($1, $2, $3)`,
-                        [inspection.id, data.survey_id, filePath]
-                    );
+                for (const photoIdentifier of data.photos) {
+                    if (typeof photoIdentifier !== 'string') continue;
+
+                    // Case 1: UUID (from web immediate upload or existing photo)
+                    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(photoIdentifier)) {
+                        // Photo already exists in photos table, just link it
+                        await client.query(
+                            `UPDATE photos
+                             SET asset_inspection_id = $1, survey_id = $2
+                             WHERE id = $3`,
+                            [inspection.id, data.survey_id, photoIdentifier]
+                        );
+                        continue;
+                    }
+
+                    // Case 2: File path (from mobile offline upload)
+                    if (photoIdentifier.startsWith('uploads/')) {
+                        await client.query(
+                            `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
+                             VALUES ($1, $2, $3)
+                             ON CONFLICT DO NOTHING`,
+                            [inspection.id, data.survey_id, photoIdentifier]
+                        );
+                        continue;
+                    }
+
+                    // Case 3: Legacy URL - extract UUID
+                    if (photoIdentifier.includes('/photos/')) {
+                        const match = photoIdentifier.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+                        if (match) {
+                            await client.query(
+                                `UPDATE photos
+                                 SET asset_inspection_id = $1, survey_id = $2
+                                 WHERE id = $3`,
+                                [inspection.id, data.survey_id, match[1]]
+                            );
+                        }
+                    }
                 }
             }
 
@@ -231,18 +259,55 @@ export class InspectionRepository {
                     }
                 }
 
-                // 2. Add new photos (the ones that are NOT UUIDs yet, i.e., file paths from recent upload)
-                const newPaths = (data.photos || []).filter(p => typeof p === 'string' && p.startsWith('uploads/'));
-                for (const filePath of newPaths) {
-                    const exists = await client.query(
-                        `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,
-                        [id, filePath]
-                    );
-                    if (exists.rows.length === 0) {
-                        await client.query(
-                            `INSERT INTO photos (asset_inspection_id, survey_id, file_path) VALUES ($1, $2, $3)`,
-                            [id, surveyId, filePath]
+                // 2. Add new photos
+                const newItems = (data.photos || []);
+                for (const photoIdentifier of newItems) {
+                    if (typeof photoIdentifier !== 'string') continue;
+
+                    // UUID - link existing photo
+                    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(photoIdentifier)) {
+                        // Check if already linked
+                        const existing = await client.query(
+                            `SELECT id FROM photos WHERE id = $1 AND asset_inspection_id = $2`,
+                            [photoIdentifier, id]
                         );
+                        if (existing.rows.length === 0) {
+                            await client.query(
+                                `UPDATE photos
+                                 SET asset_inspection_id = $1, survey_id = $2
+                                 WHERE id = $3`,
+                                [id, surveyId, photoIdentifier]
+                            );
+                        }
+                        continue;
+                    }
+
+                    // File path - insert new
+                    if (photoIdentifier.startsWith('uploads/')) {
+                        const exists = await client.query(
+                            `SELECT id FROM photos WHERE asset_inspection_id = $1 AND file_path = $2`,
+                            [id, photoIdentifier]
+                        );
+                        if (exists.rows.length === 0) {
+                            await client.query(
+                                `INSERT INTO photos (asset_inspection_id, survey_id, file_path)
+                                 VALUES ($1, $2, $3)`,
+                                [id, surveyId, photoIdentifier]
+                            );
+                        }
+                    }
+
+                    // Legacy URL - extract UUID
+                    if (photoIdentifier.includes('/photos/')) {
+                        const match = photoIdentifier.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+                        if (match) {
+                            await client.query(
+                                `UPDATE photos
+                                 SET asset_inspection_id = $1, survey_id = $2
+                                 WHERE id = $3`,
+                                [id, surveyId, match[1]]
+                            );
+                        }
                     }
                 }
             }
