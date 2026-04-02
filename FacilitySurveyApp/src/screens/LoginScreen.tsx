@@ -198,7 +198,7 @@ export default function LoginScreen() {
 
                         {/* Version footer */}
                         <Text style={[Typography.bodyXs, styles.versionText, { color: theme.colors.onSurfaceVariant }]}>
-                            v1.0.0 · CIT Group Ltd · Gulaid Holding
+                            v1.0 · CIT Group Ltd · Gulaid Holding
                         </Text>
                     </View>
 

@@ -2,7 +2,7 @@ import { MD3LightTheme } from 'react-native-paper';
 import { Colors, Radius } from './constants/design';
 
 // Gulaid Holding · CIT Operations — App Theme
-// Built on MD3 Light with the Gulaid brand palette.
+// Built on MD3 Light with the Sphere Connect design system (colors only).
 // All color values reference design tokens — do not hardcode here.
 
 export const theme = {
@@ -12,11 +12,11 @@ export const theme = {
     colors: {
         ...MD3LightTheme.colors,
 
-        // Primary: CIT Green — brand primary
-        primary: Colors.green[500],             // '#56896E'
+        // Primary: CIT Operations Green (from Sphere Connect design system)
+        primary: Colors.green[500],             // '#86A185'
         onPrimary: Colors.neutral[0],           // '#FFFFFF'
-        primaryContainer: Colors.green[100],    // '#D9E6DF'
-        onPrimaryContainer: Colors.green[800],  // '#22372C'
+        primaryContainer: Colors.green[100],    // '#E8F0E8'
+        onPrimaryContainer: Colors.green[800],  // '#364035'
 
         // Secondary: Deep Navy — brand depth
         secondary: Colors.navy[800],            // '#1A2332'
@@ -24,11 +24,11 @@ export const theme = {
         secondaryContainer: Colors.navy[100],   // '#E2E8F0'
         onSecondaryContainer: Colors.navy[900], // '#0F172A'
 
-        // Tertiary: CIT Gold — brand accent
-        tertiary: Colors.gold[400],             // '#C6A050'
-        onTertiary: Colors.neutral[0],
-        tertiaryContainer: Colors.gold[100],    // '#F2EEDA'
-        onTertiaryContainer: Colors.gold[600],  // '#7A602B'
+        // Tertiary: Yellow/Lime Accent (from Sphere Connect design system)
+        tertiary: Colors.accent[400],           // '#CECB2A'
+        onTertiary: Colors.neutral[900],        // Dark text on yellow
+        tertiaryContainer: Colors.accent[100],  // '#F8F8C8'
+        onTertiaryContainer: Colors.accent[600],// '#8F8E1D'
 
         // Backgrounds
         background: Colors.neutral[50],         // '#FAF9F6' — warm off-white

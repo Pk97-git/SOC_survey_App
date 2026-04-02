@@ -241,7 +241,7 @@ export default function ReviewSurveyScreen() {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
             <Surface style={[styles.header, { backgroundColor: theme.colors.tertiaryContainer }]} elevation={2}>
-                <Text style={[Typography.headlineLg, { color: theme.colors.onTertiaryContainer }]}>
+                <Text style={[Typography.h1, { color: theme.colors.onTertiaryContainer }]}>
                     Review Survey
                 </Text>
                 <Text style={[Typography.bodyMd, { color: theme.colors.onTertiaryContainer, opacity: 0.8, marginTop: Spacing[1] }]}>
@@ -261,7 +261,7 @@ export default function ReviewSurveyScreen() {
                     <Surface style={[styles.card, { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.outlineVariant }]} elevation={1}>
                         {/* Surveyor Data (Read-only) */}
                         <View style={styles.section}>
-                            <Text style={[Typography.titleMd, { color: theme.colors.primary }]}>
+                            <Text style={[Typography.h4, { color: theme.colors.primary }]}>
                                 Asset: {inspection.asset_name}
                             </Text>
                             <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant, marginTop: Spacing[1] }]}>
@@ -311,7 +311,7 @@ export default function ReviewSurveyScreen() {
 
                         {/* Reviewer Input */}
                         <View style={styles.section}>
-                            <Text style={[Typography.titleMd, { color: theme.colors.secondary, marginBottom: Spacing[2] }]}>
+                            <Text style={[Typography.h4, { color: theme.colors.secondary, marginBottom: Spacing[2] }]}>
                                 {reviewerType} Review
                             </Text>
 

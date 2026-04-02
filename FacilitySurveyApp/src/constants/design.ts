@@ -10,26 +10,36 @@ import { Platform } from 'react-native';
 
 export const Colors = {
 
-    // Green — primary brand color (CIT Official)
+    // Green — primary brand color (Sphere Connect)
     green: {
         50: '#F0F5F2',
-        100: '#D9E6DF',
-        200: '#B8CDBE',
-        300: '#94B39F',
-        400: '#739B82',
-        500: '#56896E',   // PRIMARY — CIT brand
-        600: '#456E58',   // Pressed / active
-        700: '#345242',   // Deep
-        800: '#22372C',
-        900: '#111B16',
+        100: '#E8F0E8',
+        200: '#C8D9C7',
+        300: '#A7C2A6',
+        400: '#86A185',   // PRIMARY — Sphere Connect brand
+        500: '#86A185',   // PRIMARY — Sphere Connect brand
+        600: '#6B8169',   // Pressed / active
+        700: '#50604F',   // Deep
+        800: '#364035',
+        900: '#1B201A',
     },
 
-    // Gold — corporate accent (Gulaid Holding / CIT)
+    // Yellow/Lime — accent color (Sphere Connect)
+    accent: {
+        50: '#FCFCE8',
+        100: '#F8F8C8',
+        300: '#E8E760',
+        400: '#CECB2A',   // ACCENT — Sphere Connect yellow/lime
+        500: '#B5B225',
+        600: '#8F8E1D',
+    },
+
+    // Gold — legacy corporate accent (kept for compatibility)
     gold: {
         50: '#FAFAF5',
         100: '#F2EEDA',
         300: '#DEBB6F',
-        400: '#C6A050',   // SECONDARY — CIT gold accent
+        400: '#C6A050',
         500: '#A3813B',
         600: '#7A602B',
     },
@@ -182,6 +192,9 @@ export const Shadows = {
 };
 
 // ─── Typography Scale ────────────────────────────────────────────────────────
+// Font Family: Nunito is loaded via Google Fonts for web in index.html
+// Mobile uses system fonts (-apple-system, Roboto) for optimal performance
+// To add Nunito to mobile, install @expo-google-fonts/nunito and use useFonts hook
 
 export const Typography = {
     // Display (hero sections, login)

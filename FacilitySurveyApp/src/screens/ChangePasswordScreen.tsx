@@ -105,7 +105,7 @@ export default function ChangePasswordScreen() {
                             <Surface style={[styles.iconContainer, { backgroundColor: theme.colors.primaryContainer }]} elevation={2}>
                                 <Text style={{ fontSize: 40 }}>🔐</Text>
                             </Surface>
-                            <Text style={[Typography.headlineMd, { color: theme.colors.onSurface, textAlign: 'center' }]}>
+                            <Text style={[Typography.h2, { color: theme.colors.onSurface, textAlign: 'center' }]}>
                                 Change Password
                             </Text>
                             <Text style={[Typography.bodyMd, { color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: Spacing[2] }]}>

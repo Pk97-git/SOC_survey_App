@@ -102,25 +102,25 @@ const CustomDrawerContent = (props: any) => {
         <DrawerContentScrollView
             {...props}
             contentContainerStyle={{ flex: 1, paddingTop: 0 }}
-            style={{ backgroundColor: theme.colors.surface }}
+            style={{ backgroundColor: theme.colors.primary }}
         >
             {/* Brand Header */}
-            <View style={[drawerStyles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
-                {/* Maroon accent stripe */}
-                <View style={[drawerStyles.brandStripe, { backgroundColor: theme.colors.primary }]} />
+            <View style={[drawerStyles.header, { borderBottomColor: 'rgba(255,255,255,0.2)' }]}>
+                {/* Accent stripe */}
+                <View style={[drawerStyles.brandStripe, { backgroundColor: theme.colors.tertiary }]} />
                 {/* Logo */}
                 <Image
                     source={require('../../assets/cit-logo.png')}
                     style={{ width: 28, height: 28, resizeMode: 'contain', marginLeft: Spacing[2] }}
                 />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                    <PaperText style={[Typography.h4, { color: theme.colors.onSurface, letterSpacing: -0.3 }]}>
+                    <PaperText style={[Typography.h4, { color: '#FFFFFF', letterSpacing: -0.3 }]}>
                         CIT Operations
                     </PaperText>
-                    <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary, marginTop: 1 }]}>
+                    <PaperText style={[Typography.labelXs, { color: 'rgba(255,255,255,0.8)', marginTop: 1 }]}>
                         GULAID HOLDING
                     </PaperText>
-                    <PaperText style={[Typography.labelXs, { color: theme.colors.onSurfaceVariant, marginTop: 2 }]}>
+                    <PaperText style={[Typography.labelXs, { color: 'rgba(255,255,255,0.7)', marginTop: 2 }]}>
                         {roleLabel || 'Portal'}
                     </PaperText>
                 </View>
@@ -128,23 +128,23 @@ const CustomDrawerContent = (props: any) => {
 
             {/* User Info */}
             {user && (
-                <View style={[drawerStyles.userInfo, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <View style={[drawerStyles.userInfo, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
                     <Avatar.Text
                         size={40}
                         label={user.fullName?.substring(0, 2).toUpperCase() || 'US'}
-                        style={{ backgroundColor: theme.colors.primaryContainer }}
+                        style={{ backgroundColor: '#FFFFFF' }}
                         labelStyle={{ color: theme.colors.primary }}
                     />
                     <View style={{ marginLeft: 12, flex: 1 }}>
-                        <PaperText style={[Typography.labelMd, { color: theme.colors.onSurface }]}>
+                        <PaperText style={[Typography.labelMd, { color: '#FFFFFF' }]}>
                             {user.fullName || 'User'}
                         </PaperText>
-                        <PaperText style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant }]}>
+                        <PaperText style={[Typography.bodyXs, { color: 'rgba(255,255,255,0.8)' }]}>
                             {user.email}
                         </PaperText>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                            <View style={[drawerStyles.roleBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
-                                <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
+                            <View style={[drawerStyles.roleBadge, { backgroundColor: theme.colors.tertiary }]}>
+                                <PaperText style={[Typography.labelXs, { color: Colors.neutral[900] }]}>
                                     {user.role?.toUpperCase() || 'USER'}
                                 </PaperText>
                             </View>
@@ -153,7 +153,7 @@ const CustomDrawerContent = (props: any) => {
                 </View>
             )}
 
-            <Divider style={{ marginVertical: 8 }} />
+            <Divider style={{ marginVertical: 8, backgroundColor: 'rgba(255,255,255,0.2)' }} />
 
             {/* Navigation Items */}
             <View style={{ flex: 1 }}>
@@ -161,14 +161,14 @@ const CustomDrawerContent = (props: any) => {
             </View>
 
             {/* Footer */}
-            <View style={[drawerStyles.footer, { borderTopColor: theme.colors.outlineVariant }]}>
-                <View style={{ backgroundColor: '#FF9800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.xs, alignSelf: 'flex-start', marginBottom: 8 }}>
-                    <PaperText style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>V6.0-SYNC</PaperText>
+            <View style={[drawerStyles.footer, { borderTopColor: 'rgba(255,255,255,0.2)' }]}>
+                <View style={{ backgroundColor: theme.colors.tertiary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.xs, alignSelf: 'flex-start', marginBottom: 8 }}>
+                    <PaperText style={{ color: Colors.neutral[900], fontWeight: 'bold', fontSize: 11 }}>V1.0</PaperText>
                 </View>
-                <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
+                <PaperText style={[Typography.labelXs, { color: 'rgba(255,255,255,0.8)' }]}>
                     GULAID HOLDING
                 </PaperText>
-                <PaperText style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant, marginTop: 2 }]}>
+                <PaperText style={[Typography.bodyXs, { color: 'rgba(255,255,255,0.6)', marginTop: 2 }]}>
                     © 2026 CIT Group Ltd
                 </PaperText>
             </View>
@@ -186,13 +186,13 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
 
     return (
         <View style={[webStyles.sidebar, {
-            backgroundColor: theme.colors.surface,
-            borderRightColor: theme.colors.outlineVariant,
+            backgroundColor: theme.colors.primary,
+            borderRightColor: 'rgba(255,255,255,0.2)',
         }]}>
             {/* Brand */}
-            <View style={[webStyles.brand, { borderBottomColor: theme.colors.outlineVariant }]}>
-                {/* Maroon accent stripe */}
-                <View style={[webStyles.brandStripe, { backgroundColor: theme.colors.primary }]} />
+            <View style={[webStyles.brand, { borderBottomColor: 'rgba(255,255,255,0.2)' }]}>
+                {/* Accent stripe */}
+                <View style={[webStyles.brandStripe, { backgroundColor: theme.colors.tertiary }]} />
                 {/* Logo box */}
                 <View style={[webStyles.brandIcon, { backgroundColor: 'transparent' }]}>
                     <Image
@@ -201,13 +201,13 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
                     />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                    <PaperText style={{ fontSize: 14, fontWeight: '800', color: theme.colors.onSurface, letterSpacing: -0.3 }}>
+                    <PaperText style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 }}>
                         CIT Operations
                     </PaperText>
-                    <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary, marginTop: 1 }]}>
+                    <PaperText style={[Typography.labelXs, { color: 'rgba(255,255,255,0.8)', marginTop: 1 }]}>
                         GULAID HOLDING
                     </PaperText>
-                    <PaperText style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, marginTop: 1 }}>
+                    <PaperText style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 1 }}>
                         {roleLabel}
                     </PaperText>
                 </View>
@@ -239,24 +239,24 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
                                 webStyles.navItem,
                                 isFocused
                                     ? {
-                                        backgroundColor: theme.colors.primaryContainer,
+                                        backgroundColor: 'rgba(255,255,255,0.15)',
                                         borderLeftWidth: 3,
-                                        borderLeftColor: theme.colors.primary,
+                                        borderLeftColor: theme.colors.tertiary,
                                         paddingLeft: 9,
                                     }
                                     : pressed
-                                        ? { backgroundColor: theme.colors.surfaceVariant }
+                                        ? { backgroundColor: 'rgba(255,255,255,0.08)' }
                                         : undefined,
                             ]}
                         >
                             {options.tabBarIcon?.({
                                 focused: isFocused,
-                                color: isFocused ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                                color: isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
                                 size: 22,
                             })}
                             <PaperText style={{
                                 marginLeft: 10,
-                                color: isFocused ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                                color: isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
                                 fontWeight: isFocused ? '700' : '500',
                                 fontSize: 14,
                             }}>
@@ -268,14 +268,14 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
             </View>
 
             {/* Footer */}
-            <View style={[webStyles.sidebarFooter, { borderTopColor: theme.colors.outlineVariant }]}>
-                <View style={{ backgroundColor: '#FF9800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 10 }}>
-                    <PaperText style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>V6.0-SYNC</PaperText>
+            <View style={[webStyles.sidebarFooter, { borderTopColor: 'rgba(255,255,255,0.2)' }]}>
+                <View style={{ backgroundColor: theme.colors.tertiary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 10 }}>
+                    <PaperText style={{ color: Colors.neutral[900], fontWeight: 'bold', fontSize: 11 }}>V1.0</PaperText>
                 </View>
-                <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
+                <PaperText style={[Typography.labelXs, { color: 'rgba(255,255,255,0.8)' }]}>
                     GULAID HOLDING
                 </PaperText>
-                <PaperText style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, marginTop: 3 }}>
+                <PaperText style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
                     CIT Group Ltd © {new Date().getFullYear()}
                 </PaperText>
             </View>
@@ -348,10 +348,10 @@ const SurveyorDrawer = () => {
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Surveyor Portal" />}
             screenOptions={{
                 headerShown: false,
-                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },
                 drawerType: isWeb ? 'permanent' : 'front',
-                drawerActiveTintColor: theme.colors.primary,
-                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerActiveTintColor: '#FFFFFF',
+                drawerInactiveTintColor: 'rgba(255,255,255,0.7)',
                 drawerLabelStyle: {
                     fontSize: 14,
                     fontWeight: '600',
@@ -362,7 +362,7 @@ const SurveyorDrawer = () => {
                     marginHorizontal: 8,
                     marginVertical: 2,
                 },
-                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
             }}
         >
             <Drawer.Screen
@@ -409,10 +409,10 @@ const ReviewerDrawer = () => {
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Reviewer Portal" />}
             screenOptions={{
                 headerShown: false,
-                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },
                 drawerType: isWeb ? 'permanent' : 'front',
-                drawerActiveTintColor: theme.colors.primary,
-                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerActiveTintColor: '#FFFFFF',
+                drawerInactiveTintColor: 'rgba(255,255,255,0.7)',
                 drawerLabelStyle: {
                     fontSize: 14,
                     fontWeight: '600',
@@ -423,7 +423,7 @@ const ReviewerDrawer = () => {
                     marginHorizontal: 8,
                     marginVertical: 2,
                 },
-                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
             }}
         >
             <Drawer.Screen
@@ -459,10 +459,10 @@ const AdminDrawer = () => {
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Admin Portal" />}
             screenOptions={{
                 headerShown: false,
-                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },
                 drawerType: isWeb ? 'permanent' : 'front',
-                drawerActiveTintColor: theme.colors.primary,
-                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerActiveTintColor: '#FFFFFF',
+                drawerInactiveTintColor: 'rgba(255,255,255,0.7)',
                 drawerLabelStyle: {
                     fontSize: 14,
                     fontWeight: '600',
@@ -473,7 +473,7 @@ const AdminDrawer = () => {
                     marginHorizontal: 8,
                     marginVertical: 2,
                 },
-                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                drawerActiveBackgroundColor: 'rgba(255,255,255,0.15)',
             }}
         >
             <Drawer.Screen
