@@ -1,9 +1,9 @@
 import React from 'react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useTheme, Text as PaperText } from 'react-native-paper';
-import { View, Platform, Pressable, StyleSheet, Image } from 'react-native';
+import { useTheme, Text as PaperText, Avatar, Divider } from 'react-native-paper';
+import { View, Platform, Pressable, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Auth
@@ -29,9 +29,9 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ReviewerDashboardScreen from '../screens/ReviewerDashboardScreen';
 import ReviewSurveyScreen from '../screens/ReviewSurveyScreen';
 import HelpScreen from '../screens/HelpScreen';
-import { Colors, Radius, Typography } from '../constants/design';
+import { Colors, Radius, Typography, Spacing } from '../constants/design';
 
-const Tab = createBottomTabNavigator();
+const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +88,93 @@ const ProfileStack = () => (
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom Drawer Content (Mobile & Web)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CustomDrawerContent = (props: any) => {
+    const theme = useTheme();
+    const { user, logout } = useAuth();
+    const { roleLabel } = props;
+
+    return (
+        <DrawerContentScrollView
+            {...props}
+            contentContainerStyle={{ flex: 1, paddingTop: 0 }}
+            style={{ backgroundColor: theme.colors.surface }}
+        >
+            {/* Brand Header */}
+            <View style={[drawerStyles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+                {/* Maroon accent stripe */}
+                <View style={[drawerStyles.brandStripe, { backgroundColor: theme.colors.primary }]} />
+                {/* Logo */}
+                <Image
+                    source={require('../../assets/cit-logo.png')}
+                    style={{ width: 28, height: 28, resizeMode: 'contain', marginLeft: Spacing[2] }}
+                />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                    <PaperText style={[Typography.h4, { color: theme.colors.onSurface, letterSpacing: -0.3 }]}>
+                        CIT Operations
+                    </PaperText>
+                    <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary, marginTop: 1 }]}>
+                        GULAID HOLDING
+                    </PaperText>
+                    <PaperText style={[Typography.labelXs, { color: theme.colors.onSurfaceVariant, marginTop: 2 }]}>
+                        {roleLabel || 'Portal'}
+                    </PaperText>
+                </View>
+            </View>
+
+            {/* User Info */}
+            {user && (
+                <View style={[drawerStyles.userInfo, { backgroundColor: theme.colors.surfaceVariant }]}>
+                    <Avatar.Text
+                        size={40}
+                        label={user.fullName?.substring(0, 2).toUpperCase() || 'US'}
+                        style={{ backgroundColor: theme.colors.primaryContainer }}
+                        labelStyle={{ color: theme.colors.primary }}
+                    />
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                        <PaperText style={[Typography.labelMd, { color: theme.colors.onSurface }]}>
+                            {user.fullName || 'User'}
+                        </PaperText>
+                        <PaperText style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant }]}>
+                            {user.email}
+                        </PaperText>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                            <View style={[drawerStyles.roleBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
+                                <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
+                                    {user.role?.toUpperCase() || 'USER'}
+                                </PaperText>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            )}
+
+            <Divider style={{ marginVertical: 8 }} />
+
+            {/* Navigation Items */}
+            <View style={{ flex: 1 }}>
+                <DrawerItemList {...props} />
+            </View>
+
+            {/* Footer */}
+            <View style={[drawerStyles.footer, { borderTopColor: theme.colors.outlineVariant }]}>
+                <View style={{ backgroundColor: '#FF9800', paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.xs, alignSelf: 'flex-start', marginBottom: 8 }}>
+                    <PaperText style={{ color: 'white', fontWeight: 'bold', fontSize: 11 }}>V6.0-SYNC</PaperText>
+                </View>
+                <PaperText style={[Typography.labelXs, { color: theme.colors.tertiary }]}>
+                    GULAID HOLDING
+                </PaperText>
+                <PaperText style={[Typography.bodyXs, { color: theme.colors.onSurfaceVariant, marginTop: 2 }]}>
+                    © 2026 CIT Group Ltd
+                </PaperText>
+            </View>
+        </DrawerContentScrollView>
+    );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Web sidebar — renders instead of bottom tabs on web for all roles
@@ -249,204 +336,200 @@ const webStyles = StyleSheet.create({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared tab bar config factory
+// Drawer navigators (role-based)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const getTabBarStyle = (isWeb: boolean, theme: any) =>
-    isWeb ? { display: 'none' as const } : {
-        paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-        paddingTop: 10,
-        height: Platform.OS === 'ios' ? 84 : 62,
-        backgroundColor: theme.colors.surface,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.outlineVariant,
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-    };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab navigators
-// ─────────────────────────────────────────────────────────────────────────────
-
-const SurveyorTabs = () => {
+const SurveyorDrawer = () => {
     const theme = useTheme();
     const isWeb = Platform.OS === 'web';
 
     return (
-        <Tab.Navigator
-            tabBar={isWeb ? (props: any) => <WebSidebar {...props} roleLabel="Surveyor Portal" /> : undefined}
-            sceneContainerStyle={isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined}
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Surveyor Portal" />}
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: theme.colors.primary,
-                tabBarInactiveTintColor: Colors.neutral[400],
-                tabBarStyle: getTabBarStyle(isWeb, theme),
-                tabBarLabelStyle: {
-                    fontSize: 11,
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerType: isWeb ? 'permanent' : 'front',
+                drawerActiveTintColor: theme.colors.primary,
+                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerLabelStyle: {
+                    fontSize: 14,
                     fontWeight: '600',
-                    letterSpacing: 0.2,
-                    marginTop: -2,
+                    marginLeft: -10,
                 },
+                drawerItemStyle: {
+                    borderRadius: Radius.sm,
+                    marginHorizontal: 8,
+                    marginVertical: 2,
+                },
+                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
-            <Tab.Screen
+            <Drawer.Screen
                 name="HomeTab"
                 component={SurveyStack}
                 options={{
-                    tabBarLabel: 'Home',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Home',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="ReportsTab"
                 component={SurveyManagementStack}
                 options={{
-                    tabBarLabel: 'Surveys',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Surveys',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'file-document-edit' : 'file-document-edit-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="ProfileTab"
                 component={ProfileStack}
                 options={{
-                    tabBarLabel: 'Profile',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Profile',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'account-circle' : 'account-circle-outline'} size={size} color={color} />
                     ),
-                    headerShown: false,
                 }}
             />
-        </Tab.Navigator>
+        </Drawer.Navigator>
     );
 };
 
 // Reviewer: read-only access — survey list and profile only
-const ReviewerTabs = () => {
+const ReviewerDrawer = () => {
     const theme = useTheme();
     const isWeb = Platform.OS === 'web';
 
     return (
-        <Tab.Navigator
-            tabBar={isWeb ? (props: any) => <WebSidebar {...props} roleLabel="Reviewer Portal" /> : undefined}
-            sceneContainerStyle={isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined}
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Reviewer Portal" />}
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: theme.colors.primary,
-                tabBarInactiveTintColor: Colors.neutral[400],
-                tabBarStyle: getTabBarStyle(isWeb, theme),
-                tabBarLabelStyle: {
-                    fontSize: 11,
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerType: isWeb ? 'permanent' : 'front',
+                drawerActiveTintColor: theme.colors.primary,
+                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerLabelStyle: {
+                    fontSize: 14,
                     fontWeight: '600',
-                    letterSpacing: 0.2,
-                    marginTop: -2,
+                    marginLeft: -10,
                 },
+                drawerItemStyle: {
+                    borderRadius: Radius.sm,
+                    marginHorizontal: 8,
+                    marginVertical: 2,
+                },
+                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
-            <Tab.Screen
+            <Drawer.Screen
                 name="ReportsTab"
                 component={ReviewerStack}
                 options={{
-                    tabBarLabel: 'Surveys',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Surveys',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'file-document-check' : 'file-document-check-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="ProfileTab"
                 component={ProfileStack}
                 options={{
-                    tabBarLabel: 'Profile',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Profile',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'account-circle' : 'account-circle-outline'} size={size} color={color} />
                     ),
-                    headerShown: false,
                 }}
             />
-        </Tab.Navigator>
+        </Drawer.Navigator>
     );
 };
 
-const AdminTabs = () => {
+const AdminDrawer = () => {
     const theme = useTheme();
     const isWeb = Platform.OS === 'web';
 
     return (
-        <Tab.Navigator
-            tabBar={isWeb ? (props: any) => <WebSidebar {...props} roleLabel="Admin Portal" /> : undefined}
-            sceneContainerStyle={isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined}
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Admin Portal" />}
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: theme.colors.primary,
-                tabBarInactiveTintColor: Colors.neutral[400],
-                tabBarStyle: getTabBarStyle(isWeb, theme),
-                tabBarLabelStyle: {
-                    fontSize: 11,
+                drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH } : { width: '80%', maxWidth: 320 },
+                drawerType: isWeb ? 'permanent' : 'front',
+                drawerActiveTintColor: theme.colors.primary,
+                drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+                drawerLabelStyle: {
+                    fontSize: 14,
                     fontWeight: '600',
-                    letterSpacing: 0.2,
-                    marginTop: -2,
+                    marginLeft: -10,
                 },
+                drawerItemStyle: {
+                    borderRadius: Radius.sm,
+                    marginHorizontal: 8,
+                    marginVertical: 2,
+                },
+                drawerActiveBackgroundColor: theme.colors.primaryContainer,
+                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
-            <Tab.Screen
+            <Drawer.Screen
                 name="DashboardTab"
                 component={AdminStack}
                 options={{
-                    tabBarLabel: 'Dashboard',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Dashboard',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'view-dashboard' : 'view-dashboard-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="SitesTab"
                 component={SiteManagementScreen}
                 options={{
-                    tabBarLabel: 'Sites',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Sites',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'office-building' : 'office-building-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="AssetsTab"
                 component={AssetStack}
                 options={{
-                    tabBarLabel: 'Assets',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Assets',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'cube' : 'cube-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="ReportsTab"
                 component={SurveyManagementStack}
                 options={{
-                    tabBarLabel: 'Surveys',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Surveys',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'file-document-edit' : 'file-document-edit-outline'} size={size} color={color} />
                     ),
                 }}
             />
-            <Tab.Screen
+            <Drawer.Screen
                 name="ProfileTab"
                 component={ProfileStack}
                 options={{
-                    tabBarLabel: 'Profile',
-                    tabBarIcon: ({ color, size, focused }) => (
+                    drawerLabel: 'Profile',
+                    drawerIcon: ({ color, size, focused }) => (
                         <MaterialCommunityIcons name={focused ? 'account-circle' : 'account-circle-outline'} size={size} color={color} />
                     ),
-                    headerShown: false,
                 }}
             />
-        </Tab.Navigator>
+        </Drawer.Navigator>
     );
 };
 
@@ -469,11 +552,11 @@ export const AppNavigator = () => {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {user ? (
                     role === 'admin' ? (
-                        <Stack.Screen name="AdminMain" component={AdminTabs} />
+                        <Stack.Screen name="AdminMain" component={AdminDrawer} />
                     ) : role === 'reviewer' ? (
-                        <Stack.Screen name="ReviewerMain" component={ReviewerTabs} />
+                        <Stack.Screen name="ReviewerMain" component={ReviewerDrawer} />
                     ) : (
-                        <Stack.Screen name="SurveyorMain" component={SurveyorTabs} />
+                        <Stack.Screen name="SurveyorMain" component={SurveyorDrawer} />
                     )
                 ) : (
                     <>
@@ -486,6 +569,39 @@ export const AppNavigator = () => {
         </ErrorBoundary>
     );
 };
+
+const drawerStyles = StyleSheet.create({
+    header: {
+        padding: Spacing[4],
+        borderBottomWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing[2],
+    },
+    brandStripe: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3,
+    },
+    userInfo: {
+        padding: Spacing[4],
+        gap: Spacing[2],
+        alignItems: 'center',
+    },
+    roleBadge: {
+        paddingHorizontal: Spacing[2],
+        paddingVertical: Spacing[1],
+        borderRadius: Radius.xs,
+        marginTop: Spacing[1],
+    },
+    footer: {
+        padding: Spacing[4],
+        marginTop: 'auto',
+        alignItems: 'center',
+    },
+});
 
 const appStyles = StyleSheet.create({
     loadingContainer: {
