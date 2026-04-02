@@ -363,7 +363,6 @@ const SurveyorDrawer = () => {
                     marginVertical: 2,
                 },
                 drawerActiveBackgroundColor: theme.colors.primaryContainer,
-                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
             <Drawer.Screen
@@ -425,7 +424,6 @@ const ReviewerDrawer = () => {
                     marginVertical: 2,
                 },
                 drawerActiveBackgroundColor: theme.colors.primaryContainer,
-                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
             <Drawer.Screen
@@ -476,7 +474,6 @@ const AdminDrawer = () => {
                     marginVertical: 2,
                 },
                 drawerActiveBackgroundColor: theme.colors.primaryContainer,
-                sceneContainerStyle: isWeb ? { marginLeft: WEB_SIDEBAR_WIDTH } : undefined,
             }}
         >
             <Drawer.Screen
