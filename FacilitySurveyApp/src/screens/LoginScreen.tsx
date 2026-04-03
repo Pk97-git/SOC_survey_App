@@ -96,8 +96,8 @@ export default function LoginScreen() {
                         <View style={[styles.logoRing, { borderColor: 'rgba(255,255,255,0.25)' }]}>
                             <View style={[styles.logoInner, { backgroundColor: 'transparent' }]}>
                                 <Image
-                                    source={require('../../assets/cit-logo.png')}
-                                    style={{ width: 64, height: 64, resizeMode: 'contain' }}
+                                    source={require('../../assets/gulaid-logo.png')}
+                                    style={{ width: 120, height: 64, resizeMode: 'contain' }}
                                 />
                             </View>
                         </View>

@@ -110,8 +110,8 @@ const CustomDrawerContent = (props: any) => {
                 <View style={[drawerStyles.brandStripe, { backgroundColor: theme.colors.tertiary }]} />
                 {/* Logo */}
                 <Image
-                    source={require('../../assets/cit-logo.png')}
-                    style={{ width: 28, height: 28, resizeMode: 'contain', marginLeft: Spacing[2] }}
+                    source={require('../../assets/gulaid-logo.png')}
+                    style={{ width: 48, height: 28, resizeMode: 'contain', marginLeft: Spacing[2] }}
                 />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                     <PaperText style={[Typography.h4, { color: '#FFFFFF', letterSpacing: -0.3 }]}>
@@ -196,8 +196,8 @@ const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: an
                 {/* Logo box */}
                 <View style={[webStyles.brandIcon, { backgroundColor: 'transparent' }]}>
                     <Image
-                        source={require('../../assets/cit-logo.png')}
-                        style={{ width: 28, height: 28, resizeMode: 'contain' }}
+                        source={require('../../assets/gulaid-logo.png')}
+                        style={{ width: 48, height: 28, resizeMode: 'contain' }}
                     />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
