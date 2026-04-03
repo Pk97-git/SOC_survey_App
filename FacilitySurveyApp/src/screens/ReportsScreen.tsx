@@ -267,7 +267,7 @@ export default function ReportsScreen() {
 
     const handleBatchExport = async () => {
         if (!selectedSite) {
-            Alert.alert('Error', 'Please select a site first.');
+            Alert.alert('Site Required', 'Please select a site from the dropdown above.');
             return;
         }
 

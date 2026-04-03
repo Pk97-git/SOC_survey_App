@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as hybridStorage from '../services/hybridStorage';
 import * as DocumentPicker from 'expo-document-picker';
 import { SiteSelector } from '../components/SiteSelector';
+import { EmptyState } from '../components/EmptyState';
 import { Colors } from '../constants/design';
 
 
@@ -236,7 +237,7 @@ export default function AssetsScreen() {
 
     const handleBulkImport = async () => {
         if (!selectedSite) {
-            Alert.alert("Required", "Please select a site first.");
+            Alert.alert("Site Required", "Please select a site from the dropdown above.");
             return;
         }
 
@@ -383,15 +384,11 @@ export default function AssetsScreen() {
             </View>
 
             {!selectedSite ? (
-                <View style={styles.emptyContainer}>
-                    <Surface style={[styles.card, { padding: 30, alignItems: 'center' }]} elevation={2}>
-                        <IconButton icon="office-building-marker" size={48} iconColor={theme.colors.primary} />
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16 }}>Select a Site</Text>
-                        <Text style={{ textAlign: 'center', marginVertical: 12, color: theme.colors.onSurfaceVariant }}>
-                            Please select a site from the dropdown above to manage its assets or import new ones.
-                        </Text>
-                    </Surface>
-                </View>
+                <EmptyState
+                    title="Select a Site"
+                    description="Choose a site from the dropdown above to view and manage assets, or import new ones via Excel."
+                    illustration="assets"
+                />
             ) : (
                 <>
                     {/* Action Bar */}

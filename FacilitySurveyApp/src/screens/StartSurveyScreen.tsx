@@ -273,7 +273,7 @@ export default function StartSurveyScreen() {
 
     const handleStartInspection = async () => {
         if (!siteId || !serviceLine) {
-            Alert.alert('Error', 'Please select a site and service line');
+            Alert.alert('Selection Required', 'Please select a site and service line from the dropdowns above.');
             return;
         }
 
