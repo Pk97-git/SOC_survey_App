@@ -7,7 +7,9 @@ import * as hybridStorage from '../services/hybridStorage';
 import * as DocumentPicker from 'expo-document-picker';
 import { SiteSelector } from '../components/SiteSelector';
 import { EmptyState } from '../components/EmptyState';
+import { HelpIcon } from '../components/HelpIcon';
 import { Colors } from '../constants/design';
+import { HELP_TEXT } from '../constants/helpText';
 
 
 const styles = StyleSheet.create({
@@ -393,20 +395,26 @@ export default function AssetsScreen() {
                 <>
                     {/* Action Bar */}
                     <View style={styles.actionBar}>
-                        <Searchbar
-                            placeholder="Search assets..."
-                            onChangeText={setSearchQuery}
-                            value={searchQuery}
-                            style={{ flex: 1, marginRight: 8 }}
-                        />
-                        <IconButton
-                            icon="file-excel"
-                            mode="contained"
-                            containerColor={theme.colors.secondaryContainer}
-                            iconColor={theme.colors.onSecondaryContainer}
-                            onPress={handleBulkImport}
-                            size={24}
-                        />
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                            <Searchbar
+                                placeholder="Search assets..."
+                                onChangeText={setSearchQuery}
+                                value={searchQuery}
+                                style={{ flex: 1 }}
+                            />
+                            <HelpIcon title="Search Assets" text={HELP_TEXT.ASSET_SEARCH} size={20} />
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+                            <IconButton
+                                icon="file-excel"
+                                mode="contained"
+                                containerColor={theme.colors.secondaryContainer}
+                                iconColor={theme.colors.onSecondaryContainer}
+                                onPress={handleBulkImport}
+                                size={24}
+                            />
+                            <HelpIcon title="Import Assets" text={HELP_TEXT.ASSET_IMPORT} size={20} />
+                        </View>
                     </View>
 
                     {/* Filters */}

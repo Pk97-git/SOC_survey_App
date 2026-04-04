@@ -11,6 +11,7 @@ import * as Sharing from 'expo-sharing';
 import * as excelService from '../services/excelService';
 import { syncService } from '../services/syncService';
 import { surveysApi } from '../services/api';
+import { ExcelExportModal, ExportOptions } from '../components/ExcelExportModal';
 
 // Simple UUID v4 generator for React Native
 const generateUUID = () => {
@@ -40,6 +41,10 @@ export default function ReportsScreen() {
     // Batch Export Summary Modal
     const [reportModalVisible, setReportModalVisible] = useState(false);
     const [generatedFiles, setGeneratedFiles] = useState<any[]>([]);
+
+    // Excel Export Options Modal
+    const [exportModalVisible, setExportModalVisible] = useState(false);
+    const [surveyToExport, setSurveyToExport] = useState<any | null>(null);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
@@ -103,7 +108,7 @@ export default function ReportsScreen() {
         setFilteredSurveys(filtered);
     };
 
-    const handleGenerateReport = async (survey: any) => {
+    const handleGenerateReport = async (survey: any, options?: ExportOptions) => {
         try {
             // Load inspections and assets for this survey
             // Pre-fetch assets to pass to AssetInspectionScreen (optimization scoped by site)
@@ -119,7 +124,7 @@ export default function ReportsScreen() {
                 destination = `${siteDir}/Survey_${survey.trade || 'General'}_${survey.id.substring(0, 8)}.xlsx`;
             }
 
-            await excelService.generateAndShareExcel(survey, inspections, assets, destination);
+            await excelService.generateAndShareExcel(survey, inspections, assets, destination, options);
         } catch (e: any) {
             // Log only the message to avoid crashing LogBox with circular/deep error objects
             console.error('Error generating report:', e.message || String(e));
@@ -246,7 +251,10 @@ export default function ReportsScreen() {
                             mode="contained"
                             containerColor={theme.colors.primaryContainer}
                             iconColor={theme.colors.onPrimaryContainer}
-                            onPress={() => handleGenerateReport(item)}
+                            onPress={() => {
+                                setSurveyToExport(item);
+                                setExportModalVisible(true);
+                            }}
                             size={20}
                         />
                         <IconButton
@@ -606,6 +614,22 @@ export default function ReportsScreen() {
                         Close
                     </Button>
                 </Modal>
+
+                {/* Excel Export Options Modal */}
+                <ExcelExportModal
+                    visible={exportModalVisible}
+                    onDismiss={() => {
+                        setExportModalVisible(false);
+                        setSurveyToExport(null);
+                    }}
+                    onExport={(options: ExportOptions) => {
+                        setExportModalVisible(false);
+                        if (surveyToExport) {
+                            handleGenerateReport(surveyToExport, options);
+                        }
+                        setSurveyToExport(null);
+                    }}
+                />
             </Portal>
         </SafeAreaView>
     );

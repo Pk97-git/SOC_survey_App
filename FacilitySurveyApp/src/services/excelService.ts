@@ -18,11 +18,25 @@ const webFetch = (url: string, options: RequestInit = {}): Promise<Response> =>
 /**
  * Generate and share Excel via Backend
  */
-export const downloadSurveyReport = async (surveyId: string, location?: string, destinationPath?: string) => {
+export const downloadSurveyReport = async (
+    surveyId: string,
+    location?: string,
+    destinationPath?: string,
+    options?: { exportType?: string; customColumns?: string[] }
+) => {
     if (Platform.OS === 'web') {
         // Use cookie-based auth (httpOnly) — no Authorization header needed on web
         const baseUrl = api.defaults.baseURL;
-        const url = `${baseUrl}/surveys/${surveyId}/export${location ? `?location=${encodeURIComponent(location)}` : ''}`;
+
+        // Build query params
+        const params = new URLSearchParams();
+        if (location) params.append('location', location);
+        if (options?.exportType) params.append('exportType', options.exportType);
+        if (options?.customColumns && options.customColumns.length > 0) {
+            params.append('customColumns', options.customColumns.join(','));
+        }
+
+        const url = `${baseUrl}/surveys/${surveyId}/export${params.toString() ? `?${params.toString()}` : ''}`;
 
         console.log(`[excelService] Fetching survey export from: ${url}`);
 
@@ -60,7 +74,15 @@ export const downloadSurveyReport = async (surveyId: string, location?: string, 
     const folder = fileUri.substring(0, fileUri.lastIndexOf('/'));
     await FileSystem.makeDirectoryAsync(folder, { intermediates: true }).catch(() => { });
 
-    const url = `${baseUrl}/surveys/${surveyId}/export${location ? `?location=${encodeURIComponent(location)}` : ''}`;
+    // Build query params
+    const params = new URLSearchParams();
+    if (location) params.append('location', location);
+    if (options?.exportType) params.append('exportType', options.exportType);
+    if (options?.customColumns && options.customColumns.length > 0) {
+        params.append('customColumns', options.customColumns.join(','));
+    }
+
+    const url = `${baseUrl}/surveys/${surveyId}/export${params.toString() ? `?${params.toString()}` : ''}`;
 
     const downloadRes = await FileSystem.downloadAsync(
         url,
@@ -84,12 +106,12 @@ export const generateAndShareExcel = async (
     inspections: any[], // Unused now, backend fetches fresh data
     assets: any[],      // Unused now
     destinationPath?: string,
-    location?: string
+    options?: { exportType?: string; customColumns?: string[] }
 ) => {
     try {
         console.log(`Requesting export for survey ${survey.id}...`);
 
-        const uri = await downloadSurveyReport(survey.id, location, destinationPath);
+        const uri = await downloadSurveyReport(survey.id, survey.location, destinationPath, options);
 
         if (Platform.OS !== 'web') {
             if (await Sharing.isAvailableAsync()) {

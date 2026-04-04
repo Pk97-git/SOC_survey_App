@@ -12,6 +12,8 @@ import { SiteListLoadingSkeleton, HierarchyCardSkeleton } from '../components/Sk
 import { EmptyState } from '../components/EmptyState';
 import { BreadcrumbNav } from '../components/BreadcrumbNav';
 import { StatusLegend } from '../components/StatusLegend';
+import { HelpIcon } from '../components/HelpIcon';
+import { HELP_TEXT } from '../constants/helpText';
 
 export default function HomeScreen() {
     const navigation = useNavigation<any>();

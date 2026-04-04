@@ -190,14 +190,20 @@ export class SurveyController {
         try {
             const id = req.params.id as string;
             const location = req.query.location as string; // Optional location filter
+            const exportType = (req.query.exportType as string) || 'standard'; // 'standard' or 'custom'
+            const customColumns = req.query.customColumns
+                ? (req.query.customColumns as string).split(',')
+                : [];
 
             // DEBUG LOGGING
             console.log(`🔍 Export Request Received:`);
             console.log(`   Survey ID: ${id}`);
             console.log(`   Location: ${location || 'ALL'}`);
+            console.log(`   Export Type: ${exportType}`);
+            console.log(`   Custom Columns: ${customColumns.join(', ') || 'none'}`);
             console.log(`   User: ${req.user?.email} (${req.user?.role})`);
 
-            const buffer = await this.service.exportExcel(req.user, id, location);
+            const buffer = await this.service.exportExcel(req.user, id, location, exportType, customColumns);
 
             if (!buffer) {
                 console.error(`❌ Export failed: Survey ${id} data not found or null`);

@@ -5,10 +5,11 @@ import { Typography } from '../constants/design';
 
 interface HelpIconProps {
     text: string;
+    title?: string;
     size?: number;
 }
 
-export const HelpIcon: React.FC<HelpIconProps> = ({ text, size = 16 }) => {
+export const HelpIcon: React.FC<HelpIconProps> = ({ text, title = "Help", size = 20 }) => {
     const theme = useTheme();
     const [visible, setVisible] = useState(false);
 
@@ -18,16 +19,16 @@ export const HelpIcon: React.FC<HelpIconProps> = ({ text, size = 16 }) => {
     return (
         <>
             <IconButton
-                icon="help-circle-outline"
+                icon="help-circle"
                 size={size}
                 iconColor={theme.colors.primary}
                 onPress={showHelp}
-                style={{ margin: 0 }}
+                style={{ margin: 0, padding: 0 }}
             />
             <Portal>
-                <Dialog visible={visible} onDismiss={hideHelp}>
+                <Dialog visible={visible} onDismiss={hideHelp} style={{ maxWidth: 500, alignSelf: 'center' }}>
                     <Dialog.Title>
-                        <Text style={[Typography.h4, { color: theme.colors.onSurface }]}>Help</Text>
+                        <Text style={[Typography.h4, { color: theme.colors.onSurface }]}>{title}</Text>
                     </Dialog.Title>
                     <Dialog.Content>
                         <Text style={[Typography.bodyMd, { color: theme.colors.onSurface, lineHeight: 22 }]}>
@@ -35,7 +36,7 @@ export const HelpIcon: React.FC<HelpIconProps> = ({ text, size = 16 }) => {
                         </Text>
                     </Dialog.Content>
                     <Dialog.Actions>
-                        <Button onPress={hideHelp}>Got it</Button>
+                        <Button mode="contained" onPress={hideHelp}>Got it</Button>
                     </Dialog.Actions>
                 </Dialog>
             </Portal>

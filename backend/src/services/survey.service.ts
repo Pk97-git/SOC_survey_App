@@ -72,16 +72,36 @@ export class SurveyService {
         return this.repo.delete(id);
     }
 
-    async exportExcel(_user: AuthUser, id: string, locationFilter?: string): Promise<ExcelJS.Buffer | null> {
+    async exportExcel(_user: AuthUser, id: string, locationFilter?: string, exportType?: string, customColumns?: string[]): Promise<ExcelJS.Buffer | null> {
         const data = await this.repo.findWithDetails(id);
         if (!data) return null;
 
-        return this.buildExcelBuffer(data, locationFilter);
+        return this.buildExcelBuffer(data, locationFilter, exportType, customColumns);
     }
 
-    private async buildExcelBuffer(data: any, locationFilter?: string): Promise<ExcelJS.Buffer> {
+    private async buildExcelBuffer(data: any, locationFilter?: string, exportType?: string, customColumns?: string[]): Promise<ExcelJS.Buffer> {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Survey');
+
+        // Define custom column metadata
+        const COLUMN_DEFINITIONS: { [key: string]: { label: string; width: number } } = {
+            'warranty_expiry': { label: 'Warranty Expiry', width: 15 },
+            'manufacturer': { label: 'Manufacturer', width: 20 },
+            'model_number': { label: 'Model Number', width: 18 },
+            'installation_date': { label: 'Installation Date', width: 15 },
+            'replacement_cost': { label: 'Replacement Cost', width: 15 },
+            'last_maintenance': { label: 'Last Maintenance', width: 15 },
+            'next_maintenance': { label: 'Next Maintenance', width: 15 },
+            'asset_criticality': { label: 'Asset Criticality', width: 15 },
+            'responsible_person': { label: 'Responsible Person', width: 20 },
+            'contact_info': { label: 'Contact Info', width: 20 },
+            'notes': { label: 'Additional Notes', width: 30 },
+            'serial_number': { label: 'Serial Number', width: 18 },
+            'asset_tag': { label: 'Asset Tag', width: 15 }
+        };
+
+        // Determine if custom export
+        const isCustomExport = exportType === 'custom' && customColumns && customColumns.length > 0;
 
         // Define Styles
         const maroonFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF800000' } }; // Dark Red
@@ -133,10 +153,15 @@ export class SurveyService {
         const row4 = worksheet.getRow(4);
         row4.height = 30;
 
+        // Calculate last column (X + custom columns)
+        const baseColumnCount = 24; // Column X is the 24th column
+        const totalColumns = isCustomExport ? baseColumnCount + customColumns!.length : baseColumnCount;
+        const lastColumnLetter = String.fromCharCode(64 + totalColumns); // Convert to letter (Y, Z, AA, etc.)
+
         // AutoFilter on Row 5 (headers)
         worksheet.autoFilter = {
             from: 'A5',
-            to: 'X5',
+            to: `${lastColumnLetter}5`,
         };
 
         // Helper to set main header
@@ -205,6 +230,19 @@ export class SurveyService {
         setMainHeader('V4', 'MAG Pictures', 'V5');
         setMainHeader('W4', 'CIT Verification/ Comments', 'W5');
         setMainHeader('X4', 'DGDA Comments', 'X5');
+
+        // Add custom column headers if in custom export mode
+        if (isCustomExport) {
+            customColumns!.forEach((colId, index) => {
+                const colIndex = 25 + index; // Start after column X (24)
+                const colLetter = String.fromCharCode(64 + colIndex);
+                const definition = COLUMN_DEFINITIONS[colId];
+                if (definition) {
+                    setMainHeader(`${colLetter}4`, definition.label, `${colLetter}5`);
+                    worksheet.getColumn(colIndex).width = definition.width;
+                }
+            });
+        }
 
 
         // --- 3. Colored Sub-Headers (Row 5) ---
@@ -350,6 +388,17 @@ export class SurveyService {
 
             row.getCell('X').value = dgdaReview?.comments || ''; // DGDA Comments
             row.getCell('X').alignment = { wrapText: true, vertical: 'top' };
+
+            // --- Custom Columns (empty for now - can be filled by client or manually) ---
+            if (isCustomExport) {
+                customColumns!.forEach((colId, index) => {
+                    const colIndex = 25 + index; // Start after column X (24)
+                    const colLetter = String.fromCharCode(64 + colIndex);
+                    // Leave empty - users will fill these in manually or via future updates
+                    row.getCell(colLetter).value = '';
+                    row.getCell(colLetter).alignment = { wrapText: true, vertical: 'middle' };
+                });
+            }
 
             // --- Common Styling ---
             row.eachCell((cell) => {

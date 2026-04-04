@@ -12,6 +12,7 @@ import { Colors, Spacing } from '../constants/design';
 import { DashboardLoadingSkeleton } from '../components/SkeletonLoader';
 import { EmptyState } from '../components/EmptyState';
 import { StatusLegend } from '../components/StatusLegend';
+import { ExcelExportModal, ExportOptions } from '../components/ExcelExportModal';
 
 // Interfaces
 interface Asset {
@@ -75,6 +76,10 @@ export default function SurveyManagementScreen() {
     // Batch-create dialog state (replaced 3-button Alert — broken on web)
     const [batchDialogVisible, setBatchDialogVisible] = useState(false);
     const [fullResetConfirmVisible, setFullResetConfirmVisible] = useState(false);
+
+    // Excel Export Options Modal
+    const [exportModalVisible, setExportModalVisible] = useState(false);
+    const [surveyToExport, setSurveyToExport] = useState<{ surveyId: string; buildingName: string } | null>(null);
 
     // Load Sites on Mount
     useFocusEffect(
@@ -318,7 +323,7 @@ export default function SurveyManagementScreen() {
         }
     };
 
-    const handleViewReport = async (tradeItem: any, buildingName: string) => {
+    const handleViewReport = async (tradeItem: any, buildingName: string, options?: ExportOptions) => {
         if (!tradeItem.surveyId) {
             Alert.alert("No Survey", "No survey record exists for this trade yet. Please run 'Generate All'.");
             return;
@@ -343,7 +348,8 @@ export default function SurveyManagementScreen() {
             const fileUri = await downloadSurveyReport(
                 tradeItem.surveyId,
                 buildingName,
-                destination
+                destination,
+                options
             );
 
             // On web the browser already downloaded the file — no sharing dialog needed
@@ -678,7 +684,10 @@ export default function SurveyManagementScreen() {
                                                     <IconButton
                                                         icon="file-excel-outline"
                                                         size={20}
-                                                        onPress={() => handleViewReport(t, node.name)}
+                                                        onPress={() => {
+                                                            setSurveyToExport({ surveyId: t.surveyId!, buildingName: node.name });
+                                                            setExportModalVisible(true);
+                                                        }}
                                                     />
                                                 </View>
                                             </View>
@@ -755,6 +764,24 @@ export default function SurveyManagementScreen() {
                         </Button>
                     </Dialog.Actions>
                 </Dialog>
+
+                {/* Excel Export Options Modal */}
+                <ExcelExportModal
+                    visible={exportModalVisible}
+                    onDismiss={() => {
+                        setExportModalVisible(false);
+                        setSurveyToExport(null);
+                    }}
+                    onExport={(options: ExportOptions) => {
+                        setExportModalVisible(false);
+                        if (surveyToExport) {
+                            // Find the trade item from the hierarchy
+                            const tradeItem = { surveyId: surveyToExport.surveyId, name: '' };
+                            handleViewReport(tradeItem, surveyToExport.buildingName, options);
+                        }
+                        setSurveyToExport(null);
+                    }}
+                />
             </Portal>
 
         </SafeAreaView>
