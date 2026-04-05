@@ -40,6 +40,10 @@ export default function StartSurveyScreen() {
     const [locationMenuVisible, setLocationMenuVisible] = useState(false);
     const [serviceLineMenuVisible, setServiceLineMenuVisible] = useState(false);
 
+    // New Location Dialog
+    const [newLocationDialogVisible, setNewLocationDialogVisible] = useState(false);
+    const [newLocationName, setNewLocationName] = useState('');
+
     // Existing surveys lookup
     const [existingSurveys, setExistingSurveys] = useState<any[]>([]);
     const [loadingExistingSurveys, setLoadingExistingSurveys] = useState(false);
@@ -155,6 +159,25 @@ export default function StartSurveyScreen() {
         if (siteId) {
             const lines = await storage.getServiceLinesBySiteAndLocation(siteId, loc);
             setServiceLines(lines);
+        }
+    };
+
+    const handleCreateNewLocation = () => {
+        setLocationMenuVisible(false);
+        setNewLocationDialogVisible(true);
+    };
+
+    const handleSaveNewLocation = () => {
+        if (newLocationName.trim()) {
+            // Add to locations list
+            setLocations([...locations, newLocationName.trim()]);
+            setLocationFilter(newLocationName.trim());
+            setNewLocationName('');
+            setNewLocationDialogVisible(false);
+
+            // Reset service lines as this is a new location
+            setServiceLine('');
+            setServiceLines([]);
         }
     };
 
@@ -397,6 +420,15 @@ export default function StartSurveyScreen() {
                                                     <List.Item title={loc} left={props => <List.Icon {...props} icon="map-marker" />} />
                                                 </TouchableRipple>
                                             ))}
+
+                                            {/* Create New Location Option */}
+                                            <TouchableRipple onPress={handleCreateNewLocation}>
+                                                <List.Item
+                                                    title="Create New Location..."
+                                                    left={props => <List.Icon {...props} icon="plus-circle" />}
+                                                    titleStyle={{ color: theme.colors.primary, fontWeight: 'bold' }}
+                                                />
+                                            </TouchableRipple>
                                         </ScrollView>
                                     </Dialog.ScrollArea>
                                     <Dialog.Actions>
@@ -440,6 +472,21 @@ export default function StartSurveyScreen() {
                                                             <List.Item title={line} left={props => <List.Icon {...props} icon="tools" />} />
                                                         </TouchableRipple>
                                                     ))}
+
+                                                    {/* Soft Services - Always available */}
+                                                    {!serviceLines.includes('SOFT SERVICES') && (
+                                                        <TouchableRipple onPress={() => {
+                                                            setServiceLine('SOFT SERVICES');
+                                                            setServiceLineMenuVisible(false);
+                                                        }}>
+                                                            <List.Item
+                                                                title="Soft Services"
+                                                                description="Cleaning, Security, Landscaping, Housekeeping"
+                                                                left={props => <List.Icon {...props} icon="broom" />}
+                                                            />
+                                                        </TouchableRipple>
+                                                    )}
+
                                                     <TouchableRipple onPress={() => {
                                                         setServiceLineMenuVisible(false);
                                                         setServiceLines([]); // Switch to manual
@@ -586,6 +633,36 @@ export default function StartSurveyScreen() {
                     {existingSurveys.length > 0 ? 'Create New Survey' : 'Start Inspection'}
                 </Button>
             </ScrollView>
+
+            {/* New Location Dialog */}
+            <Portal>
+                <Dialog visible={newLocationDialogVisible} onDismiss={() => setNewLocationDialogVisible(false)}>
+                    <Dialog.Title>Create New Location</Dialog.Title>
+                    <Dialog.Content>
+                        <TextInput
+                            mode="outlined"
+                            label="Location Name"
+                            placeholder="e.g., Ground Floor - Food Court"
+                            value={newLocationName}
+                            onChangeText={setNewLocationName}
+                            autoFocus
+                        />
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => {
+                            setNewLocationDialogVisible(false);
+                            setNewLocationName('');
+                        }}>Cancel</Button>
+                        <Button
+                            mode="contained"
+                            onPress={handleSaveNewLocation}
+                            disabled={!newLocationName.trim()}
+                        >
+                            Create
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </SafeAreaView >
     );
 }

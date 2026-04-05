@@ -14,6 +14,7 @@ export const isValidUUID = (id: string | string[]): id is string =>
 /** Valid service-line trades used across surveys and asset registers. */
 export const VALID_TRADES = new Set([
     'MECHANICAL', 'FLS', 'ELECTRICAL', 'CIVIL', 'PLUMBING', 'HVAC',
+    'SOFT SERVICES', // For cleaning, security, landscaping, housekeeping
 ]);
 
 /** Valid survey lifecycle statuses. */
