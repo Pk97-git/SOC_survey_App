@@ -1,10 +1,7 @@
+import 'react-native-gesture-handler';
 import React from 'react';
 import { View, Platform, StyleSheet, LogBox, ActivityIndicator } from 'react-native';
 import * as Font from 'expo-font';
-
-if (Platform.OS !== 'web') {
-  require('react-native-gesture-handler');
-}
 
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider as PaperProvider } from 'react-native-paper';
