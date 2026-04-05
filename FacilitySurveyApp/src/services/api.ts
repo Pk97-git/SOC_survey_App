@@ -253,8 +253,13 @@ export const authApi = {
         return response.data;
     },
 
-    loginWithMicrosoft: async (idToken: string) => {
-        const response = await api.post('/auth/microsoft/login', { idToken });
+    loginWithMicrosoft: async (authCode: string, codeVerifier?: string) => {
+        // Send authorization code and PKCE code verifier to backend
+        // Backend will exchange the code for tokens with Microsoft
+        const response = await api.post('/auth/microsoft/login', {
+            authCode,
+            codeVerifier
+        });
         if (response.data.token) {
             await setAuthToken(response.data.token);
         }

@@ -19,7 +19,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    loginWithMicrosoft: (idToken: string) => Promise<void>;
+    loginWithMicrosoft: (authCode: string, codeVerifier?: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
@@ -131,9 +131,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const loginWithMicrosoft = async (idToken: string) => {
+    const loginWithMicrosoft = async (authCode: string, codeVerifier?: string) => {
         try {
-            const response = await authApi.loginWithMicrosoft(idToken);
+            // Send authorization code and PKCE code verifier to backend
+            // Backend will exchange the code for tokens with Microsoft
+            const response = await authApi.loginWithMicrosoft(authCode, codeVerifier);
 
             if (response.user.isActive === false) {
                 throw new Error('Account is deactivated. Please contact administrator.');

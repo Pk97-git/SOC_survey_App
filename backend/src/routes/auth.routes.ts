@@ -219,22 +219,65 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 });
 
-// Microsoft SSO Login
+// Microsoft SSO Login - Authorization Code Flow with PKCE
 router.post('/microsoft/login', async (req: Request, res: Response) => {
     try {
-        const { idToken } = req.body;
+        const { authCode, codeVerifier } = req.body;
 
-        if (!idToken) {
-            return res.status(400).json({ error: 'Microsoft ID Token is required' });
+        if (!authCode) {
+            return res.status(400).json({ error: 'Microsoft authorization code is required' });
         }
 
-        // Verify the Microsoft token cryptographically
-        const verifyOptions: jwt.VerifyOptions = {};
-        if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_ID !== 'your_microsoft_client_id_here') {
-            verifyOptions.audience = process.env.MICROSOFT_CLIENT_ID;
+        // Exchange authorization code for tokens with Microsoft
+        const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        const clientId = process.env.MICROSOFT_CLIENT_ID;
+
+        if (!clientId || clientId === 'your_microsoft_client_id_here') {
+            return res.status(500).json({ error: 'Microsoft Client ID not configured' });
         }
 
-        jwt.verify(idToken, getMsPublicKey, verifyOptions, async (err, decoded) => {
+        // Prepare token exchange request
+        const tokenParams = new URLSearchParams({
+            client_id: clientId,
+            scope: 'openid profile email',
+            code: authCode,
+            redirect_uri: 'facilitysurveyapp://', // Must match the redirect URI used in the auth request
+            grant_type: 'authorization_code',
+        });
+
+        // Add PKCE code_verifier if provided
+        if (codeVerifier) {
+            tokenParams.append('code_verifier', codeVerifier);
+        }
+
+        // Exchange code for tokens
+        const fetch = (await import('node-fetch')).default;
+        const tokenResponse = await fetch(tokenEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: tokenParams.toString(),
+        });
+
+        if (!tokenResponse.ok) {
+            const errorData = await tokenResponse.text();
+            console.error('Microsoft token exchange failed:', errorData);
+            return res.status(401).json({ error: 'Failed to exchange authorization code for tokens' });
+        }
+
+        const tokens = await tokenResponse.json() as { id_token?: string; access_token?: string };
+
+        if (!tokens.id_token) {
+            return res.status(401).json({ error: 'No ID token received from Microsoft' });
+        }
+
+        // Verify the ID token
+        const verifyOptions: jwt.VerifyOptions = {
+            audience: clientId,
+        };
+
+        jwt.verify(tokens.id_token, getMsPublicKey, verifyOptions, async (err, decoded) => {
             if (err) {
                 console.error('Microsoft token verification failed:', err);
                 return res.status(401).json({ error: 'Invalid Microsoft token signature' });
@@ -281,7 +324,7 @@ router.post('/microsoft/login', async (req: Request, res: Response) => {
                 { expiresIn: process.env.JWT_EXPIRES_IN || '8h' } as jwt.SignOptions
             );
 
-            await logAuth(AuditAction.USER_LOGIN, user.id, req, true, { provider: 'microsoft' });
+            await logAuth(AuditAction.USER_LOGIN, user.id, req, true, { provider: 'microsoft_pkce' });
 
             res.cookie('token', token, {
                 httpOnly: true,

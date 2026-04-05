@@ -1,9 +1,9 @@
 import React from 'react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useTheme, Text as PaperText, Avatar, Divider } from 'react-native-paper';
-import { View, Platform, Pressable, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Platform, Pressable, StyleSheet, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Auth
@@ -95,7 +95,7 @@ const ProfileStack = () => (
 
 const CustomDrawerContent = (props: any) => {
     const theme = useTheme();
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const { roleLabel } = props;
 
     return (
@@ -181,6 +181,9 @@ const CustomDrawerContent = (props: any) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const WEB_SIDEBAR_WIDTH = 252;
 
+// NOTE: WebSidebar is currently unused - CustomDrawerContent is used for both web and mobile
+// Keeping this for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const WebSidebar = ({ state, descriptors, navigation, roleLabel = 'Portal' }: any) => {
     const theme = useTheme();
 
@@ -346,6 +349,7 @@ const SurveyorDrawer = () => {
     return (
         <Drawer.Navigator
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Surveyor Portal" />}
+            useLegacyImplementation={false}
             screenOptions={{
                 headerShown: false,
                 drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },
@@ -407,6 +411,7 @@ const ReviewerDrawer = () => {
     return (
         <Drawer.Navigator
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Reviewer Portal" />}
+            useLegacyImplementation={false}
             screenOptions={{
                 headerShown: false,
                 drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },
@@ -457,6 +462,7 @@ const AdminDrawer = () => {
     return (
         <Drawer.Navigator
             drawerContent={(props) => <CustomDrawerContent {...props} roleLabel="Admin Portal" />}
+            useLegacyImplementation={false}
             screenOptions={{
                 headerShown: false,
                 drawerStyle: isWeb ? { width: WEB_SIDEBAR_WIDTH, backgroundColor: theme.colors.primary } : { width: '80%', maxWidth: 320, backgroundColor: theme.colors.primary },

@@ -39,27 +39,31 @@ export default function LoginScreen() {
             redirectUri: AuthSession.makeRedirectUri({
                 scheme: 'facilitysurveyapp'
             }),
-            responseType: 'id_token',
-            extraParams: { nonce: 'nonce', response_mode: 'fragment' }
+            // Use Authorization Code Flow with PKCE (secure, modern approach)
+            responseType: AuthSession.ResponseType.Code,
+            usePKCE: true, // Enable PKCE protection
+            // Remove extraParams for code flow (nonce/response_mode not needed)
         },
         discovery
     );
 
     React.useEffect(() => {
         if (response?.type === 'success') {
-            const { id_token } = response.params;
-            if (id_token) {
-                handleMicrosoftLogin(id_token);
+            const { code } = response.params;
+            if (code) {
+                handleMicrosoftLogin(code, request?.codeVerifier);
             }
         } else if (response?.type === 'error') {
             Alert.alert('Microsoft Login Failed', response.error?.message || 'Authentication with Microsoft failed.');
         }
     }, [response]);
 
-    const handleMicrosoftLogin = async (idToken: string) => {
+    const handleMicrosoftLogin = async (authCode: string, codeVerifier?: string) => {
         setLoading(true);
         try {
-            await loginWithMicrosoft(idToken);
+            // Send authorization code and code verifier to backend
+            // Backend will exchange code for tokens with Microsoft
+            await loginWithMicrosoft(authCode, codeVerifier);
         } catch (error: any) {
             Alert.alert('Login Failed', error.message || 'Validation failed');
         } finally {
