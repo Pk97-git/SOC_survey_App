@@ -13,9 +13,11 @@ import Constants from 'expo-constants';
 
 WebBrowser.maybeCompleteAuthSession();
 
+// Use tenant-specific endpoint instead of /common/ for single-tenant apps
+const tenantId = Constants.expoConfig?.extra?.microsoftTenantId || 'common';
 const discovery: AuthSession.DiscoveryDocument = {
-    authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    authorizationEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
+    tokenEndpoint: `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
 };
 
 export default function LoginScreen() {

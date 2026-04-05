@@ -12,8 +12,10 @@ import crypto from 'crypto';
 const router = Router();
 
 // Microsoft JWKS Client for validating Entra ID tokens
+// Use tenant-specific endpoint instead of /common/ for single-tenant apps
+const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
 const msJwksClient = jwksClient({
-    jwksUri: 'https://login.microsoftonline.com/common/discovery/v2.0/keys'
+    jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`
 });
 
 function getMsPublicKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
